@@ -78,7 +78,11 @@ const AddBookForm = () => {
 
   return (
     <motion.div className="admin-page-wrap" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.32 }}>
-      <h2>Thêm sách mới</h2>
+      <div className="admin-page-hero">
+        <div className="admin-page-kicker">Admin library</div>
+        <h2 className="admin-page-title">Thêm sách mới</h2>
+        <p className="admin-page-lead">Bổ sung đầu sách vào kho với cùng phong cách giao diện của toàn bộ khu vực quản trị.</p>
+      </div>
       <form onSubmit={handleSubmit(onSubmit)} className="admin-form-card">
         <div className="mb-3">
           <label className="form-label">Tên sách</label>
@@ -180,7 +184,7 @@ const AddBookForm = () => {
           {errors.description && <small className="text-danger">{errors.description.message}</small>}
         </div>
 
-        <button type="submit" className="btn btn-primary w-100">Thêm sách</button>
+        <button type="submit" className="btn admin-btn-primary w-100">Thêm sách</button>
       </form>
     </motion.div>
   );

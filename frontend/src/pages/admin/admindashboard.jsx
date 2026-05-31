@@ -5,6 +5,28 @@ import "../../styles/components.css";
 import { Server_URL } from "../../utils/config";
 import { showErrorToast, showSuccessToast } from "../../utils/toasthelper";
 import "./AdminDashboard.css";
+import { 
+  FiGrid, 
+  FiClipboard, 
+  FiUsers, 
+  FiBook, 
+  FiShield, 
+  FiCheck, 
+  FiRefreshCw, 
+  FiX, 
+  FiInfo, 
+  FiClock, 
+  FiFileText, 
+  FiCheckCircle, 
+  FiXCircle 
+} from "react-icons/fi";
+
+const STATUS_VI = {
+  Pending: "Chờ duyệt",
+  Approved: "Đã duyệt",
+  Returned: "Đã trả",
+  Rejected: "Từ chối",
+};
 
 const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const [selectedSection, setSelectedSection] = useState(initialSection);
@@ -63,7 +85,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
         return;
       }
 
-      showSuccessToast(response.data.message || "Ticket updated.");
+      showSuccessToast(response.data.message || "Đã cập nhật trạng thái phiếu mượn.");
       fetchTickets();
       fetchBooks();
     } catch (error) {
@@ -91,14 +113,16 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
     >
       <div className="row g-0">
         <nav className="col-md-3 col-lg-2 admin-sidebar">
-          <h4 className="admin-sidebar-title">📌 Admin Panel</h4>
+          <h4 className="admin-sidebar-title">
+            <FiShield className="sidebar-icon-title" /> Panel Quản trị
+          </h4>
           <ul className="admin-nav">
             <li className="admin-nav-item">
               <button
                 className={`admin-nav-btn ${selectedSection === "dashboard" ? "active" : ""}`}
                 onClick={() => setSelectedSection("dashboard")}
               >
-                📊 Dashboard
+                <FiGrid /> Tổng quan
               </button>
             </li>
             <li className="admin-nav-item">
@@ -106,7 +130,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                 className={`admin-nav-btn ${selectedSection === "tickets" ? "active" : ""}`}
                 onClick={() => setSelectedSection("tickets")}
               >
-                🧾 Phiếu mượn
+                <FiClipboard /> Phiếu mượn
               </button>
             </li>
             <li className="admin-nav-item">
@@ -114,7 +138,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                 className={`admin-nav-btn ${selectedSection === "users" ? "active" : ""}`}
                 onClick={() => setSelectedSection("users")}
               >
-                👥 Users
+                <FiUsers /> Độc giả
               </button>
             </li>
             <li className="admin-nav-item">
@@ -122,7 +146,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                 className={`admin-nav-btn ${selectedSection === "books" ? "active" : ""}`}
                 onClick={() => setSelectedSection("books")}
               >
-                📖 Books
+                <FiBook /> Kho sách
               </button>
             </li>
           </ul>
@@ -131,39 +155,61 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
         <main className="col-md-9 col-lg-10 admin-main">
           {selectedSection === "dashboard" && (
             <>
-              <h2 className="admin-section-title">📊 Dashboard Overview</h2>
+              <h2 className="admin-section-title">Tổng quan hệ thống</h2>
 
               <div className="stats-grid">
                 <div className="stat-card books">
-                  <h3>Total Books</h3>
-                  <p>{totalBooks}</p>
+                  <div className="stat-icon-wrapper">
+                    <FiBook />
+                  </div>
+                  <div className="stat-details">
+                    <h3>Tổng số sách</h3>
+                    <p>{totalBooks}</p>
+                  </div>
                 </div>
                 <div className="stat-card users">
-                  <h3>Total Users</h3>
-                  <p>{totalUsers}</p>
+                  <div className="stat-icon-wrapper">
+                    <FiUsers />
+                  </div>
+                  <div className="stat-details">
+                    <h3>Tổng độc giả</h3>
+                    <p>{totalUsers}</p>
+                  </div>
                 </div>
                 <div className="stat-card borrowed">
-                  <h3>Total Tickets</h3>
-                  <p>{totalTickets}</p>
+                  <div className="stat-icon-wrapper">
+                    <FiClipboard />
+                  </div>
+                  <div className="stat-details">
+                    <h3>Tổng lượt mượn</h3>
+                    <p>{totalTickets}</p>
+                  </div>
                 </div>
                 <div className="stat-card librarians">
-                  <h3>Pending Tickets</h3>
-                  <p>{pendingTickets}</p>
+                  <div className="stat-icon-wrapper">
+                    <FiInfo />
+                  </div>
+                  <div className="stat-details">
+                    <h3>Phiếu chờ duyệt</h3>
+                    <p>{pendingTickets}</p>
+                  </div>
                 </div>
               </div>
 
               <div className="admin-table-container">
-                <div className="d-flex justify-content-between align-items-center mb-3">
-                  <h3 className="mb-0">Recent Tickets</h3>
-                  <button className="btn btn-sm btn-outline-primary" onClick={() => setSelectedSection("tickets")}>View all</button>
+                <div className="d-flex justify-content-between align-items-center p-3 border-bottom">
+                  <h3 className="mb-0 fs-5 fw-bold text-success">Phiếu mượn gần đây</h3>
+                  <button className="btn btn-sm btn-outline-primary" onClick={() => setSelectedSection("tickets")}>
+                    Xem tất cả
+                  </button>
                 </div>
                 <table className="admin-table">
                   <thead>
                     <tr>
-                      <th>User</th>
-                      <th>Books</th>
-                      <th>Date</th>
-                      <th>Status</th>
+                      <th>Độc giả</th>
+                      <th>Danh sách sách</th>
+                      <th>Ngày mượn</th>
+                      <th>Trạng thái</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -172,7 +218,11 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                         <td>{ticket.userId?.name || ticket.userId?.email || "—"}</td>
                         <td>{ticket.books.map((book) => book.title).join(", ")}</td>
                         <td>{ticket.borrowDate ? new Date(ticket.borrowDate).toLocaleDateString("vi-VN") : "—"}</td>
-                        <td>{ticket.status}</td>
+                        <td>
+                          <span className={`status-badge ${ticket.status.toLowerCase()}`}>
+                            {STATUS_VI[ticket.status] || ticket.status}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -183,16 +233,16 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
 
           {selectedSection === "tickets" && (
             <>
-              <h2 className="admin-section-title">🧾 Borrow Tickets</h2>
+              <h2 className="admin-section-title">Quản lý Phiếu mượn</h2>
               <div className="admin-table-container">
                 <table className="admin-table">
                   <thead>
                     <tr>
-                      <th>User</th>
-                      <th>Books</th>
-                      <th>Borrow Date</th>
-                      <th>Status</th>
-                      <th>Actions</th>
+                      <th>Độc giả</th>
+                      <th>Danh sách sách</th>
+                      <th>Ngày mượn</th>
+                      <th>Trạng thái</th>
+                      <th>Thao tác</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -201,7 +251,11 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                         <td>{ticket.userId?.name || ticket.userId?.email || "—"}</td>
                         <td>{ticket.books.map((book) => book.title).join(", ")}</td>
                         <td>{ticket.borrowDate ? new Date(ticket.borrowDate).toLocaleDateString("vi-VN") : "—"}</td>
-                        <td>{ticket.status}</td>
+                        <td>
+                          <span className={`status-badge ${ticket.status.toLowerCase()}`}>
+                            {STATUS_VI[ticket.status] || ticket.status}
+                          </span>
+                        </td>
                         <td>
                           <div className="d-flex gap-2 flex-wrap">
                             <button
@@ -210,7 +264,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                               onClick={() => updateTicketStatus(ticket._id, "Approved")}
                               disabled={ticket.status !== "Pending"}
                             >
-                              Phê duyệt
+                              <FiCheck /> Phê duyệt
                             </button>
                             <button
                               type="button"
@@ -218,7 +272,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                               onClick={() => updateTicketStatus(ticket._id, "Returned")}
                               disabled={ticket.status !== "Approved"}
                             >
-                              Đã trả
+                              <FiRefreshCw /> Đã trả
                             </button>
                             <button
                               type="button"
@@ -226,7 +280,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                               onClick={() => updateTicketStatus(ticket._id, "Rejected")}
                               disabled={ticket.status !== "Pending"}
                             >
-                              Từ chối
+                              <FiX /> Từ chối
                             </button>
                           </div>
                         </td>
@@ -240,15 +294,15 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
 
           {selectedSection === "users" && (
             <>
-              <h2 className="admin-section-title">👥 Users Management</h2>
+              <h2 className="admin-section-title">Quản lý Độc giả</h2>
               <div className="admin-table-container">
                 <table className="admin-table">
                   <thead>
                     <tr>
-                      <th>ID</th>
-                      <th>Name</th>
-                      <th>Email</th>
-                      <th>Role</th>
+                      <th>STT</th>
+                      <th>Họ và tên</th>
+                      <th>Địa chỉ Email</th>
+                      <th>Vai trò</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -257,7 +311,11 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                         <td>{index + 1}</td>
                         <td>{user.name}</td>
                         <td>{user.email}</td>
-                        <td>{user.role}</td>
+                        <td>
+                          <span className={`status-badge ${user.role === 'admin' ? 'rejected' : 'approved'}`}>
+                            {user.role === 'admin' ? 'Thủ thư' : 'Độc giả'}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -268,28 +326,32 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
 
           {selectedSection === "books" && (
             <>
-              <h2 className="admin-section-title">📖 Books Inventory</h2>
+              <h2 className="admin-section-title">Kho sách thư viện</h2>
               <div className="admin-table-container">
                 <table className="admin-table">
                   <thead>
                     <tr>
-                      <th>ID</th>
-                      <th>Title</th>
-                      <th>Author</th>
-                      <th>Category</th>
-                      <th>Total Copies</th>
-                      <th>Available</th>
+                      <th>STT</th>
+                      <th>Tên sách</th>
+                      <th>Tác giả</th>
+                      <th>Thể loại</th>
+                      <th>Tổng số bản</th>
+                      <th>Sẵn có</th>
                     </tr>
                   </thead>
                   <tbody>
                     {books.map((book, index) => (
                       <tr key={book._id || index}>
                         <td>{index + 1}</td>
-                        <td>{book.title}</td>
+                        <td className="fw-bold">{book.title}</td>
                         <td>{book.author}</td>
                         <td>{getCategoryLabel(book)}</td>
                         <td>{book.totalCopies}</td>
-                        <td>{book.availableCopies}</td>
+                        <td>
+                          <span className={`status-badge ${book.availableCopies > 0 ? 'returned' : 'rejected'}`}>
+                            {book.availableCopies} cuốn
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

@@ -13,6 +13,7 @@ router.post("/login",userController.login)
 router.post("/google-login", userController.googleLogin);
 
 router.get("/profile",userAuth,checkRole("user"),userController.profile);
+router.put("/profile",userAuth,checkRole("user"),userController.updateProfile);
 
 router.post("/contact",userController.addContact)
 

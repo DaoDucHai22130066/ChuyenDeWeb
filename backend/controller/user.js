@@ -254,4 +254,41 @@ userController.googleLogin = async (req, res) => {
   }
 };
 
+userController.updateProfile = async (req, res) => {
+  try {
+    const { id } = req.userInfo;
+    const { name, stream, year } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ error: true, message: "Họ và tên là bắt buộc" });
+    }
+
+    await query(
+      `UPDATE users 
+       SET name = ?, stream = ?, year = ? 
+       WHERE id = ?`,
+      [name, stream || null, year || null, id]
+    );
+
+    const rows = await query(
+      `SELECT id, name, email, role, stream, year, created_at, updated_at
+       FROM users
+       WHERE id = ?
+       LIMIT 1`,
+      [id]
+    );
+
+    const user = rows[0];
+    if (!user) {
+      return res.status(404).json({ error: true, message: "Người dùng không tồn tại" });
+    }
+
+    res.json({ error: false, message: "Cập nhật hồ sơ thành công", user: mapUserRow(user) });
+  } catch (error) {
+    console.error("Profile Update Error:", error);
+    res.status(500).json({ error: true, message: "Lỗi hệ thống khi cập nhật hồ sơ" });
+  }
+};
+
 module.exports = { userController };
+

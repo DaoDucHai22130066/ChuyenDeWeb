@@ -15,7 +15,7 @@ export default function AdminNavbar() {
   };
 
   return (
-    <nav className="navbar navbar-expand-lg navbar-dark admin-navbar-dfb shadow">
+    <nav className="navbar navbar-expand-lg navbar-light admin-navbar-dfb shadow">
       <div className="container">
         <Link className="navbar-brand fw-bold" to="/admin">
           D Free Book — Quản trị

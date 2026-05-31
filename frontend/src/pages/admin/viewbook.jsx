@@ -91,8 +91,12 @@ const ViewBooks = () => {
 
   return (
     <motion.div className="admin-page-wrap" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.34 }}>
-      <h2 className="admin-book-heading">Quản lý sách</h2>
-      <div className="container">
+      <div className="admin-page-hero">
+        <div className="admin-page-kicker">Admin library</div>
+        <h2 className="admin-page-title admin-book-heading">Quản lý sách</h2>
+        <p className="admin-page-lead">Danh sách sách dùng cùng hệ màu với toàn bộ giao diện quản trị.</p>
+      </div>
+        <div className="container admin-book-grid">
   <div className="row">
     {books.length > 0 ? (
       books.map((book, index) => (
@@ -139,10 +143,10 @@ const ViewBooks = () => {
       {showModal && selectedBook && (
   <div className="modal d-block" tabIndex="-1">
     <div className="modal-dialog modal-dialog-centered modal-lg"> {/* Centered and Larger Modal */}
-      <div className="modal-content shadow-lg rounded-3"> {/* Added Shadow & Rounded Corners */}
-        <div className="modal-header bg-primary text-white">
-          <h5 className="modal-title">Edit Book</h5>
-          <button type="button" className="btn-close" onClick={() => setShowModal(false)}></button>
+      <div className="modal-content admin-modal-content"> {/* Added Shadow & Rounded Corners */}
+        <div className="modal-header admin-modal-header">
+          <h5 className="modal-title">Chỉnh sửa sách</h5>
+          <button type="button" className="btn-close btn-close-white" onClick={() => setShowModal(false)}></button>
         </div>
         <div className="modal-body p-4">
           <form>
@@ -174,9 +178,9 @@ const ViewBooks = () => {
             </div>
           </form>
         </div>
-        <div className="modal-footer d-flex justify-content-between p-3">
-          <button type="button" className="btn btn-secondary px-4" onClick={() => setShowModal(false)}>Cancel</button>
-          <button type="button" className="btn btn-success px-4" onClick={handleUpdate}>Update</button>
+        <div className="modal-footer admin-modal-footer d-flex justify-content-between p-3">
+          <button type="button" className="btn admin-btn-secondary px-4" onClick={() => setShowModal(false)}>Hủy</button>
+          <button type="button" className="btn admin-btn-primary px-4" onClick={handleUpdate}>Cập nhật</button>
         </div>
       </div>
     </div>
