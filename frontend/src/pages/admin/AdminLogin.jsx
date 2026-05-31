@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { Server_URL } from "../../utils/config";
 import { showErrorToast, showSuccessToast } from "../../utils/toasthelper";
+import "./admin-shared.css";
 
 
 const AdminLogin = () => {
@@ -22,9 +23,9 @@ const AdminLogin = () => {
           const response = await axios.post(url, data);
           console.log("Response:", response.data);
           showSuccessToast("Login Successful!");
+          localStorage.setItem("authToken", response.data.token);
+          localStorage.setItem("role", response.data.user?.role || "admin");
           navigate("/admin")
-                
-          localStorage.setItem("adminauthToken", response.data.token);
           
   
         } catch (error) {
@@ -34,9 +35,11 @@ const AdminLogin = () => {
       };
 
   return (
-    <div className="d-flex justify-content-center align-items-center vh-100 bg-light">
-      <div className="card shadow p-4" style={{ width: "350px" }}>
-        <h3 className="text-center mb-4">Admin Login</h3>
+    <div className="admin-auth-shell">
+      <div className="admin-auth-card">
+        <div className="admin-auth-badge">Quản trị D Free Book</div>
+        <h3 className="admin-auth-title">Đăng nhập admin</h3>
+        <p className="admin-auth-subtitle">Truy cập khu vực quản trị bằng tài khoản được cấp quyền.</p>
         <form onSubmit={handleSubmit(onSubmit)}>
         
           <div className="mb-3">
@@ -61,7 +64,7 @@ const AdminLogin = () => {
           </div>
 
           
-          <button type="submit" className="btn btn-primary w-100">Login</button>
+          <button type="submit" className="btn admin-auth-submit w-100">Đăng nhập</button>
         </form>
       </div>
     </div>

@@ -23,6 +23,7 @@ const ContactUs = lazy(() => import('./pages/user/ContactUs'));
 const Activities = lazy(() => import('./pages/user/Activities'));
 const Partners = lazy(() => import('./pages/user/Partners'));
 const Policies = lazy(() => import('./pages/user/Policies'));
+const NotFound = lazy(() => import('./pages/user/NotFound'));
 const ForgotPassword = lazy(() => import('./pages/user/ForgetPassword/ForgetPassword'));
 const VerifyOTP = lazy(() => import('./pages/user/ForgetPassword/VerifyOtp'));
 const ResetPassword = lazy(() => import('./pages/user/ForgetPassword/UpdatePassword'));
@@ -82,6 +83,8 @@ function App() {
         <Route path="/user" element={<Userlayout />}>
           <Route index element={<ProfilePage />} />
         </Route>
+
+        <Route path="*" element={<NotFound />} />
       </Routes>
       </AnimatePresence>
     </Suspense>

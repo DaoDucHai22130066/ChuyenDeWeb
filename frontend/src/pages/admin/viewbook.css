@@ -1,122 +1,151 @@
-
+/* View Books CSS - Aligned with DFB Forest Green and Accent Gold Theme */
 .book-card {
-    background: rgba(255, 255, 255, 0.9);
-    border-radius: 15px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
-    overflow: hidden;
-    transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    border: 1px solid rgba(0, 0, 0, 0.05);
-  }
-  
-  .book-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
-  }
-  
+  background: var(--dfb-surface, #fff);
+  border-radius: var(--dfb-radius, 12px);
+  box-shadow: var(--dfb-shadow);
+  overflow: hidden;
+  transition: transform var(--dfb-transition), box-shadow var(--dfb-transition);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border: 1px solid var(--dfb-border);
+}
 
-  .book-image-wrapper {
-    width: 100%;
-    height: 240px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
-  }
-  
-  .book-image {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: cover;
-    border-top-left-radius: 15px;
-    border-top-right-radius: 15px;
-  }
-  
-  
-  .card-body {
-    padding: 16px;
-    flex-grow: 1;
-    text-align: center;
-  }
-  
-  .card-title {
-    font-size: 1.3rem;
-    font-weight: 600;
-    color: #222;
-    margin-bottom: 10px;
-  }
-  
-  .book-author {
-    font-size: 1rem;
-    font-weight: 500;
-    color: #555;
-  }
-  
-  .book-category,
-  .book-isbn,
-  .book-price {
-    font-size: 0.9rem;
-    color: #666;
-    margin-bottom: 5px;
-  }
-  
-  
-  .card-footer {
-    background: #f9f9f9;
-    padding: 12px;
-    border-top: 1px solid #ddd;
-    text-align: center;
-  }
-  
-  .edit-btn {
-    background-color: #17a2b8;
-    color: white;
-    padding: 8px 12px;
-    font-size: 0.9rem;
-    border-radius: 6px;
-    transition: 0.3s;
-  }
-  
-  .delete-btn {
-    background-color: #dc3545;
-    color: white;
-    padding: 8px 12px;
-    font-size: 0.9rem;
-    border-radius: 6px;
-    transition: 0.3s;
-  }
-  
-  .edit-btn:hover {
-    background-color: #138496;
-  }
-  
-  .delete-btn:hover {
-    background-color: #bd2130;
-  }
-  
+.book-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--dfb-shadow-lg);
+}
 
-  .admin-book-heading {
-    text-align: center;
-    font-size: 2rem;
-    font-weight: 700;
-    color: #2c3e50;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    margin-bottom: 1.5rem;
-    padding-bottom: 0.5rem;
-    position: relative;
-  }
-  
-  
-  .admin-book-heading::after {
-    content: "";
-    display: block;
-    width: 120px;
-    height: 4px;
-    background: #2980b9;
-    margin: 0.5rem auto 0;
-    border-radius: 2px;
-  }
-  
+.book-image-wrapper {
+  width: 100%;
+  height: 240px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: var(--dfb-bg-alt);
+}
+
+.book-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: cover;
+}
+
+.card-body {
+  padding: 20px;
+  flex-grow: 1;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.card-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--dfb-primary-dark);
+  margin-bottom: 6px;
+  line-height: 1.3;
+}
+
+.book-author {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--dfb-text-muted);
+  margin-bottom: 6px;
+}
+
+.book-category,
+.book-isbn,
+.book-price {
+  font-size: 0.85rem;
+  color: var(--dfb-text-muted);
+  margin-bottom: 2px;
+}
+
+.card-footer {
+  background: var(--dfb-bg-alt);
+  padding: 14px;
+  border-top: 1px solid var(--dfb-border);
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.edit-btn {
+  background: linear-gradient(135deg, var(--dfb-primary) 0%, var(--dfb-primary-dark) 100%);
+  color: white !important;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: var(--dfb-radius-pill);
+  transition: var(--dfb-transition);
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.delete-btn {
+  background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+  color: white !important;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: var(--dfb-radius-pill);
+  transition: var(--dfb-transition);
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.edit-btn:hover {
+  transform: translateY(-1px);
+}
+
+.delete-btn:hover {
+  transform: translateY(-1px);
+}
+
+.admin-book-heading {
+  text-align: center;
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--dfb-primary-dark);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 2rem;
+  padding-bottom: 0.6rem;
+  position: relative;
+}
+
+.admin-book-heading::after {
+  content: "";
+  display: block;
+  width: 80px;
+  height: 4px;
+  background: linear-gradient(90deg, var(--dfb-accent), var(--dfb-primary));
+  margin: 0.6rem auto 0;
+  border-radius: 2px;
+}
+
+.admin-book-grid {
+  padding-top: 0.5rem;
+}
+
+.admin-book-grid .row {
+  --bs-gutter-x: 1.25rem;
+  --bs-gutter-y: 1.25rem;
+}
+
+.admin-book-grid .card {
+  border: none;
+}
+
+.admin-book-grid .card-footer .btn {
+  min-width: 104px;
+}

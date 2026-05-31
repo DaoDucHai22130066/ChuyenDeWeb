@@ -25,6 +25,9 @@ export default function Login() {
         navigate("/");
       }
 
+      // notify cart context to sync
+      try { window.dispatchEvent(new Event('cart:auth-changed')); } catch (e) {}
+
       showSuccessToast("Đăng nhập thành công!");
     } catch {
       showErrorToast("Đăng nhập thất bại. Kiểm tra email và mật khẩu.");

@@ -1,9 +1,9 @@
-# 📚 Library Management System (MERN Stack)
+# 📚 D Free Book Library Management System
 
-![MERN Stack](https://img.shields.io/badge/MERN-Full%20Stack-blue)
+![Full Stack](https://img.shields.io/badge/Full%20Stack-MySQL%20%2B%20Express%20%2B%20React%20%2B%20Node-blue)
 [![Live Demo](https://img.shields.io/badge/Live-Demo-brightgreen)](https://library-management-app-karan.vercel.app/)
 
-A complete Library Management System built with MySQL, Express.js, React.js, and Node.js. Features role-based access control with two user types (Admin, User), category-based book browsing, cart-based borrow tickets, and a ticket approval workflow.
+A complete library community website built with MySQL, Express.js, React.js, and Node.js. It features role-based access control with two user types (Admin, User), category-based book browsing, cart-based borrow tickets, and a ticket approval workflow.
 
 ## 🌐 Live Demo
 Check out the live demo of the project:https://library-management-app-karan.vercel.app/
@@ -70,6 +70,7 @@ Check out the live demo of the project:https://library-management-app-karan.verc
 - **API Testing**: Thunder Client (VS Code extension)
 - **API Documentation**: Hopscotch
 - **Version Control**: Git + GitHub
+- **Tests**: no automated test suite is configured yet
 
 ### **Deployment**
 ![Render](https://img.shields.io/badge/Backend-Hosted_on_Render-%2300BFFF?logo=render)
@@ -78,7 +79,7 @@ Check out the live demo of the project:https://library-management-app-karan.verc
 
 - **Frontend**: Vercel (Edge Network)
 - **Backend**: Render (Node.js Environment)
-- **Database**: MongoDB Atlas (Cloud)
+- **Database**: MySQL 8.0 / local MySQL instance
 - **Media Storage**: Cloudinary CDN
 
 ## 🛠️ Installation

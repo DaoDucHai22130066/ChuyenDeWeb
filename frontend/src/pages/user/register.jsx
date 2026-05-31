@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import GoogleIcon from "../../assets/google.svg";
 import { useForm } from "react-hook-form";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Server_URL } from "../../utils/config";
 import { showErrorToast, showSuccessToast } from "../../utils/toasthelper";
@@ -9,13 +9,25 @@ import "./login.css";
 
 export default function Register() {
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
+  const navigate = useNavigate();
 
   const onSubmit = async (data) => {
     try {
       const formData = { ...data, role: "user" };
       await axios.post(`${Server_URL}users/register`, formData);
+
+      const loginResponse = await axios.post(`${Server_URL}users/login`, {
+        email: data.email,
+        password: data.password,
+      });
+
+      localStorage.setItem("authToken", loginResponse.data.token);
+      localStorage.setItem("role", loginResponse.data.user.role);
+
       showSuccessToast("Đăng ký thành công!");
       reset();
+      navigate("/user");
+      try { window.dispatchEvent(new Event('cart:auth-changed')); } catch (e) {}
     } catch {
       showErrorToast("Đăng ký thất bại. Email có thể đã được sử dụng.");
     }
