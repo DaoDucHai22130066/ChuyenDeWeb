@@ -1,0 +1,12 @@
+const express = require("express");
+const router = express.Router();
+const { ticketController } = require("../controller/tickets");
+const { userAuth } = require("../middlewares/userAuth");
+const { checkRole } = require("../middlewares/checkRole");
+
+router.post("/", userAuth, checkRole("user"), ticketController.createTicket);
+router.get("/me", userAuth, checkRole("user"), ticketController.getMyTickets);
+router.get("/", userAuth, checkRole("admin"), ticketController.getAllTickets);
+router.put("/:id/status", userAuth, checkRole("admin"), ticketController.updateTicketStatus);
+
+module.exports = router;

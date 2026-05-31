@@ -1,0 +1,47 @@
+.activities-page {
+  min-height: 60vh;
+}
+
+.activities-hero {
+  background: linear-gradient(135deg, var(--dfb-primary-dark), var(--dfb-primary));
+  color: white;
+  padding: 4rem 1rem;
+  text-align: center;
+}
+
+.activities-hero h1 {
+  font-size: 2.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.activities-list {
+  padding: 3rem 1rem 4rem;
+}
+
+.activities-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.activity-card {
+  padding: 2rem;
+}
+
+.activity-icon {
+  font-size: 2rem;
+  color: var(--dfb-primary);
+  margin-bottom: 1rem;
+}
+
+.activity-card h2 {
+  font-size: 1.25rem;
+  color: var(--dfb-primary-dark);
+  margin-bottom: 0.75rem;
+}
+
+.activity-card p {
+  color: var(--dfb-text-muted);
+  margin-bottom: 1.25rem;
+  line-height: 1.7;
+}

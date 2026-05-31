@@ -1,0 +1,78 @@
+.admin-page-wrap {
+  padding: 2rem 1rem 4rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.admin-page-wrap h2 {
+  color: var(--dfb-primary-dark);
+  margin-bottom: 1.5rem;
+  font-weight: 700;
+}
+
+.admin-form-card {
+  background: var(--dfb-surface);
+  border-radius: var(--dfb-radius);
+  padding: 2rem;
+  box-shadow: var(--dfb-shadow);
+  border: 1px solid var(--dfb-border);
+}
+
+.admin-form-card .form-label {
+  font-weight: 600;
+  color: var(--dfb-text);
+}
+
+.admin-form-card .form-control,
+.admin-form-card .form-select {
+  border-radius: var(--dfb-radius-sm);
+  border-color: var(--dfb-border);
+}
+
+.admin-form-card .btn-primary {
+  background: var(--dfb-primary);
+  border-color: var(--dfb-primary);
+  border-radius: var(--dfb-radius-pill);
+  padding: 0.5rem 1.5rem;
+}
+
+.admin-form-card .btn-primary:hover {
+  background: var(--dfb-primary-dark);
+  border-color: var(--dfb-primary-dark);
+}
+
+.admin-table-wrap {
+  background: var(--dfb-surface);
+  border-radius: var(--dfb-radius);
+  padding: 1.5rem;
+  box-shadow: var(--dfb-shadow);
+  overflow-x: auto;
+}
+
+.admin-table-wrap table {
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.admin-table-wrap th {
+  background: var(--dfb-bg-alt);
+  color: var(--dfb-primary-dark);
+  font-weight: 600;
+}
+
+.admin-navbar-dfb {
+  background: var(--dfb-primary-dark) !important;
+}
+
+.admin-navbar-dfb .navbar-brand,
+.admin-navbar-dfb .nav-link {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.admin-navbar-dfb .nav-link:hover {
+  color: white !important;
+}
+
+.admin-navbar-dfb .btn-light {
+  border-radius: var(--dfb-radius-pill);
+}

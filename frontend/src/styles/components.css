@@ -1,0 +1,284 @@
+/* Buttons */
+.btn-dfb-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: var(--dfb-primary);
+  color: white !important;
+  border: none;
+  border-radius: var(--dfb-radius-pill);
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all var(--dfb-transition);
+  text-decoration: none;
+}
+
+.btn-dfb-primary:hover {
+  background: var(--dfb-primary-dark);
+  transform: translateY(-2px);
+  box-shadow: var(--dfb-shadow);
+  color: white !important;
+}
+
+.btn-dfb-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: transparent;
+  color: var(--dfb-primary) !important;
+  border: 2px solid var(--dfb-primary);
+  border-radius: var(--dfb-radius-pill);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--dfb-transition);
+  text-decoration: none;
+}
+
+.btn-dfb-outline:hover {
+  background: var(--dfb-primary);
+  color: white !important;
+}
+
+.btn-dfb-secondary {
+  background: var(--dfb-accent);
+  color: var(--dfb-text) !important;
+  padding: 12px 24px;
+  border-radius: var(--dfb-radius-pill);
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all var(--dfb-transition);
+}
+
+.btn-dfb-secondary:hover {
+  background: var(--dfb-accent-dark);
+  color: white !important;
+}
+
+/* Hero */
+.hero-section {
+  position: relative;
+  min-height: 420px;
+  display: flex;
+  align-items: center;
+  background: linear-gradient(135deg, var(--dfb-primary-dark) 0%, var(--dfb-primary) 50%, var(--dfb-primary-light) 100%);
+  background-size: cover;
+  background-position: center;
+}
+
+.hero-section.has-bg-image {
+  background-image: linear-gradient(rgba(27, 67, 50, 0.85), rgba(45, 106, 79, 0.75)),
+    url("/assets/library-hero.jpg");
+}
+
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  color: white;
+  padding: 4rem 1rem;
+}
+
+.hero-title {
+  font-size: clamp(1.75rem, 4vw, 2.75rem);
+  font-weight: 700;
+  margin-bottom: 1rem;
+  line-height: 1.2;
+}
+
+.hero-subtitle {
+  font-size: clamp(1rem, 2vw, 1.25rem);
+  opacity: 0.95;
+  max-width: 600px;
+  margin: 0 auto 2rem;
+}
+
+/* Cards */
+.dfb-card {
+  background: var(--dfb-surface);
+  border-radius: var(--dfb-radius);
+  box-shadow: var(--dfb-shadow);
+  border: 1px solid var(--dfb-border);
+  overflow: hidden;
+  transition: transform var(--dfb-transition), box-shadow var(--dfb-transition);
+}
+
+.dfb-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--dfb-shadow-lg);
+}
+
+/* Book card grid */
+.book-card-dfb {
+  background: var(--dfb-surface);
+  border-radius: var(--dfb-radius);
+  overflow: hidden;
+  box-shadow: var(--dfb-shadow);
+  border: 1px solid var(--dfb-border);
+  transition: transform var(--dfb-transition);
+}
+
+.book-card-dfb:hover {
+  transform: translateY(-4px);
+}
+
+/* Filter sidebar */
+.filter-sidebar {
+  background: var(--dfb-surface);
+  border-radius: var(--dfb-radius);
+  padding: 1.5rem;
+  border: 1px solid var(--dfb-border);
+  box-shadow: var(--dfb-shadow);
+}
+
+.filter-group {
+  margin-bottom: 1.5rem;
+}
+
+.filter-group h4 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--dfb-primary-dark);
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.filter-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.25rem;
+  border: none;
+  background: transparent;
+  border-radius: var(--dfb-radius-sm);
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: var(--dfb-text);
+  transition: background var(--dfb-transition);
+}
+
+.filter-option:hover,
+.filter-option.active {
+  background: var(--dfb-bg-alt);
+  color: var(--dfb-primary);
+  font-weight: 600;
+}
+
+/* Three-no section */
+.three-no-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.three-no-card {
+  text-align: center;
+  padding: 2rem 1.5rem;
+  background: var(--dfb-surface);
+  border-radius: var(--dfb-radius);
+  border: 1px solid var(--dfb-border);
+  box-shadow: var(--dfb-shadow);
+}
+
+.three-no-card h3 {
+  color: var(--dfb-primary);
+  font-size: 1.25rem;
+  margin: 1rem 0 0.5rem;
+}
+
+.three-no-icon {
+  font-size: 2.5rem;
+  color: var(--dfb-accent);
+}
+
+/* Stats */
+.stats-grid-dfb {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1.5rem;
+}
+
+.stat-card-dfb {
+  text-align: center;
+  padding: 1.5rem;
+  background: var(--dfb-surface);
+  border-radius: var(--dfb-radius);
+  box-shadow: var(--dfb-shadow);
+}
+
+.stat-card-dfb h3 {
+  font-size: 2rem;
+  color: var(--dfb-primary);
+  margin: 0.5rem 0;
+}
+
+/* Policy page */
+.policy-content {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem 1rem 4rem;
+  background: var(--dfb-surface);
+  border-radius: var(--dfb-radius);
+  box-shadow: var(--dfb-shadow);
+}
+
+.policy-content h1 {
+  color: var(--dfb-primary-dark);
+  margin-bottom: 1.5rem;
+}
+
+.policy-content h2 {
+  color: var(--dfb-primary);
+  margin-top: 2rem;
+  font-size: 1.25rem;
+}
+
+.policy-content p,
+.policy-content li {
+  color: var(--dfb-text-muted);
+  line-height: 1.8;
+}
+
+/* Motion utility classes (CSS fallback for subtle entrance) */
+.motion-fade-up {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity var(--dfb-transition), transform var(--dfb-transition);
+}
+.motion-fade-up.entered {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.motion-scale {
+  transition: transform var(--dfb-transition), box-shadow var(--dfb-transition);
+}
+.motion-scale:hover {
+  transform: translateY(-6px) scale(1.01);
+  box-shadow: var(--dfb-shadow-lg);
+}
+
+/* Modal improvements */
+.dfb-modal {
+  background: var(--dfb-surface);
+  border-radius: var(--dfb-radius);
+  box-shadow: var(--dfb-shadow-lg);
+  border: 1px solid var(--dfb-border);
+}
+
+/* Card base updated to be motion-friendly */
+.dfb-card {
+  transition: transform var(--dfb-transition), box-shadow var(--dfb-transition), opacity var(--dfb-transition);
+}
