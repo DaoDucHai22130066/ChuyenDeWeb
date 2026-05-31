@@ -9,7 +9,7 @@ const Activities = () => {
       icon: <FiBook />,
       title: 'Mượn sách online',
       description:
-        'Đăng ký mượn sách trực tuyến hoàn toàn miễn phí. Bạn có thể đến thư viện nhận sách hoặc tự thanh toán phí vận chuyển để nhận tại nhà.',
+        'Đăng ký mượn sách trực tuyến hoàn toàn miễn phí. Khi cần, bạn chỉ đặt cọc hoàn lại và có thể phát sinh phí trễ hạn nếu trả muộn theo quy định.',
       cta: { to: '/books', label: 'Xem danh sách sách' },
     },
     {
@@ -31,6 +31,12 @@ const Activities = () => {
       title: 'Kết nối & tặng sách',
       description:
         'D Free Book kết nối với các tổ chức, cá nhân để trung chuyển sách đến nơi cần — vì “sách nằm im là sách chết”.',
+    },
+    {
+      icon: <FiHeart />,
+      title: 'Hội viên và quyên góp',
+      description:
+        'Ai muốn đồng hành lâu dài có thể đóng góp tự nguyện hoặc trở thành hội viên hỗ trợ hoạt động của thư viện.',
     },
   ];
 

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useCart } from "../context/CartContext";
 import { Link, useNavigate } from "react-router-dom";
 import "./adminnavbar.css";
 
@@ -6,12 +7,14 @@ export default function AdminNavbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const token = localStorage.getItem("authToken");
   const role = localStorage.getItem("role");
+  const { clearCart } = useCart();
   const navigate = useNavigate();
 
   const handleLogout = () => {
     localStorage.removeItem("authToken");
     localStorage.removeItem("role");
-    navigate("/login");
+      try { clearCart(); } catch (e) {}
+      navigate("/login");
   };
 
   return (

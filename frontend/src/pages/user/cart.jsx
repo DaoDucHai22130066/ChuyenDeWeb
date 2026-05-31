@@ -11,9 +11,11 @@ import "./cart.css";
 export default function CartPage() {
   const { cartItems, removeFromCart, clearCart } = useCart();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sendingBookId, setSendingBookId] = useState(null);
+  const [acceptedPolicy, setAcceptedPolicy] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmitRequest = async () => {
+  const handleSubmitRequest = async (book) => {
     const token = getAuthToken();
     if (!token) {
       showErrorToast("Vui lòng đăng nhập để gửi yêu cầu mượn sách.");
@@ -21,16 +23,22 @@ export default function CartPage() {
       return;
     }
 
-    if (cartItems.length === 0) {
+    if (!book) {
       showErrorToast("Giỏ sách đang trống.");
       return;
     }
 
+    if (!acceptedPolicy) {
+      showErrorToast("Vui lòng xác nhận điều khoản mượn sách trước khi gửi yêu cầu.");
+      return;
+    }
+
     try {
+      setSendingBookId(book._id);
       setIsSubmitting(true);
       const response = await axios.post(
         `${Server_URL}tickets`,
-        { books: cartItems.map((book) => book._id) },
+        { books: [book._id] },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -39,13 +47,13 @@ export default function CartPage() {
         return;
       }
 
-      clearCart();
-      showSuccessToast(response.data.message || "Yêu cầu mượn đã được gửi.");
-      navigate("/user");
+      removeFromCart(book._id);
+      showSuccessToast(response.data.message || `Đã gửi yêu cầu cho "${book.title}".`);
     } catch (error) {
       showErrorToast(error.response?.data?.message || "Không gửi được yêu cầu mượn sách.");
     } finally {
       setIsSubmitting(false);
+      setSendingBookId(null);
     }
   };
 
@@ -59,9 +67,9 @@ export default function CartPage() {
       <div className="cart-hero">
         <div>
           <p className="cart-eyebrow">Giỏ sách mượn</p>
-          <h1>Danh sách sách đang chờ đăng ký mượn</h1>
+          <h1>Gửi yêu cầu riêng cho từng cuốn sách</h1>
           <p>
-            Gom nhiều đầu sách vào một phiếu mượn, gửi một lần và chờ quản trị viên duyệt.
+            Mỗi cuốn sách được gửi thành một yêu cầu riêng để tránh nhầm lẫn khi quản trị viên duyệt.
           </p>
         </div>
         <div className="cart-summary">
@@ -93,24 +101,46 @@ export default function CartPage() {
                   <p>{book.author}</p>
                   <span>{book.categoryId?.name || book.category || "Chưa phân loại"}</span>
                 </div>
-                <button type="button" className="cart-remove-btn" onClick={() => removeFromCart(book._id)}>
-                  Xóa
-                </button>
+                <div className="cart-item-actions">
+                  <button
+                    type="button"
+                    className="btn-dfb-primary cart-send-btn"
+                    onClick={() => handleSubmitRequest(book)}
+                    disabled={isSubmitting || sendingBookId === book._id || !acceptedPolicy}
+                  >
+                    {sendingBookId === book._id ? "Đang gửi..." : "Gửi yêu cầu cuốn này"}
+                  </button>
+                  <button type="button" className="cart-remove-btn" onClick={() => removeFromCart(book._id)}>
+                    Xóa
+                  </button>
+                </div>
               </div>
             ))}
           </div>
 
           <aside className="cart-panel dfb-card">
             <h2>Tổng kết</h2>
-            <p>{cartItems.length} cuốn sách sẽ được gửi trong một phiếu mượn.</p>
-            <button
-              type="button"
-              className="btn-dfb-primary cart-submit-btn"
-              onClick={handleSubmitRequest}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Đang gửi..." : "Gửi yêu cầu mượn sách"}
-            </button>
+            <p>{cartItems.length} cuốn sách đang chờ gửi theo từng yêu cầu riêng.</p>
+            <div className="cart-policy-box">
+              <h3>Điều khoản mượn</h3>
+              <ul>
+                <li>Mượn sách miễn phí.</li>
+                <li>Đặt cọc hoàn lại khi trả đúng quy định.</li>
+                <li>Phí trễ hạn áp dụng theo chính sách đã công bố.</li>
+                <li>Quyên góp hoặc hội viên hỗ trợ là tùy chọn.</li>
+              </ul>
+              <label className="cart-policy-check">
+                <input
+                  type="checkbox"
+                  checked={acceptedPolicy}
+                  onChange={(e) => setAcceptedPolicy(e.target.checked)}
+                />
+                Tôi đã đọc và đồng ý với điều khoản mượn sách.
+              </label>
+            </div>
+            <p className="cart-panel-note">
+              Bạn sẽ gửi từng cuốn riêng lẻ để tránh nhầm lẫn khi quản trị viên duyệt.
+            </p>
             <button type="button" className="btn-dfb-outline cart-clear-btn" onClick={clearCart}>
               Xóa toàn bộ giỏ
             </button>

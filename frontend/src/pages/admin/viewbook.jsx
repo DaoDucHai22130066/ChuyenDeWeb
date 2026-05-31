@@ -9,6 +9,12 @@ import { showErrorToast, showSuccessToast } from "../../utils/toasthelper";
 import "./viewbook.css";
 import "./admin-shared.css";
 
+const formatVND = (value) => {
+  const numericValue = Number(value);
+  if (Number.isNaN(numericValue)) return "Chưa cập nhật";
+  return new Intl.NumberFormat("vi-VN").format(numericValue) + " VNĐ";
+};
+
 const ViewBooks = () => {
   const [books, setBooks] = useState([]);
   const [selectedBook, setSelectedBook] = useState(null);
@@ -114,7 +120,7 @@ const ViewBooks = () => {
               <p className="book-author">{book.author}</p>
               <p className="book-category">📚 {book.categoryId?.name || book.category || "Chưa phân loại"}</p>
               <p className="book-isbn">🔢 ISBN: {book.isbn}</p>
-              <p className="book-price">💰 ₹{book.price}</p>
+              <p className="book-price">💰 {formatVND(book.price)}</p>
             </div>
             <div className="card-footer text-center">
               <button className="btn edit-btn me-2" onClick={() => handleEdit(book)}>
@@ -168,7 +174,7 @@ const ViewBooks = () => {
                 <input type="text" className="form-control" name="isbn" value={formData.isbn} onChange={handleChange} />
               </div>
               <div className="col-md-6 mb-3">
-                <label className="form-label fw-bold">Price (₹)</label>
+                <label className="form-label fw-bold">Price (VNĐ)</label>
                 <input type="number" className="form-control" name="price" value={formData.price} onChange={handleChange} />
               </div>
             </div>

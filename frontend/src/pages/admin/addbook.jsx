@@ -166,11 +166,12 @@ const AddBookForm = () => {
         </div>
         
         <div className="mb-3">
-          <label className="form-label">Giá tham khảo (tùy chọn)</label>
+          <label className="form-label">Giá tham khảo (VNĐ, tùy chọn)</label>
           <input 
             type="number" 
-            step="0.01" 
+            step="1" 
             className="form-control" 
+            placeholder="Ví dụ: 50000"
             {...register("price")} 
           />
         </div>

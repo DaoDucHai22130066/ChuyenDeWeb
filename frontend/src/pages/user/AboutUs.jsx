@@ -10,7 +10,7 @@ const AboutUs = () => {
         <div className="about-container">
           <h1 className="about-hero-title">Về D Free Book</h1>
           <p className="about-hero-subtitle">
-            Thư viện cộng đồng — mượn sách miễn phí, đặt cọc niềm tin
+            Thư viện cộng đồng — mượn sách miễn phí, đặt cọc hoàn lại, phí trễ hạn minh bạch
           </p>
         </div>
       </section>
@@ -25,8 +25,8 @@ const AboutUs = () => {
                 muốn lan tỏa văn hóa đọc đến mọi miền và kết nối những người yêu sách.
               </p>
               <p className="about-mission-paragraph">
-                Từ kệ sách cá nhân, sau nhiều năm hoạt động, thư viện đã có hàng nghìn đầu sách chất
-                lượng tại Hà Nội và hỗ trợ mượn sách online trên toàn quốc.
+                D Free Book vận hành theo mô hình mượn miễn phí, đặt cọc hoàn lại, phí trễ hạn rõ
+                ràng và đóng góp tự nguyện để duy trì hoạt động lâu dài.
               </p>
             </div>
             <div className="about-mission-image">
@@ -50,7 +50,7 @@ const AboutUs = () => {
               <div className="about-timeline-content">
                 <h3 className="about-timeline-event">Thành lập</h3>
                 <p className="about-timeline-description">
-                  D Free Book ra đời với mô hình thư viện 3 không tại Hà Nội.
+                  D Free Book ra đời với mục tiêu xây dựng một thư viện cộng đồng dễ tiếp cận và minh bạch.
                 </p>
               </div>
             </div>
@@ -92,8 +92,8 @@ const AboutUs = () => {
             </div>
             <div className="about-stat-card">
               <FiHeart size={40} className="about-stat-icon" />
-              <h3 className="about-stat-number">3</h3>
-              <p className="about-stat-label">Không — phí, cọc, giới hạn</p>
+              <h3 className="about-stat-number">4</h3>
+              <p className="about-stat-label">Cam kết — miễn phí, cọc, trễ hạn, ủng hộ</p>
             </div>
           </div>
         </div>
@@ -120,7 +120,7 @@ const AboutUs = () => {
       <section className="about-cta-section">
         <div className="about-container">
           <h2 className="about-cta-title">Tham gia cộng đồng</h2>
-          <p className="about-cta-subtitle">Mượn sách, hiến sách, hoặc trở thành tình nguyện viên</p>
+          <p className="about-cta-subtitle">Mượn sách, đóng góp tự nguyện, hoặc trở thành tình nguyện viên</p>
           <div className="about-cta-buttons">
             <Link to="/books" className="about-btn about-btn-primary">
               <FiBook className="about-icon" /> Xem sách

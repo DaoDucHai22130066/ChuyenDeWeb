@@ -9,6 +9,7 @@ const admin = require("./routes/admin.js")
 const categories = require("./routes/categories.js")
 const tickets = require("./routes/tickets.js")
 const home = require("./routes/home.js")
+const cart = require("./routes/cart.js")
 
 const allowedOrigins = [
   "http://localhost:5173",
@@ -32,6 +33,7 @@ app.use("/admin",admin);
 app.use("/categories",categories);
 app.use("/tickets",tickets);
 app.use("/home",home);
+app.use("/cart", cart);
 
 app.get("/", (req, res) => {
     res.send("API is running...");

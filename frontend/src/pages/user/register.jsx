@@ -27,6 +27,7 @@ export default function Register() {
       showSuccessToast("Đăng ký thành công!");
       reset();
       navigate("/user");
+      try { window.dispatchEvent(new Event('cart:auth-changed')); } catch (e) {}
     } catch {
       showErrorToast("Đăng ký thất bại. Email có thể đã được sử dụng.");
     }

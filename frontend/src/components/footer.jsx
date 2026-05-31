@@ -13,7 +13,7 @@ const Footer = () => {
       <div className="footer-container">
         <div className="footer-tagline">
           <p>
-            D Free Book là một thư viện cộng đồng cho mượn sách miễn phí và đặt cọc niềm tin.
+            D Free Book là một thư viện cộng đồng cho mượn sách miễn phí, đặt cọc hoàn lại và phí trễ hạn minh bạch.
           </p>
         </div>
 
@@ -73,7 +73,7 @@ const Footer = () => {
 
         <div className="footer-bottom">
           <div className="footer-copyright">
-            &copy; {new Date().getFullYear()} D Free Book. Mượn sách miễn phí — đặt cọc niềm tin.
+            &copy; {new Date().getFullYear()} D Free Book. Mượn sách miễn phí, đặt cọc hoàn lại, ủng hộ tự nguyện.
           </div>
         </div>
       </div>

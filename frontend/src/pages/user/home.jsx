@@ -3,7 +3,7 @@ import { Server_URL } from "../../utils/config";
 import axios from "axios";
 import "./home.css";
 import { Link } from "react-router-dom";
-import { FiBook, FiUser, FiClock, FiCalendar, FiDollarSign, FiShield, FiUsers } from "react-icons/fi";
+import { FiBook, FiUser, FiClock, FiCalendar, FiHeart, FiShield, FiUsers } from "react-icons/fi";
 import Preloader from "../../components/Preloader";
 
 export default function Home() {
@@ -47,7 +47,7 @@ export default function Home() {
         <div className="container-dfb hero-content">
           <h1 className="hero-title">Thư viện cộng đồng D Free Book</h1>
           <p className="hero-subtitle">
-            Mượn sách miễn phí — đặt cọc niềm tin. Lan tỏa văn hóa đọc đến mọi người.
+            Mượn sách miễn phí, đặt cọc hoàn lại và phạt trễ hạn minh bạch. Lan tỏa văn hóa đọc đến mọi người.
           </p>
           <div className="hero-buttons">
             <Link to="/books" className="btn-dfb-primary">
@@ -62,23 +62,28 @@ export default function Home() {
       </header>
 
       <section className="three-no-section container-dfb">
-        <h2 className="section-title">Thư viện 3 không</h2>
-        <p className="section-subtitle">Hoạt động trên nguyên tắc tự giác và niềm tin</p>
+        <h2 className="section-title">Thư viện 4 cam kết</h2>
+        <p className="section-subtitle">Mượn miễn phí, đặt cọc hoàn lại, phạt trễ hạn rõ ràng và quyên góp tự nguyện</p>
         <div className="three-no-grid">
           <div className="three-no-card">
-            <FiDollarSign className="three-no-icon" />
-            <h3>Không thu phí</h3>
-            <p>Mượn sách hoàn toàn miễn phí, không mất bất kỳ khoản phí nào.</p>
+            <FiBook className="three-no-icon" />
+            <h3>Mượn miễn phí</h3>
+            <p>Độc giả có thể mượn sách mà không phải trả phí mượn.</p>
           </div>
           <div className="three-no-card">
             <FiShield className="three-no-icon" />
-            <h3>Không đặt cọc</h3>
-            <p>Chúng tôi tin vào độc giả — đặt cọc bằng niềm tin thay vì tiền.</p>
+            <h3>Đặt cọc hoàn lại</h3>
+            <p>Khoản cọc chỉ dùng để bảo đảm sách và được hoàn lại khi trả đúng quy định.</p>
           </div>
           <div className="three-no-card">
-            <FiUsers className="three-no-icon" />
-            <h3>Không giới hạn</h3>
-            <p>Mọi đối tượng, mọi thể loại sách đều được chào đón.</p>
+            <FiClock className="three-no-icon" />
+            <h3>Phí trễ hạn rõ ràng</h3>
+            <p>Phí phạt chỉ áp dụng khi trả muộn và được công bố minh bạch trước khi mượn.</p>
+          </div>
+          <div className="three-no-card">
+            <FiHeart className="three-no-icon" />
+            <h3>Ủng hộ tự nguyện</h3>
+            <p>Người dùng có thể quyên góp hoặc trở thành hội viên hỗ trợ nếu muốn đồng hành lâu dài.</p>
           </div>
         </div>
       </section>
