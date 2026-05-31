@@ -34,7 +34,7 @@ export default function Login() {
     }
   };
 
-  // Google Sign-In callback
+  // Callback đăng nhập bằng Google
   const handleCredentialResponse = async (response) => {
     try {
       const idToken = response.credential;
@@ -67,7 +67,7 @@ export default function Login() {
       // Show one-tap / prompt to select account
       window.google.accounts.id.prompt();
     } else {
-      showErrorToast("Google Sign-In không sẵn có");
+      showErrorToast("Đăng nhập bằng Google không khả dụng");
     }
   };
 
@@ -107,12 +107,6 @@ export default function Login() {
           <button type="submit" className="btn-submit">Đăng nhập</button>
 
           <div style={{ marginTop: 12, textAlign: 'center' }}>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 8 }}>
-              <button type="button" className="social-btn google-btn" onClick={handleGoogleClick} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <img src={GoogleIcon} alt="Google" style={{ width: 20, height: 20 }} />
-                Đăng nhập bằng Google
-              </button>
-            </div>
             <div id="googleSignInDiv" style={{ marginTop: 8 }}></div>
           </div>
 
