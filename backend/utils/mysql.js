@@ -45,6 +45,7 @@ async function createSchema(connection) {
       role ENUM('admin', 'user') NOT NULL DEFAULT 'user',
       stream VARCHAR(255) NULL,
       year INT NULL,
+      phone VARCHAR(20) NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
@@ -89,9 +90,28 @@ async function createSchema(connection) {
     CREATE TABLE IF NOT EXISTS borrow_tickets (
       id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
       user_id INT UNSIGNED NOT NULL,
-      status ENUM('Pending', 'Approved', 'Returned', 'Rejected') NOT NULL DEFAULT 'Pending',
+      status ENUM(
+        'pending',
+        'awaiting_payment',
+        'paid',
+        'approved',
+        'dispatched',
+        'delivered',
+        'returned',
+        'closed',
+        'cancelled'
+      ) NOT NULL DEFAULT 'pending',
       borrow_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      due_date DATETIME NULL DEFAULT NULL,
       return_date TIMESTAMP NULL DEFAULT NULL,
+      deposit_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
+      deposit_status ENUM('none', 'pending', 'held', 'refunded', 'forfeited') NOT NULL DEFAULT 'none',
+      payment_method ENUM('cash', 'vnpay') NOT NULL DEFAULT 'cash',
+      shipping_fee DECIMAL(10,2) NOT NULL DEFAULT 0,
+      shipping_status ENUM('none', 'pending', 'dispatched', 'delivered', 'returned') NOT NULL DEFAULT 'none',
+      shipping_address VARCHAR(255) NULL,
+      shipping_phone VARCHAR(20) NULL,
+      fine_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
       approved_by INT UNSIGNED NULL,
       approved_at TIMESTAMP NULL DEFAULT NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -113,6 +133,96 @@ async function createSchema(connection) {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
 
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS transactions (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      ticket_id INT UNSIGNED NOT NULL,
+      user_id INT UNSIGNED NOT NULL,
+      type ENUM('deposit', 'fine', 'shipping', 'volunteer_stipend') NOT NULL,
+      method ENUM('cash', 'vnpay') NOT NULL,
+      amount DECIMAL(10,2) NOT NULL,
+      status ENUM('pending', 'completed', 'failed', 'refunded') NOT NULL DEFAULT 'pending',
+      vnpay_txn_ref VARCHAR(64) NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_transactions_ticket (ticket_id),
+      INDEX idx_transactions_status (status),
+      CONSTRAINT fk_transactions_ticket FOREIGN KEY (ticket_id) REFERENCES borrow_tickets(id) ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT fk_transactions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await ensureBorrowTicketSchema(connection);
+
+
+async function columnExists(connection, tableName, columnName) {
+  const [rows] = await connection.query("SHOW COLUMNS FROM ?? LIKE ?", [tableName, columnName]);
+  return rows.length > 0;
+}
+
+async function addColumnIfMissing(connection, tableName, columnName, definition) {
+  const exists = await columnExists(connection, tableName, columnName);
+  if (!exists) {
+    await connection.query(`ALTER TABLE ?? ADD COLUMN ${definition}`, [tableName]);
+  }
+}
+
+async function ensureBorrowTicketSchema(connection) {
+  // Add missing columns (won't fail if they exist)
+  await addColumnIfMissing(connection, "users", "phone", "phone VARCHAR(20) NULL");
+  await addColumnIfMissing(connection, "borrow_tickets", "due_date", "due_date DATETIME NULL DEFAULT NULL");
+  await addColumnIfMissing(connection, "borrow_tickets", "deposit_amount", "deposit_amount DECIMAL(10,2) NOT NULL DEFAULT 0");
+  await addColumnIfMissing(connection, "borrow_tickets", "deposit_status", "deposit_status ENUM('none', 'pending', 'held', 'refunded', 'forfeited') NOT NULL DEFAULT 'none'");
+  await addColumnIfMissing(connection, "borrow_tickets", "payment_method", "payment_method ENUM('cash', 'vnpay') NOT NULL DEFAULT 'cash'");
+  await addColumnIfMissing(connection, "borrow_tickets", "shipping_fee", "shipping_fee DECIMAL(10,2) NOT NULL DEFAULT 0");
+  await addColumnIfMissing(connection, "borrow_tickets", "shipping_status", "shipping_status ENUM('none', 'pending', 'dispatched', 'delivered', 'returned') NOT NULL DEFAULT 'none'");
+  await addColumnIfMissing(connection, "borrow_tickets", "shipping_address", "shipping_address VARCHAR(255) NULL");
+  await addColumnIfMissing(connection, "borrow_tickets", "shipping_phone", "shipping_phone VARCHAR(20) NULL");
+  await addColumnIfMissing(connection, "borrow_tickets", "fine_amount", "fine_amount DECIMAL(10,2) NOT NULL DEFAULT 0");
+
+  // Safely migrate old status values to new format
+  try {
+    await connection.query("UPDATE borrow_tickets SET status = 'pending' WHERE status = 'Pending' OR status = 'pending'");
+  } catch (e) {
+    // Ignore if no rows to update
+  }
+  try {
+    await connection.query("UPDATE borrow_tickets SET status = 'approved' WHERE status = 'Approved'");
+  } catch (e) {
+    // Ignore
+  }
+  try {
+    await connection.query("UPDATE borrow_tickets SET status = 'returned' WHERE status = 'Returned'");
+  } catch (e) {
+    // Ignore
+  }
+  try {
+    await connection.query("UPDATE borrow_tickets SET status = 'cancelled' WHERE status = 'Rejected'");
+  } catch (e) {
+    // Ignore
+  }
+
+  // Try to modify the status column - use safe approach
+  try {
+    await connection.query(`
+      ALTER TABLE borrow_tickets
+      MODIFY COLUMN status ENUM(
+        'pending',
+        'awaiting_payment',
+        'paid',
+        'approved',
+        'dispatched',
+        'delivered',
+        'returned',
+        'closed',
+        'cancelled'
+      ) NOT NULL DEFAULT 'pending'
+    `);
+  } catch (e) {
+    // If MODIFY fails, table might already have this schema
+    console.log("Status column already has new enum or similar error - skipping MODIFY");
+  }
+}
   await connection.query(`
     CREATE TABLE IF NOT EXISTS carts (
       id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -233,6 +343,7 @@ function mapUserRow(row, includePassword = false) {
     role: row.role,
     stream: row.stream,
     year: row.year,
+    phone: row.phone,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -287,6 +398,22 @@ function mapBookRow(row) {
   };
 }
 
+function normalizeEnumValue(value) {
+  if (value === null || value === undefined) {
+    return value;
+  }
+
+  return String(value).trim().toLowerCase();
+}
+
+function normalizeTicketStatus(value) {
+  const normalized = normalizeEnumValue(value);
+  if (normalized === "rejected") {
+    return "cancelled";
+  }
+  return normalized;
+}
+
 function mapTicketRow(row) {
   return {
     _id: row.id,
@@ -297,9 +424,18 @@ function mapTicketRow(row) {
       role: row.user_role,
     },
     books: [],
-    status: row.status,
+    status: normalizeTicketStatus(row.status),
     borrowDate: row.borrow_date,
+    dueDate: row.due_date,
     returnDate: row.return_date,
+    depositAmount: row.deposit_amount === null || row.deposit_amount === undefined ? 0 : Number(row.deposit_amount),
+    depositStatus: normalizeEnumValue(row.deposit_status),
+    shippingFee: row.shipping_fee === null || row.shipping_fee === undefined ? 0 : Number(row.shipping_fee),
+    shippingStatus: normalizeEnumValue(row.shipping_status),
+    shippingAddress: row.shipping_address,
+    shippingPhone: row.shipping_phone,
+    paymentMethod: normalizeEnumValue(row.payment_method),
+    fineAmount: row.fine_amount === null || row.fine_amount === undefined ? 0 : Number(row.fine_amount),
     approvedBy: row.approved_by
       ? {
           _id: row.approved_by,
@@ -314,6 +450,83 @@ function mapTicketRow(row) {
   };
 }
 
+function mapTransactionRow(row) {
+  return {
+    _id: row.id,
+    ticketId: row.ticket_id,
+    userId: row.user_id,
+    type: normalizeEnumValue(row.type),
+    method: normalizeEnumValue(row.method),
+    amount: row.amount === null || row.amount === undefined ? 0 : Number(row.amount),
+    status: normalizeEnumValue(row.status),
+    vnpayTxnRef: row.vnpay_txn_ref,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+async function createTransaction(connection, transaction) {
+  const runner = connection ? connection : { query };
+  const {
+    ticketId,
+    userId,
+    type,
+    method,
+    amount,
+    status,
+    vnpayTxnRef,
+  } = transaction;
+
+  const sql = `
+    INSERT INTO transactions
+      (ticket_id, user_id, type, method, amount, status, vnpay_txn_ref)
+    VALUES
+      (?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  const params = [
+    ticketId,
+    userId,
+    type,
+    method,
+    amount,
+    status,
+    vnpayTxnRef || null,
+  ];
+
+  if (connection) {
+    const [result] = await runner.query(sql, params);
+    return result.insertId;
+  }
+
+  const result = await runner.query(sql, params);
+  return result.insertId;
+}
+
+async function updateTransactionStatus(connection, transactionId, status, vnpayTxnRef = null) {
+  const runner = connection ? connection : { query };
+  const sql = `
+    UPDATE transactions
+    SET status = ?, vnpay_txn_ref = COALESCE(?, vnpay_txn_ref)
+    WHERE id = ?
+  `;
+  const params = [status, vnpayTxnRef, transactionId];
+
+  if (connection) {
+    await runner.query(sql, params);
+    return;
+  }
+  await runner.query(sql, params);
+}
+
+async function getTransactionsByTicket(ticketId) {
+  const rows = await query(
+    `SELECT * FROM transactions WHERE ticket_id = ? ORDER BY created_at ASC, id ASC`,
+    [ticketId]
+  );
+  return rows.map(mapTransactionRow);
+}
+
 module.exports = {
   initializeDatabase,
   query,
@@ -322,4 +535,8 @@ module.exports = {
   mapCategoryRow,
   mapBookRow,
   mapTicketRow,
+  mapTransactionRow,
+  createTransaction,
+  updateTransactionStatus,
+  getTransactionsByTicket,
 };

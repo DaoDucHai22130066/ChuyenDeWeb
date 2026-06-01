@@ -77,7 +77,7 @@ homeController.getHomeData = async (req, res) => {
     const activeStudentsRows = await query(
       `SELECT COUNT(DISTINCT user_id) AS totalActiveStudents
        FROM borrow_tickets
-       WHERE status = 'Approved'`
+       WHERE status IN ('approved', 'dispatched', 'delivered')`
     );
     const totalActiveStudents = Number(activeStudentsRows[0]?.totalActiveStudents || 0);
 

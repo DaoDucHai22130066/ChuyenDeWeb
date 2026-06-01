@@ -2,60 +2,65 @@
 .btn-dfb-primary {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 24px;
-  background: var(--dfb-primary);
+  gap: 10px;
+  padding: 14px 28px;
+  background: linear-gradient(135deg, var(--dfb-primary), var(--dfb-primary-light));
   color: white !important;
   border: none;
   border-radius: var(--dfb-radius-pill);
-  font-weight: 600;
+  font-weight: 700;
   font-size: 0.95rem;
   cursor: pointer;
-  transition: all var(--dfb-transition);
+  transition: transform var(--dfb-transition), box-shadow var(--dfb-transition), background var(--dfb-transition);
+  box-shadow: 0 18px 35px rgba(49, 130, 206, 0.18);
   text-decoration: none;
 }
 
 .btn-dfb-primary:hover {
-  background: var(--dfb-primary-dark);
+  background: linear-gradient(135deg, var(--dfb-primary-dark), var(--dfb-primary));
   transform: translateY(-2px);
-  box-shadow: var(--dfb-shadow);
+  box-shadow: 0 26px 45px rgba(49, 130, 206, 0.24);
   color: white !important;
 }
 
 .btn-dfb-outline {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  background: transparent;
+  gap: 10px;
+  padding: 12px 26px;
+  background: rgba(59, 130, 246, 0.08);
   color: var(--dfb-primary) !important;
-  border: 2px solid var(--dfb-primary);
+  border: 2px solid rgba(59, 130, 246, 0.35);
   border-radius: var(--dfb-radius-pill);
   font-weight: 600;
   cursor: pointer;
-  transition: all var(--dfb-transition);
+  transition: transform var(--dfb-transition), background var(--dfb-transition), color var(--dfb-transition);
   text-decoration: none;
 }
 
 .btn-dfb-outline:hover {
   background: var(--dfb-primary);
   color: white !important;
+  transform: translateY(-2px);
 }
 
 .btn-dfb-secondary {
   background: var(--dfb-accent);
-  color: var(--dfb-text) !important;
-  padding: 12px 24px;
+  color: white !important;
+  padding: 14px 28px;
   border-radius: var(--dfb-radius-pill);
-  font-weight: 600;
+  font-weight: 700;
   border: none;
   cursor: pointer;
-  transition: all var(--dfb-transition);
+  transition: transform var(--dfb-transition), box-shadow var(--dfb-transition), background var(--dfb-transition);
+  box-shadow: 0 12px 25px rgba(249, 115, 22, 0.1);
 }
 
 .btn-dfb-secondary:hover {
   background: var(--dfb-accent-dark);
   color: white !important;
+  transform: translateY(-2px);
+  box-shadow: 0 20px 30px rgba(249, 115, 22, 0.16);
 }
 
 /* Hero */
@@ -70,7 +75,7 @@
 }
 
 .hero-section.has-bg-image {
-  background-image: linear-gradient(rgba(27, 67, 50, 0.85), rgba(45, 106, 79, 0.75)),
+  background-image: linear-gradient(180deg, rgba(45, 106, 240, 0.84), rgba(249, 115, 22, 0.38)),
     url("/assets/library-hero.jpg");
 }
 
@@ -104,31 +109,46 @@
 
 /* Cards */
 .dfb-card {
-  background: var(--dfb-surface);
+  background: rgba(255, 255, 255, 0.88);
   border-radius: var(--dfb-radius);
-  box-shadow: var(--dfb-shadow);
-  border: 1px solid var(--dfb-border);
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.12);
   overflow: hidden;
-  transition: transform var(--dfb-transition), box-shadow var(--dfb-transition);
+  transition: transform var(--dfb-transition), box-shadow var(--dfb-transition), backdrop-filter var(--dfb-transition);
+  backdrop-filter: blur(10px);
 }
 
 .dfb-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--dfb-shadow-lg);
+  transform: translateY(-8px);
+  box-shadow: 0 32px 70px rgba(15, 23, 42, 0.16);
 }
 
 /* Book card grid */
 .book-card-dfb {
-  background: var(--dfb-surface);
-  border-radius: var(--dfb-radius);
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 28px;
   overflow: hidden;
-  box-shadow: var(--dfb-shadow);
-  border: 1px solid var(--dfb-border);
-  transition: transform var(--dfb-transition);
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.09);
+  border: 1px solid rgba(59, 130, 246, 0.12);
+  transition: transform var(--dfb-transition), box-shadow var(--dfb-transition);
 }
 
 .book-card-dfb:hover {
-  transform: translateY(-4px);
+  transform: translateY(-10px);
+  box-shadow: 0 32px 85px rgba(15, 23, 42, 0.16);
+}
+
+.book-card-dfb .card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.book-card-dfb .card-footer {
+  margin-top: auto;
 }
 
 /* Filter sidebar */

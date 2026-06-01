@@ -24,6 +24,8 @@ const Books = () => {
   const [branchFilter, setBranchFilter] = useState("all");
   const [sortBy, setSortBy] = useState("borrowCount");
   const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 9;
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { addToCart, isInCart } = useCart();
@@ -34,6 +36,10 @@ const Books = () => {
     const cat = searchParams.get("category");
     if (cat) setSelectedCategory(cat);
   }, [searchParams]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategory, statusFilter, branchFilter, searchTerm, sortBy]);
 
   useEffect(() => {
     setIsLoading(true);
@@ -99,6 +105,11 @@ const Books = () => {
 
     return filtered;
   }, [books, selectedCategory, statusFilter, branchFilter, searchTerm, sortBy]);
+
+  const totalPages = Math.ceil(filteredBooks.length / itemsPerPage);
+  const indexOfLastBook = currentPage * itemsPerPage;
+  const indexOfFirstBook = indexOfLastBook - itemsPerPage;
+  const currentBooks = filteredBooks.slice(indexOfFirstBook, indexOfLastBook);
 
   function bookDetails(bookid) {
     navigate(`/bookdetails/${bookid}`);
@@ -199,8 +210,9 @@ const Books = () => {
               <p className="mt-2">Đang tải...</p>
             </div>
           ) : filteredBooks.length > 0 ? (
-            <div className="books-grid-dfb">
-              {filteredBooks.map((book) => (
+            <>
+              <div className="books-grid-dfb">
+                {currentBooks.map((book) => (
                 <div key={book._id} className="book-card-dfb">
                   <div className="card-image-container">
                     <img
@@ -244,7 +256,37 @@ const Books = () => {
                   </div>
                 </div>
               ))}
-            </div>
+              </div>
+              {totalPages > 1 && (
+                <div className="pagination-container">
+                  <button
+                    type="button"
+                    className="btn-dfb-outline pagination-btn"
+                    onClick={() => {
+                      setCurrentPage((p) => Math.max(1, p - 1));
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    disabled={currentPage === 1}
+                  >
+                    Trang trước
+                  </button>
+                  <span className="pagination-info">
+                    Trang {currentPage} / {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn-dfb-outline pagination-btn"
+                    onClick={() => {
+                      setCurrentPage((p) => Math.min(totalPages, p + 1));
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    disabled={currentPage === totalPages}
+                  >
+                    Trang sau
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="no-books-found">
               <h4>Không tìm thấy sách</h4>

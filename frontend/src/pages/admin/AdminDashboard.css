@@ -11,7 +11,7 @@
   min-height: 100vh;
   position: sticky;
   top: 0;
-  box-shadow: 6px 0 24px rgba(27, 67, 50, 0.08);
+  box-shadow: 6px 0 24px rgba(59, 130, 246, 0.08);
   border-right: 1px solid rgba(224, 216, 204, 0.8);
   transition: var(--dfb-transition);
   display: flex;
@@ -25,7 +25,7 @@
   font-size: 1.3rem;
   font-weight: 800;
   padding: 1rem 0.85rem;
-  border: 1px solid rgba(45, 106, 79, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.12);
   background: rgba(255, 255, 255, 0.75);
   border-radius: 18px;
   position: relative;
@@ -91,7 +91,7 @@
 }
 
 .admin-nav-btn.active {
-  background: linear-gradient(135deg, rgba(45, 106, 79, 0.12), rgba(212, 163, 115, 0.12));
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(249, 115, 22, 0.12));
   color: var(--dfb-primary-dark);
   font-weight: 600;
   box-shadow: inset 4px 0 0 var(--dfb-primary);
@@ -159,17 +159,17 @@
 }
 
 .stat-card.books .stat-icon-wrapper {
-  background-color: rgba(45, 106, 79, 0.1);
+  background-color: rgba(59, 130, 246, 0.12);
   color: var(--dfb-primary);
 }
 
 .stat-card.users .stat-icon-wrapper {
-  background-color: rgba(212, 163, 115, 0.15);
+  background-color: rgba(249, 115, 22, 0.15);
   color: var(--dfb-accent-dark);
 }
 
 .stat-card.borrowed .stat-icon-wrapper {
-  background-color: rgba(27, 67, 50, 0.12);
+  background-color: rgba(59, 130, 246, 0.08);
   color: var(--dfb-primary-dark);
 }
 
@@ -289,11 +289,11 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  box-shadow: 0 10px 18px rgba(45, 106, 79, 0.14);
+  box-shadow: 0 10px 18px rgba(59, 130, 246, 0.14);
 }
 
 .btn-success:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--dfb-primary-dark) 0%, #10261d 100%) !important;
+  background: linear-gradient(135deg, var(--dfb-primary-dark) 0%, var(--dfb-primary) 100%) !important;
   transform: translateY(-1px);
 }
 
@@ -342,13 +342,13 @@
   color: white !important;
 }
 
-/* Responsiveness */
+/* Responsive Styling */
 @media (max-width: 992px) {
   .admin-sidebar {
     min-height: 0;
     position: static;
     padding: 1.5rem;
-    box-shadow: 0 4px 15px rgba(27, 67, 50, 0.1);
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.08);
   }
   
   .admin-main {
@@ -356,23 +356,262 @@
   }
 }
 
-@media (max-width: 768px) {
-  .stats-grid {
-    grid-template-columns: 1fr 1fr;
-  }
+/* Ticket Item Styling */
+.ticket-item {
+  border: 1px solid var(--dfb-border);
+  border-radius: var(--dfb-radius);
+  margin-bottom: 1rem;
+  overflow: hidden;
 }
 
-@media (max-width: 576px) {
-  .stats-grid {
+.ticket-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: var(--dfb-surface);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.ticket-header:hover {
+  background-color: #faf8f5;
+}
+
+.ticket-header-main {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.expand-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.2rem;
+  color: var(--dfb-primary);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ticket-id {
+  font-family: monospace;
+  font-weight: 700;
+  color: var(--dfb-primary-dark);
+  font-size: 0.9rem;
+  min-width: 80px;
+}
+
+.ticket-reader {
+  min-width: 120px;
+  font-weight: 500;
+  color: var(--dfb-text);
+}
+
+.ticket-books-list {
+  flex: 1;
+  color: var(--dfb-text-muted);
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ticket-dates {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 180px;
+}
+
+.ticket-dates small {
+  color: var(--dfb-text-muted);
+  font-size: 0.8rem;
+}
+
+.ticket-header-status {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.ticket-expanded {
+  padding: 1.5rem;
+  background: #faf8f5;
+  border-top: 1px solid var(--dfb-border);
+}
+
+.ticket-details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.detail-section {
+  background: white;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--dfb-border);
+}
+
+.detail-section h4 {
+  margin: 0 0 0.75rem;
+  color: var(--dfb-primary-dark);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  font-size: 0.9rem;
+  border-bottom: 1px solid rgba(59, 130, 246, 0.12);
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-row span {
+  color: var(--dfb-text-muted);
+}
+
+.detail-row strong {
+  color: var(--dfb-primary-dark);
+  font-weight: 600;
+}
+
+.detail-row .badge {
+  background-color: rgba(212, 163, 115, 0.15);
+  color: #b56e1e;
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.ticket-transactions {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid var(--dfb-border);
+}
+
+.ticket-transactions h4 {
+  margin: 0 0 0.75rem;
+  color: var(--dfb-primary-dark);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.transactions-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.transaction-item {
+  display: grid;
+  grid-template-columns: 100px 1fr 120px;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.75rem;
+  background: rgba(59, 130, 246, 0.03);
+  border-radius: 6px;
+  border: 1px solid rgba(59, 130, 246, 0.08);
+  font-size: 0.9rem;
+}
+
+.txn-type {
+  font-weight: 600;
+  color: var(--dfb-primary);
+  text-transform: capitalize;
+}
+
+.txn-amount {
+  font-weight: 600;
+  color: var(--dfb-primary-dark);
+}
+
+.txn-status {
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.txn-status.completed {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.txn-status.pending {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+.txn-status.failed {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.txn-status.refunded {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.no-transactions {
+  text-align: center;
+  color: var(--dfb-text-muted);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.ticket-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding-top: 1rem;
+  border-top: 1px solid var(--dfb-border);
+}
+
+.ticket-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .ticket-header-main {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .ticket-details-grid {
     grid-template-columns: 1fr;
   }
-  
-  .admin-section-title {
-    font-size: 1.5rem;
+
+  .transaction-item {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
   }
-  
-  .admin-table th, .admin-table td {
-    padding: 0.8rem;
-    font-size: 0.85rem;
+
+  .ticket-actions {
+    flex-direction: column;
+  }
+
+  .ticket-actions .btn {
+    width: 100%;
+    justify-content: center;
   }
 }

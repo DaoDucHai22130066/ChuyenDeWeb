@@ -18,31 +18,14 @@ import {
   FiClock, 
   FiFileText, 
   FiCheckCircle, 
-  FiXCircle,
-  FiDollarSign,
-  FiEye,
-  FiChevronDown,
-  FiChevronUp
+  FiXCircle 
 } from "react-icons/fi";
 
 const STATUS_VI = {
-  pending: "Chờ duyệt",
-  awaiting_payment: "Chờ thanh toán",
-  paid: "Đã thanh toán",
-  approved: "Đã duyệt",
-  dispatched: "Đang giao",
-  delivered: "Đã giao",
-  returned: "Đã trả",
-  closed: "Hoàn tất",
-  cancelled: "Hủy",
-};
-
-const DEPOSIT_STATUS_VI = {
-  none: "Không có",
-  pending: "Chờ xác nhận",
-  held: "Đã cọc",
-  refunded: "Đã hoàn",
-  forfeited: "Bị tịch thu",
+  Pending: "Chờ duyệt",
+  Approved: "Đã duyệt",
+  Returned: "Đã trả",
+  Rejected: "Từ chối",
 };
 
 const AdminDashboard = ({ initialSection = "dashboard" }) => {
@@ -50,8 +33,6 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const [users, setUsers] = useState([]);
   const [books, setBooks] = useState([]);
   const [tickets, setTickets] = useState([]);
-  const [expandedTicket, setExpandedTicket] = useState(null);
-  const [ticketTransactions, setTicketTransactions] = useState({});
 
   const token = localStorage.getItem("authToken");
 
@@ -60,18 +41,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const totalUsers = useMemo(() => users.filter((user) => user.role === "user").length, [users]);
   const totalBooks = books.length;
   const totalTickets = tickets.length;
-  const pendingTickets = tickets.filter((ticket) => ticket.status === "pending" || ticket.status === "awaiting_payment").length;
-
-  const formatCurrency = (value) => new Intl.NumberFormat("vi-VN").format(value) + " đ";
-
-  const canConfirmCash = (ticket) =>
-    ticket.status === "pending" &&
-    ticket.depositStatus === "pending" &&
-    ticket.paymentMethod === "cash";
-
-  const canApproveTicket = (ticket) =>
-    ticket.status === "pending" &&
-    ticket.depositStatus === "held";
+  const pendingTickets = tickets.filter((ticket) => ticket.status === "Pending").length;
 
   const fetchUsers = async () => {
     try {
@@ -102,25 +72,11 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
     }
   };
 
-  const fetchTicketTransactions = async (ticketId) => {
-    try {
-      const result = await axios.get(`${Server_URL}tickets/${ticketId}/transactions`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setTicketTransactions((prev) => ({
-        ...prev,
-        [ticketId]: result.data.transactions || [],
-      }));
-    } catch (error) {
-      console.error("Error fetching transactions:", error);
-    }
-  };
-
-  const handleTicketAction = async (ticketId, action, paymentMethod = "cash") => {
+  const updateTicketStatus = async (ticketId, status) => {
     try {
       const response = await axios.put(
         `${Server_URL}tickets/${ticketId}/status`,
-        { action, payment_method: paymentMethod },
+        { status },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -134,17 +90,6 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
       fetchBooks();
     } catch (error) {
       showErrorToast(error.response?.data?.message || "Không cập nhật được phiếu mượn.");
-    }
-  };
-
-  const toggleTicketExpand = async (ticketId) => {
-    if (expandedTicket === ticketId) {
-      setExpandedTicket(null);
-    } else {
-      setExpandedTicket(ticketId);
-      if (!ticketTransactions[ticketId]) {
-        await fetchTicketTransactions(ticketId);
-      }
     }
   };
 
@@ -242,10 +187,10 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                 </div>
                 <div className="stat-card librarians">
                   <div className="stat-icon-wrapper">
-                    <FiClock />
+                    <FiInfo />
                   </div>
                   <div className="stat-details">
-                    <h3>Phiếu chờ xử lý</h3>
+                    <h3>Phiếu chờ duyệt</h3>
                     <p>{pendingTickets}</p>
                   </div>
                 </div>
@@ -290,173 +235,59 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
             <>
               <h2 className="admin-section-title">Quản lý Phiếu mượn</h2>
               <div className="admin-table-container">
-                {tickets.map((ticket) => (
-                  <div key={ticket._id} className="ticket-item">
-                    <div className="ticket-header" onClick={() => toggleTicketExpand(ticket._id)}>
-                      <div className="ticket-header-main">
-                        <button className="expand-btn">
-                          {expandedTicket === ticket._id ? <FiChevronUp /> : <FiChevronDown />}
-                        </button>
-                        <div className="ticket-header-info">
-                          <div className="ticket-id">#{ticket._id}</div>
-                          <div className="ticket-reader">
-                            {ticket.userId?.name || ticket.userId?.email || "—"}
-                          </div>
-                        </div>
-                        <div className="ticket-books-list">
-                          {ticket.books.map((book) => book.title).join(", ")}
-                        </div>
-                        <div className="ticket-dates">
-                          <small>Mượn: {ticket.borrowDate ? new Date(ticket.borrowDate).toLocaleDateString("vi-VN") : "—"}</small>
-                          {ticket.dueDate && <small>Hạn: {new Date(ticket.dueDate).toLocaleDateString("vi-VN")}</small>}
-                        </div>
-                      </div>
-                      <div className="ticket-header-status">
-                        <span className={`status-badge ${ticket.status.toLowerCase()}`}>
-                          {STATUS_VI[ticket.status] || ticket.status}
-                        </span>
-                      </div>
-                    </div>
-
-                    {expandedTicket === ticket._id && (
-                      <div className="ticket-expanded">
-                        <div className="ticket-details-grid">
-                          <div className="detail-section">
-                            <h4>Chi phí</h4>
-                            <div className="detail-row">
-                              <span>Tiền cọc:</span>
-                              <strong>{formatCurrency(ticket.depositAmount || 0)}</strong>
-                            </div>
-                            <div className="detail-row">
-                              <span>Phí giao hàng:</span>
-                              <strong>{formatCurrency(ticket.shippingFee || 0)}</strong>
-                            </div>
-                            <div className="detail-row">
-                              <span>Phạt trễ hạn:</span>
-                              <strong>{formatCurrency(ticket.fineAmount || 0)}</strong>
-                            </div>
-                          </div>
-
-                          <div className="detail-section">
-                            <h4>Trạng thái</h4>
-                            <div className="detail-row">
-                              <span>Cọc:</span>
-                              <span className="badge">{DEPOSIT_STATUS_VI[ticket.depositStatus] || ticket.depositStatus}</span>
-                            </div>
-                            <div className="detail-row">
-                              <span>Giao hàng:</span>
-                              <span className="badge">{ticket.shippingStatus === "none" ? "Nhận tại quầy" : ticket.shippingStatus}</span>
-                            </div>
-                            {ticket.shippingAddress && (
-                              <div className="detail-row">
-                                <span>Địa chỉ:</span>
-                                <span>{ticket.shippingAddress}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="ticket-transactions">
-                          <h4>Lịch sử giao dịch</h4>
-                          {ticketTransactions[ticket._id]?.length ? (
-                            <div className="transactions-list">
-                              {ticketTransactions[ticket._id].map((txn) => (
-                                <div key={txn._id} className="transaction-item">
-                                  <span className="txn-type">{txn.type}</span>
-                                  <span className="txn-amount">{formatCurrency(txn.amount)}</span>
-                                  <span className={`txn-status ${txn.status}`}>{txn.status}</span>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="no-transactions">Chưa có giao dịch</p>
-                          )}
-                        </div>
-
-                        <div className="ticket-actions">
-                          {canConfirmCash(ticket) && (
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Độc giả</th>
+                      <th>Danh sách sách</th>
+                      <th>Ngày mượn</th>
+                      <th>Trạng thái</th>
+                      <th>Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tickets.map((ticket) => (
+                      <tr key={ticket._id}>
+                        <td>{ticket.userId?.name || ticket.userId?.email || "—"}</td>
+                        <td>{ticket.books.map((book) => book.title).join(", ")}</td>
+                        <td>{ticket.borrowDate ? new Date(ticket.borrowDate).toLocaleDateString("vi-VN") : "—"}</td>
+                        <td>
+                          <span className={`status-badge ${ticket.status.toLowerCase()}`}>
+                            {STATUS_VI[ticket.status] || ticket.status}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="d-flex gap-2 flex-wrap">
                             <button
+                              type="button"
                               className="btn btn-sm btn-success"
-                              onClick={() => handleTicketAction(ticket._id, "confirm_cash", "cash")}
-                            >
-                              <FiCheck /> Thu tiền mặt
-                            </button>
-                          )}
-
-                          {ticket.status === "pending" &&
-                            ticket.depositStatus === "pending" &&
-                            ticket.paymentMethod === "vnpay" && (
-                              <div className="admin-alert admin-alert-info">
-                                <FiDollarSign /> Chờ thanh toán VNPAY
-                              </div>
-                            )}
-
-                          {canApproveTicket(ticket) && (
-                            <button
-                              className="btn btn-sm btn-success"
-                              onClick={() => handleTicketAction(ticket._id, "approve")}
+                              onClick={() => updateTicketStatus(ticket._id, "Approved")}
+                              disabled={ticket.status !== "Pending"}
                             >
                               <FiCheck /> Phê duyệt
                             </button>
-                          )}
-
-                          {ticket.status === "approved" && (
-                            <>
-                              {ticket.shippingStatus === "none" && (
-                                <button
-                                  className="btn btn-sm btn-primary"
-                                  onClick={() => handleTicketAction(ticket._id, "deliver")}
-                                >
-                                  <FiCheckCircle /> Giao xong
-                                </button>
-                              )}
-                              {ticket.shippingStatus === "pending" && (
-                                <button
-                                  className="btn btn-sm btn-info"
-                                  onClick={() => handleTicketAction(ticket._id, "dispatch")}
-                                >
-                                  <FiRefreshCw /> Bắt đầu giao
-                                </button>
-                              )}
-                              {(ticket.shippingStatus === "dispatched" || ticket.shippingStatus === "none") && (
-                                <button
-                                  className="btn btn-sm btn-warning"
-                                  onClick={() => handleTicketAction(ticket._id, "return")}
-                                >
-                                  <FiRefreshCw /> Xác nhận đã trả
-                                </button>
-                              )}
-                            </>
-                          )}
-                          {ticket.status === "returned" && (
                             <button
-                              className="btn btn-sm btn-secondary"
-                              onClick={() => handleTicketAction(ticket._id, "settle_deposit")}
+                              type="button"
+                              className="btn btn-sm btn-primary"
+                              onClick={() => updateTicketStatus(ticket._id, "Returned")}
+                              disabled={ticket.status !== "Approved"}
                             >
-                              <FiDollarSign /> Quyết toán cọc
+                              <FiRefreshCw /> Đã trả
                             </button>
-                          )}
-                          {ticket.depositStatus === "forfeited" && ticket.fineAmount > 0 && (
                             <button
-                              className="btn btn-sm btn-info"
-                              onClick={() => handleTicketAction(ticket._id, "settle_outstanding_fine", "cash")}
-                            >
-                              <FiDollarSign /> Thanh toán phạt còn lại
-                            </button>
-                          )}
-                          {["pending", "awaiting_payment"].includes(ticket.status) && (
-                            <button
+                              type="button"
                               className="btn btn-sm btn-outline-danger"
-                              onClick={() => handleTicketAction(ticket._id, "cancel")}
+                              onClick={() => updateTicketStatus(ticket._id, "Rejected")}
+                              disabled={ticket.status !== "Pending"}
                             >
-                              <FiX /> Hủy
+                              <FiX /> Từ chối
                             </button>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </>
           )}
