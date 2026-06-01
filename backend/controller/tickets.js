@@ -30,6 +30,21 @@ const VALID_TICKET_ACTIONS = new Set([
   "cancel",
 ]);
 
+function normalizeEnumValue(value) {
+  if (value === null || value === undefined) {
+    return value;
+  }
+  return String(value).trim().toLowerCase();
+}
+
+function normalizeTicketStatus(value) {
+  const normalized = normalizeEnumValue(value);
+  if (normalized === "rejected") {
+    return "cancelled";
+  }
+  return normalized;
+}
+
 function normalizePaymentMethod(method) {
   if (!method) {
     return "cash";
@@ -86,6 +101,8 @@ async function fetchTicketBundle(connection, whereClause = "", params = []) {
       t.shipping_fee,
       t.shipping_status,
       t.shipping_address,
+      t.shipping_phone,
+      t.payment_method,
       t.fine_amount,
       t.approved_by,
       t.approved_at,
@@ -174,6 +191,7 @@ ticketController.createTicket = async (req, res) => {
       payment_method: paymentMethod,
       receive_method: receiveMethod,
       shipping_address: shippingAddress,
+      shipping_phone: shippingPhone,
     } = req.body;
 
     if (!Array.isArray(books) || books.length === 0) {
@@ -182,7 +200,11 @@ ticketController.createTicket = async (req, res) => {
 
     const uniqueBookIds = [...new Set(books.map((bookId) => Number(bookId)))].filter((bookId) => Number.isInteger(bookId));
     if (uniqueBookIds.length === 0) {
-      return res.status(400).json({ error: true, message: "Books list is required" });
+      return res.status(400).json({ error: true, message: "Danh sách sách không hợp lệ." });
+    }
+
+    if (uniqueBookIds.length > 1) {
+      return res.status(400).json({ error: true, message: "Mỗi phiếu mượn chỉ được phép chứa tối đa 1 cuốn sách. Vui lòng gửi yêu cầu từng cuốn một." });
     }
 
     const normalizedPaymentMethod = normalizePaymentMethod(paymentMethod);
@@ -203,6 +225,10 @@ ticketController.createTicket = async (req, res) => {
 
     if (normalizedReceiveMethod === "delivery" && (!shippingAddress || !String(shippingAddress).trim())) {
       return res.status(400).json({ error: true, message: "Shipping address is required" });
+    }
+
+    if (normalizedReceiveMethod === "delivery" && (!shippingPhone || !String(shippingPhone).trim())) {
+      return res.status(400).json({ error: true, message: "Shipping phone is required" });
     }
 
     const placeholders = uniqueBookIds.map(() => "?").join(",");
@@ -231,18 +257,22 @@ ticketController.createTicket = async (req, res) => {
            status,
            deposit_amount,
            deposit_status,
+           payment_method,
            shipping_fee,
            shipping_status,
            shipping_address,
+           shipping_phone,
            fine_amount
          )
-         VALUES (?, 'awaiting_payment', ?, 'pending', ?, ?, ?, 0)`,
+         VALUES (?, 'pending', ?, 'pending', ?, ?, ?, ?, ?, 0)`,
         [
           userId,
           depositAmount,
+          normalizedPaymentMethod,
           shippingFee,
           normalizedReceiveMethod === "delivery" ? "pending" : "none",
           normalizedReceiveMethod === "delivery" ? String(shippingAddress).trim() : null,
+          normalizedReceiveMethod === "delivery" ? String(shippingPhone).trim() : null,
         ]
       );
 
@@ -393,9 +423,9 @@ ticketController.updateTicketStatus = async (req, res) => {
          FROM borrow_tickets WHERE id = ? LIMIT 1`,
         [id]
       ))[0];
-      const currentStatus = rawTicketRows[0]?.status || ticket.status;
-      const currentDepositStatus = rawTicketRows[0]?.deposit_status || ticket.depositStatus;
-      const currentShippingStatus = rawTicketRows[0]?.shipping_status || ticket.shippingStatus;
+      const currentStatus = normalizeTicketStatus(rawTicketRows[0]?.status || ticket.status);
+      const currentDepositStatus = normalizeEnumValue(rawTicketRows[0]?.deposit_status || ticket.depositStatus);
+      const currentShippingStatus = normalizeEnumValue(rawTicketRows[0]?.shipping_status || ticket.shippingStatus);
 
       if (nextAction === "confirm_cash") {
         if (currentDepositStatus !== "pending") {
@@ -416,16 +446,13 @@ ticketController.updateTicketStatus = async (req, res) => {
 
         await connection.query(
           `UPDATE borrow_tickets
-           SET status = 'paid', deposit_status = 'held', due_date = ?, updated_at = NOW()
+           SET deposit_status = 'held', updated_at = NOW()
            WHERE id = ?`,
-          [getDueDate(), id]
+          [id]
         );
       }
 
       if (nextAction === "approve") {
-        if (currentStatus !== "paid") {
-          throw new Error("Only paid tickets can be approved");
-        }
 
         const unavailableBooks = ticket.books.filter((book) => (book.availableCopies || 0) < 1);
         if (unavailableBooks.length > 0) {
@@ -446,9 +473,9 @@ ticketController.updateTicketStatus = async (req, res) => {
 
         await connection.query(
           `UPDATE borrow_tickets
-           SET status = 'approved', approved_by = ?, approved_at = NOW()
+           SET status = 'approved', due_date = ?, approved_by = ?, approved_at = NOW()
            WHERE id = ?`,
-          [req.userInfo.id, id]
+          [getDueDate(), req.userInfo.id, id]
         );
       }
 
@@ -619,8 +646,8 @@ ticketController.updateTicketStatus = async (req, res) => {
       }
 
       if (nextAction === "cancel") {
-        if (!['pending', 'awaiting_payment'].includes(currentStatus)) {
-          throw new Error("Only pending tickets can be cancelled");
+        if (!['pending', 'awaiting_payment', 'paid'].includes(currentStatus)) {
+          throw new Error("Only pending or paid tickets can be cancelled");
         }
 
         const [pendingTransactions] = await connection.query(
@@ -634,12 +661,40 @@ ticketController.updateTicketStatus = async (req, res) => {
           await updateTransactionStatus(connection, transaction.id, "failed");
         }
 
-        await connection.query(
-          `UPDATE borrow_tickets
-           SET status = 'cancelled', deposit_status = 'none'
-           WHERE id = ?`,
-          [id]
-        );
+        if (currentDepositStatus === "held") {
+          const [depositRows] = await connection.query(
+            `SELECT amount, method, vnpay_txn_ref FROM transactions
+             WHERE ticket_id = ? AND type = 'deposit' AND status = 'completed'
+             LIMIT 1`,
+            [id]
+          );
+
+          if (depositRows.length > 0) {
+            await createTransaction(connection, {
+              ticketId: id,
+              userId: ticket.userId?._id || ticket.userId,
+              type: "deposit",
+              method: depositRows[0].method,
+              amount: -Number(depositRows[0].amount),
+              status: "refunded",
+              vnpayTxnRef: depositRows[0].vnpay_txn_ref,
+            });
+          }
+
+          await connection.query(
+            `UPDATE borrow_tickets
+             SET status = 'cancelled', deposit_status = 'refunded'
+             WHERE id = ?`,
+            [id]
+          );
+        } else {
+          await connection.query(
+            `UPDATE borrow_tickets
+             SET status = 'cancelled', deposit_status = 'none'
+             WHERE id = ?`,
+            [id]
+          );
+        }
       }
 
       return fetchSingleTicket(connection, id);
@@ -656,6 +711,7 @@ ticketController.updateTicketStatus = async (req, res) => {
       ticket: updatedTicket,
     });
   } catch (error) {
+    console.error("updateTicketStatus error:", error);
     const message = error.statusCode === 400 ? error.message : "Internal Server Error";
     res.status(error.statusCode || 500).json({
       error: true,
@@ -698,11 +754,14 @@ ticketController.vnpayReturn = async (req, res) => {
     }
 
     const isSuccess = params.vnp_ResponseCode === "00" && params.vnp_TransactionStatus === "00";
-    res.status(200).json({
-      error: !isSuccess,
-      message: isSuccess ? "Payment successful" : "Payment failed",
-      data: params,
-    });
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    
+    const vnpTxnRef = params.vnp_TxnRef || "";
+    const ticketIdMatch = vnpTxnRef.match(/^BT(\d+)-/);
+    const ticketId = ticketIdMatch ? ticketIdMatch[1] : "";
+    const amount = params.vnp_Amount ? Number(params.vnp_Amount) / 100 : 0;
+    
+    res.redirect(`${frontendUrl}/payment-result?status=${isSuccess ? 'success' : 'failed'}&method=vnpay&ticketId=${ticketId}&amount=${amount}`);
   } catch (error) {
     res.status(500).json({ error: true, message: "Internal Server Error", details: error.message });
   }
@@ -742,9 +801,9 @@ ticketController.vnpayIpn = async (req, res) => {
       if (isSuccess) {
         await connection.query(
           `UPDATE borrow_tickets
-           SET status = 'paid', deposit_status = 'held', due_date = ?, updated_at = NOW()
+           SET deposit_status = 'held', updated_at = NOW()
            WHERE id = ?`,
-          [getDueDate(), ticketId]
+          [ticketId]
         );
       }
     });

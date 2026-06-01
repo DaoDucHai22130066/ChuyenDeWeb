@@ -86,6 +86,7 @@ CREATE TABLE borrow_tickets (
   return_date TIMESTAMP NULL DEFAULT NULL,
   deposit_amount  DECIMAL(10,2) NOT NULL DEFAULT 0,
   deposit_status  ENUM('none','pending','held','refunded','forfeited') NOT NULL DEFAULT 'none',
+  payment_method  ENUM('cash','vnpay') NOT NULL DEFAULT 'cash',
   shipping_fee    DECIMAL(10,2) NOT NULL DEFAULT 0,
   shipping_status ENUM('none','pending','dispatched','delivered','returned') NOT NULL DEFAULT 'none',
   shipping_address VARCHAR(255) NULL,

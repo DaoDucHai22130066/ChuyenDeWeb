@@ -17,6 +17,7 @@ export default function CartPage() {
   const [receiveMethod, setReceiveMethod] = useState("pickup");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [shippingAddress, setShippingAddress] = useState("");
+  const [shippingPhone, setShippingPhone] = useState("");
   const navigate = useNavigate();
 
   const depositEstimate = estimateDeposit(cartItems);
@@ -48,6 +49,11 @@ export default function CartPage() {
       return;
     }
 
+    if (receiveMethod === "delivery" && !shippingPhone.trim()) {
+      showErrorToast("Vui lòng nhập số điện thoại người nhận.");
+      return;
+    }
+
     try {
       setSendingBookId(book._id);
       setIsSubmitting(true);
@@ -58,6 +64,7 @@ export default function CartPage() {
           payment_method: paymentMethod,
           receive_method: receiveMethod,
           shipping_address: receiveMethod === "delivery" ? shippingAddress.trim() : null,
+          shipping_phone: receiveMethod === "delivery" ? shippingPhone.trim() : null,
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -72,6 +79,10 @@ export default function CartPage() {
 
       if (paymentMethod === "vnpay" && response.data.paymentUrl) {
         window.location.href = response.data.paymentUrl;
+      } else {
+        const ticketId = response.data.ticket?.id || "";
+        const amount = response.data.amounts?.totalAmount || 0;
+        navigate(`/payment-result?status=success&method=cash&ticketId=${ticketId}&amount=${amount}`);
       }
     } catch (error) {
       showErrorToast(error.response?.data?.message || "Không gửi được yêu cầu mượn sách.");
@@ -168,13 +179,23 @@ export default function CartPage() {
                 Giao tận nơi
               </label>
               {receiveMethod === "delivery" && (
-                <input
-                  type="text"
-                  className="cart-input"
-                  placeholder="Địa chỉ nhận sách"
-                  value={shippingAddress}
-                  onChange={(e) => setShippingAddress(e.target.value)}
-                />
+                <>
+                  <input
+                    type="text"
+                    className="cart-input"
+                    placeholder="Địa chỉ nhận sách"
+                    value={shippingAddress}
+                    onChange={(e) => setShippingAddress(e.target.value)}
+                  />
+                  <input
+                    type="text"
+                    className="cart-input mt-2"
+                    placeholder="Số điện thoại nhận sách"
+                    value={shippingPhone}
+                    onChange={(e) => setShippingPhone(e.target.value)}
+                    style={{ marginTop: '10px' }}
+                  />
+                </>
               )}
             </div>
 

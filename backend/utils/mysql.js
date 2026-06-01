@@ -45,6 +45,7 @@ async function createSchema(connection) {
       role ENUM('admin', 'user') NOT NULL DEFAULT 'user',
       stream VARCHAR(255) NULL,
       year INT NULL,
+      phone VARCHAR(20) NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
@@ -105,9 +106,11 @@ async function createSchema(connection) {
       return_date TIMESTAMP NULL DEFAULT NULL,
       deposit_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
       deposit_status ENUM('none', 'pending', 'held', 'refunded', 'forfeited') NOT NULL DEFAULT 'none',
+      payment_method ENUM('cash', 'vnpay') NOT NULL DEFAULT 'cash',
       shipping_fee DECIMAL(10,2) NOT NULL DEFAULT 0,
       shipping_status ENUM('none', 'pending', 'dispatched', 'delivered', 'returned') NOT NULL DEFAULT 'none',
       shipping_address VARCHAR(255) NULL,
+      shipping_phone VARCHAR(20) NULL,
       fine_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
       approved_by INT UNSIGNED NULL,
       approved_at TIMESTAMP NULL DEFAULT NULL,
@@ -166,12 +169,15 @@ async function addColumnIfMissing(connection, tableName, columnName, definition)
 
 async function ensureBorrowTicketSchema(connection) {
   // Add missing columns (won't fail if they exist)
+  await addColumnIfMissing(connection, "users", "phone", "phone VARCHAR(20) NULL");
   await addColumnIfMissing(connection, "borrow_tickets", "due_date", "due_date DATETIME NULL DEFAULT NULL");
   await addColumnIfMissing(connection, "borrow_tickets", "deposit_amount", "deposit_amount DECIMAL(10,2) NOT NULL DEFAULT 0");
   await addColumnIfMissing(connection, "borrow_tickets", "deposit_status", "deposit_status ENUM('none', 'pending', 'held', 'refunded', 'forfeited') NOT NULL DEFAULT 'none'");
+  await addColumnIfMissing(connection, "borrow_tickets", "payment_method", "payment_method ENUM('cash', 'vnpay') NOT NULL DEFAULT 'cash'");
   await addColumnIfMissing(connection, "borrow_tickets", "shipping_fee", "shipping_fee DECIMAL(10,2) NOT NULL DEFAULT 0");
   await addColumnIfMissing(connection, "borrow_tickets", "shipping_status", "shipping_status ENUM('none', 'pending', 'dispatched', 'delivered', 'returned') NOT NULL DEFAULT 'none'");
   await addColumnIfMissing(connection, "borrow_tickets", "shipping_address", "shipping_address VARCHAR(255) NULL");
+  await addColumnIfMissing(connection, "borrow_tickets", "shipping_phone", "shipping_phone VARCHAR(20) NULL");
   await addColumnIfMissing(connection, "borrow_tickets", "fine_amount", "fine_amount DECIMAL(10,2) NOT NULL DEFAULT 0");
 
   // Safely migrate old status values to new format
@@ -337,6 +343,7 @@ function mapUserRow(row, includePassword = false) {
     role: row.role,
     stream: row.stream,
     year: row.year,
+    phone: row.phone,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -391,6 +398,22 @@ function mapBookRow(row) {
   };
 }
 
+function normalizeEnumValue(value) {
+  if (value === null || value === undefined) {
+    return value;
+  }
+
+  return String(value).trim().toLowerCase();
+}
+
+function normalizeTicketStatus(value) {
+  const normalized = normalizeEnumValue(value);
+  if (normalized === "rejected") {
+    return "cancelled";
+  }
+  return normalized;
+}
+
 function mapTicketRow(row) {
   return {
     _id: row.id,
@@ -401,15 +424,17 @@ function mapTicketRow(row) {
       role: row.user_role,
     },
     books: [],
-    status: row.status,
+    status: normalizeTicketStatus(row.status),
     borrowDate: row.borrow_date,
     dueDate: row.due_date,
     returnDate: row.return_date,
     depositAmount: row.deposit_amount === null || row.deposit_amount === undefined ? 0 : Number(row.deposit_amount),
-    depositStatus: row.deposit_status,
+    depositStatus: normalizeEnumValue(row.deposit_status),
     shippingFee: row.shipping_fee === null || row.shipping_fee === undefined ? 0 : Number(row.shipping_fee),
-    shippingStatus: row.shipping_status,
+    shippingStatus: normalizeEnumValue(row.shipping_status),
     shippingAddress: row.shipping_address,
+    shippingPhone: row.shipping_phone,
+    paymentMethod: normalizeEnumValue(row.payment_method),
     fineAmount: row.fine_amount === null || row.fine_amount === undefined ? 0 : Number(row.fine_amount),
     approvedBy: row.approved_by
       ? {
@@ -430,10 +455,10 @@ function mapTransactionRow(row) {
     _id: row.id,
     ticketId: row.ticket_id,
     userId: row.user_id,
-    type: row.type,
-    method: row.method,
+    type: normalizeEnumValue(row.type),
+    method: normalizeEnumValue(row.method),
     amount: row.amount === null || row.amount === undefined ? 0 : Number(row.amount),
-    status: row.status,
+    status: normalizeEnumValue(row.status),
     vnpayTxnRef: row.vnpay_txn_ref,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

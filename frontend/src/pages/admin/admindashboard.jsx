@@ -64,6 +64,15 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
 
   const formatCurrency = (value) => new Intl.NumberFormat("vi-VN").format(value) + " đ";
 
+  const canConfirmCash = (ticket) =>
+    ticket.status === "pending" &&
+    ticket.depositStatus === "pending" &&
+    ticket.paymentMethod === "cash";
+
+  const canApproveTicket = (ticket) =>
+    ticket.status === "pending" &&
+    ticket.depositStatus === "held";
+
   const fetchUsers = async () => {
     try {
       const result = await axios.get(`${Server_URL}users`);
@@ -365,15 +374,24 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                         </div>
 
                         <div className="ticket-actions">
-                          {ticket.status === "awaiting_payment" && (
+                          {canConfirmCash(ticket) && (
                             <button
                               className="btn btn-sm btn-success"
                               onClick={() => handleTicketAction(ticket._id, "confirm_cash", "cash")}
                             >
-                              <FiCheck /> Xác nhận đã thu tiền
+                              <FiCheck /> Thu tiền mặt
                             </button>
                           )}
-                          {ticket.status === "paid" && (
+
+                          {ticket.status === "pending" &&
+                            ticket.depositStatus === "pending" &&
+                            ticket.paymentMethod === "vnpay" && (
+                              <div className="admin-alert admin-alert-info">
+                                <FiDollarSign /> Chờ thanh toán VNPAY
+                              </div>
+                            )}
+
+                          {canApproveTicket(ticket) && (
                             <button
                               className="btn btn-sm btn-success"
                               onClick={() => handleTicketAction(ticket._id, "approve")}
@@ -381,6 +399,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                               <FiCheck /> Phê duyệt
                             </button>
                           )}
+
                           {ticket.status === "approved" && (
                             <>
                               {ticket.shippingStatus === "none" && (

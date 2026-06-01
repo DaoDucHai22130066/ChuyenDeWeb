@@ -1,5 +1,5 @@
 .library-footer {
-  background-color: var(--dfb-primary-dark, #1b4332);
+  background-color: #3498db;
   color: #ecf0f1;
   padding: 60px 0 0;
   font-family: var(--dfb-font, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif);
@@ -11,8 +11,8 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at top right, rgba(212, 163, 115, 0.16), transparent 30%),
-              radial-gradient(circle at bottom left, rgba(64, 145, 108, 0.18), transparent 24%);
+  background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.18), transparent 30%),
+              radial-gradient(circle at bottom left, rgba(52, 152, 219, 0.18), transparent 24%);
   pointer-events: none;
 }
 

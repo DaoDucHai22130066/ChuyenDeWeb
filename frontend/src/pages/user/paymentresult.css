@@ -1,0 +1,144 @@
+.payment-result-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 60vh;
+  padding: 40px 20px;
+}
+
+.result-card {
+  background: white;
+  border-radius: 16px;
+  padding: 40px;
+  text-align: center;
+  max-width: 500px;
+  width: 100%;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  border: 1px solid #f0f0f0;
+}
+
+.result-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.result-icon svg {
+  width: 40px;
+  height: 40px;
+}
+
+.result-card.success .result-icon {
+  background-color: #10b981; /* green */
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+}
+
+.result-card.error .result-icon {
+  background-color: #ef4444; /* red */
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+}
+
+.result-card.info .result-icon {
+  background-color: #3b82f6; /* blue */
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+}
+
+.spin {
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.result-card h2 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 12px;
+}
+
+.result-card p {
+  color: #6b7280;
+  font-size: 16px;
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+
+.transaction-details {
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 32px;
+  text-align: left;
+  border: 1px solid #f3f4f6;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px dashed #e5e7eb;
+  font-size: 15px;
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.detail-row span {
+  color: #6b7280;
+}
+
+.detail-row strong {
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.detail-row.total-row {
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+  border-bottom: none;
+  font-size: 18px;
+}
+
+.detail-row.total-row strong {
+  color: #10b981; /* primary green or theme color */
+  font-size: 20px;
+}
+
+.result-actions {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+}
+
+.result-actions button {
+  padding: 12px 24px;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.result-actions .btn-dfb-primary {
+  flex: 1;
+}
+
+.result-actions .btn-dfb-outline {
+  flex: 1;
+}
+
+@media (max-width: 600px) {
+  .result-actions {
+    flex-direction: column;
+  }
+}
