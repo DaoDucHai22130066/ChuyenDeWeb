@@ -9,7 +9,7 @@
   align-items: center;
   padding: 1.5rem;
   border-radius: var(--dfb-radius);
-  background: linear-gradient(135deg, rgba(45, 106, 79, 0.08), rgba(212, 163, 115, 0.1));
+  background: linear-gradient(135deg, rgba(47, 85, 185, 0.08), rgba(249, 115, 22, 0.08));
   border: 1px solid var(--dfb-border);
   margin-bottom: 1.5rem;
 }
@@ -123,8 +123,8 @@
   margin: 1rem 0 0.25rem;
   padding: 1rem;
   border-radius: 16px;
-  background: rgba(45, 106, 79, 0.06);
-  border: 1px solid rgba(45, 106, 79, 0.12);
+  background: rgba(47, 85, 185, 0.06);
+  border: 1px solid rgba(47, 85, 185, 0.12);
 }
 
 .cart-policy-box h3 {
@@ -172,8 +172,8 @@
   margin: 1rem 0;
   padding: 1rem;
   border-radius: 12px;
-  background: rgba(45, 106, 79, 0.03);
-  border: 1px solid rgba(45, 106, 79, 0.08);
+  background: rgba(59, 130, 246, 0.05);
+  border: 1px solid rgba(59, 130, 246, 0.12);
 }
 
 .cart-form-section h3 {
@@ -216,14 +216,14 @@
 .cart-input:focus {
   outline: none;
   border-color: var(--dfb-primary);
-  box-shadow: 0 0 0 3px rgba(45, 106, 79, 0.1);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }
 
 .cart-summary-box {
   margin: 1rem 0;
   padding: 1rem;
   border-radius: 12px;
-  background: linear-gradient(135deg, rgba(212, 163, 115, 0.05), rgba(45, 106, 79, 0.05));
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.05), rgba(59, 130, 246, 0.05));
   border: 1px solid var(--dfb-border);
 }
 
@@ -234,7 +234,7 @@
   padding: 0.6rem 0;
   font-size: 0.9rem;
   color: var(--dfb-text);
-  border-bottom: 1px solid rgba(45, 106, 79, 0.1);
+  border-bottom: 1px solid rgba(47, 85, 185, 0.1);
 }
 
 .summary-row:last-child {

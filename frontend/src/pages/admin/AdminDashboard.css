@@ -11,7 +11,7 @@
   min-height: 100vh;
   position: sticky;
   top: 0;
-  box-shadow: 6px 0 24px rgba(27, 67, 50, 0.08);
+  box-shadow: 6px 0 24px rgba(59, 130, 246, 0.08);
   border-right: 1px solid rgba(224, 216, 204, 0.8);
   transition: var(--dfb-transition);
   display: flex;
@@ -25,7 +25,7 @@
   font-size: 1.3rem;
   font-weight: 800;
   padding: 1rem 0.85rem;
-  border: 1px solid rgba(45, 106, 79, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.12);
   background: rgba(255, 255, 255, 0.75);
   border-radius: 18px;
   position: relative;
@@ -91,7 +91,7 @@
 }
 
 .admin-nav-btn.active {
-  background: linear-gradient(135deg, rgba(45, 106, 79, 0.12), rgba(212, 163, 115, 0.12));
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(249, 115, 22, 0.12));
   color: var(--dfb-primary-dark);
   font-weight: 600;
   box-shadow: inset 4px 0 0 var(--dfb-primary);
@@ -159,17 +159,17 @@
 }
 
 .stat-card.books .stat-icon-wrapper {
-  background-color: rgba(45, 106, 79, 0.1);
+  background-color: rgba(59, 130, 246, 0.12);
   color: var(--dfb-primary);
 }
 
 .stat-card.users .stat-icon-wrapper {
-  background-color: rgba(212, 163, 115, 0.15);
+  background-color: rgba(249, 115, 22, 0.15);
   color: var(--dfb-accent-dark);
 }
 
 .stat-card.borrowed .stat-icon-wrapper {
-  background-color: rgba(27, 67, 50, 0.12);
+  background-color: rgba(59, 130, 246, 0.08);
   color: var(--dfb-primary-dark);
 }
 
@@ -289,11 +289,11 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  box-shadow: 0 10px 18px rgba(45, 106, 79, 0.14);
+  box-shadow: 0 10px 18px rgba(59, 130, 246, 0.14);
 }
 
 .btn-success:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--dfb-primary-dark) 0%, #10261d 100%) !important;
+  background: linear-gradient(135deg, var(--dfb-primary-dark) 0%, var(--dfb-primary) 100%) !important;
   transform: translateY(-1px);
 }
 
@@ -348,7 +348,7 @@
     min-height: 0;
     position: static;
     padding: 1.5rem;
-    box-shadow: 0 4px 15px rgba(27, 67, 50, 0.1);
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.08);
   }
   
   .admin-main {
@@ -472,7 +472,7 @@
   align-items: center;
   padding: 0.5rem 0;
   font-size: 0.9rem;
-  border-bottom: 1px solid rgba(45, 106, 79, 0.08);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.12);
 }
 
 .detail-row:last-child {
@@ -523,9 +523,9 @@
   gap: 1rem;
   align-items: center;
   padding: 0.75rem;
-  background: rgba(45, 106, 79, 0.03);
+  background: rgba(59, 130, 246, 0.03);
   border-radius: 6px;
-  border: 1px solid rgba(45, 106, 79, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.08);
   font-size: 0.9rem;
 }
 

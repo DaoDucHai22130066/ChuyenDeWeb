@@ -1,8 +1,3 @@
--- ============================================================
---  Hệ thống Quản lý Thư viện -- MySQL Schema & Dữ liệu mẫu
---  Nhập file này vào MySQL Workbench 8.0 CE hoặc chạy từ CLI.
--- ============================================================
-
 CREATE DATABASE IF NOT EXISTS library_db
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
@@ -11,6 +6,8 @@ USE library_db;
 
 SET FOREIGN_KEY_CHECKS = 0;
 
+DROP TABLE IF EXISTS cart_items;
+DROP TABLE IF EXISTS carts;
 DROP TABLE IF EXISTS borrow_ticket_books;
 DROP TABLE IF EXISTS transactions;
 DROP TABLE IF EXISTS borrow_tickets;
@@ -33,6 +30,7 @@ CREATE TABLE users (
   role         ENUM('admin','user') NOT NULL DEFAULT 'user',
   stream       VARCHAR(255) NULL,
   year         INT NULL,
+  phone        VARCHAR(20) NULL,
   created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -90,6 +88,7 @@ CREATE TABLE borrow_tickets (
   shipping_fee    DECIMAL(10,2) NOT NULL DEFAULT 0,
   shipping_status ENUM('none','pending','dispatched','delivered','returned') NOT NULL DEFAULT 'none',
   shipping_address VARCHAR(255) NULL,
+  shipping_phone  VARCHAR(20) NULL,
   fine_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
   approved_by INT UNSIGNED NULL,
   approved_at TIMESTAMP NULL DEFAULT NULL,
@@ -130,6 +129,28 @@ CREATE TABLE transactions (
   INDEX idx_transactions_status (status),
   CONSTRAINT fk_transactions_ticket FOREIGN KEY (ticket_id) REFERENCES borrow_tickets(id) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT fk_transactions_user   FOREIGN KEY (user_id)   REFERENCES users(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+--  BẢNG carts
+-- ============================================================
+CREATE TABLE carts (
+  id         INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  user_id    INT UNSIGNED NOT NULL UNIQUE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_carts_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+--  BẢNG cart_items
+-- ============================================================
+CREATE TABLE cart_items (
+  cart_id    INT UNSIGNED NOT NULL,
+  book_id    INT UNSIGNED NOT NULL,
+  PRIMARY KEY (cart_id, book_id),
+  CONSTRAINT fk_cart_items_cart FOREIGN KEY (cart_id) REFERENCES carts(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_cart_items_book FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
@@ -190,6 +211,9 @@ INSERT INTO categories (id, name) VALUES
 
 -- ============================================================
 --  DỮ LIỆU MẪU -- books  (30 cuốn)
+--  cover_image: Open Library cover theo ISBN
+--    URL gốc:  https://covers.openlibrary.org/b/isbn/{ISBN}-L.jpg
+--    Hiển thị đúng bìa sách thật, công khai, không cần auth
 -- ============================================================
 INSERT INTO books (
   id, title, author, category, category_id, isbn, description,
@@ -204,7 +228,7 @@ INSERT INTO books (
      '9780132350884',
      'Cuốn sách kinh điển hướng dẫn cách viết code sạch, dễ đọc và dễ bảo trì, phù hợp cho mọi lập trình viên.',
      4, 5, 1,
-     'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9780132350884-L.jpg',
      'seed-clean-code', 159000, 'dai-la', 28),
 
 (2,  'The Pragmatic Programmer',
@@ -213,7 +237,7 @@ INSERT INTO books (
      '9780201616224',
      'Cẩm nang thực tiễn dành cho lập trình viên muốn nâng cao kỹ năng nghề nghiệp và tư duy giải quyết vấn đề.',
      3, 4, 1,
-     'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9780201616224-L.jpg',
      'seed-pragmatic-programmer', 189000, 'cau-giay', 19),
 
 (3,  'Học Python qua dự án thực tế',
@@ -222,7 +246,7 @@ INSERT INTO books (
      '9781593279288',
      'Hướng dẫn từng bước học lập trình Python thông qua các dự án thực tế như game, trực quan hoá dữ liệu và ứng dụng web.',
      5, 6, 1,
-     'https://images.unsplash.com/photo-1526379879527-8559ecfcaec0?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9781593279288-L.jpg',
      'seed-python-crash-course', 169000, 'dai-la', 35),
 
 (4,  'Thiết kế cơ sở dữ liệu quan hệ',
@@ -231,7 +255,7 @@ INSERT INTO books (
      '9780321774514',
      'Trình bày các nguyên tắc nền tảng về mô hình quan hệ, thiết kế lược đồ và tối ưu hoá truy vấn SQL.',
      2, 3, 11,
-     'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9780321774514-L.jpg',
      'seed-db-design', 145000, 'cau-giay', 11),
 
 (5,  'Kiến trúc microservices thực chiến',
@@ -240,7 +264,7 @@ INSERT INTO books (
      '9781491950357',
      'Hướng dẫn xây dựng hệ thống phân tán theo kiến trúc microservices, từ thiết kế đến triển khai và vận hành.',
      2, 2, 11,
-     'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9781491950357-L.jpg',
      'seed-microservices', 210000, 'dai-la', 9),
 
 -- ── Văn học ──────────────────────────────────────────────
@@ -250,7 +274,7 @@ INSERT INTO books (
      '9780062315007',
      'Tác phẩm truyền cảm hứng về hành trình tìm kiếm ước mơ và ý nghĩa cuộc sống của cậu bé chăn cừu Santiago.',
      3, 3, 2,
-     'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9780062315007-L.jpg',
      'seed-nha-gia-kim', 99000, 'dai-la', 22),
 
 (7,  'Tôi thấy hoa vàng trên cỏ xanh',
@@ -259,7 +283,7 @@ INSERT INTO books (
      '9786042124027',
      'Câu chuyện tuổi thơ đầy tình cảm về tình anh em, tình bạn và ký ức làng quê Việt Nam những năm 1980.',
      5, 5, 2,
-     'https://images.unsplash.com/photo-1476275466078-4cdc8f861a84?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9786042124027-L.jpg',
      'seed-hoa-vang', 89000, 'cau-giay', 30),
 
 (8,  'Số Đỏ',
@@ -268,7 +292,7 @@ INSERT INTO books (
      '9786042072823',
      'Tiểu thuyết trào phúng bậc nhất Việt Nam, phơi bày sự hài hước và chua cay của xã hội thành thị thời Pháp thuộc.',
      4, 4, 2,
-     'https://images.unsplash.com/photo-1534965568360-994fd6abb5f7?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9786042072823-L.jpg',
      'seed-so-do', 75000, 'dai-la', 17),
 
 (9,  'Truyện Kiều',
@@ -277,7 +301,7 @@ INSERT INTO books (
      '9786046895480',
      'Kiệt tác thơ Nôm của nền văn học cổ điển Việt Nam, kể cuộc đời đầy bi kịch và nghị lực của nàng Kiều.',
      3, 4, 2,
-     'https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9786046895480-L.jpg',
      'seed-truyen-kieu', 65000, 'cau-giay', 14),
 
 (10, 'Mắt Biếc',
@@ -286,7 +310,7 @@ INSERT INTO books (
      '9786042128223',
      'Câu chuyện tình yêu trong sáng và buồn thương giữa Ngạn và Hà Lan, gắn liền với làng quê đẹp đẽ nhưng cách trở.',
      4, 5, 2,
-     'https://images.unsplash.com/photo-1495640388908-05fa85288e61?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9786042128223-L.jpg',
      'seed-mat-biec', 89000, 'dai-la', 25),
 
 -- ── Khoa học tự nhiên ────────────────────────────────────
@@ -296,7 +320,7 @@ INSERT INTO books (
      '9780553380163',
      'Trình bày dễ hiểu về vũ trụ, thời gian, lỗ đen và các khái niệm vật lý hiện đại dành cho đại chúng.',
      2, 2, 1,
-     'https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9780553380163-L.jpg',
      'seed-brief-history-of-time', 199000, 'cau-giay', 16),
 
 (12, 'Vũ trụ trong vỏ hạt dẻ',
@@ -305,7 +329,7 @@ INSERT INTO books (
      '9780553802023',
      'Phần tiếp nối của Lược sử thời gian, khám phá các chiều không gian bổ sung và thuyết tương đối hẹp.',
      2, 3, 1,
-     'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9780553802023-L.jpg',
      'seed-universe-nutshell', 210000, 'dai-la', 8),
 
 (13, 'Sapiens: Lược sử loài người',
@@ -314,7 +338,7 @@ INSERT INTO books (
      '9780062316097',
      'Khảo cứu toàn diện về sự tiến hoá, lịch sử và tương lai của loài Homo sapiens từ thời tiền sử đến hiện đại.',
      4, 5, 11,
-     'https://images.unsplash.com/photo-1512486130939-2c4f79935e4f?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9780062316097-L.jpg',
      'seed-sapiens', 239000, 'cau-giay', 41),
 
 (14, 'Vật lý vui',
@@ -323,7 +347,7 @@ INSERT INTO books (
      '9785447461942',
      'Tập hợp các bài toán và hiện tượng vật lý thú vị được giải thích bằng ngôn ngữ phổ thông, kích thích tư duy.',
      3, 4, 11,
-     'https://images.unsplash.com/photo-1636466497217-26a8cbeaf0aa?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9785447461942-L.jpg',
      'seed-vat-ly-vui', 85000, 'dai-la', 12),
 
 -- ── Kỹ năng sống ─────────────────────────────────────────
@@ -333,7 +357,7 @@ INSERT INTO books (
      '9780735211292',
      'Hệ thống xây dựng thói quen tốt và loại bỏ thói quen xấu theo từng bước nhỏ, được chứng minh bởi khoa học.',
      6, 6, 1,
-     'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9780735211292-L.jpg',
      'seed-atomic-habits', 179000, 'cau-giay', 38),
 
 (16, 'Đắc nhân tâm',
@@ -342,7 +366,7 @@ INSERT INTO books (
      '9780671027032',
      'Cuốn sách kinh điển về nghệ thuật giao tiếp và tạo ảnh hưởng, đã bán hơn 30 triệu bản trên toàn thế giới.',
      5, 7, 2,
-     'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9780671027032-L.jpg',
      'seed-dac-nhan-tam', 119000, 'dai-la', 52),
 
 (17, 'Người bán hàng vĩ đại nhất thế giới',
@@ -351,7 +375,7 @@ INSERT INTO books (
      '9780553277579',
      'Mười cuộn giấy cói chứa đựng bí quyết thành công trong cuộc sống và sự nghiệp bán hàng.',
      3, 4, 1,
-     'https://images.unsplash.com/photo-1464998857633-50e59fbf2fe6?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9780553277579-L.jpg',
      'seed-nguoi-ban-hang', 99000, 'cau-giay', 21),
 
 (18, 'Bí mật của may mắn',
@@ -360,7 +384,7 @@ INSERT INTO books (
      '9788408041283',
      'Câu chuyện ngụ ngôn về hành trình tìm kiếm may mắn, khám phá rằng may mắn thực sự đến từ bên trong mỗi người.',
      2, 3, 2,
-     'https://images.unsplash.com/photo-1523374228107-6e44bd2b524e?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9788408041283-L.jpg',
      'seed-bi-mat-may-man', 89000, 'dai-la', 15),
 
 -- ── Kinh tế & Kinh doanh ─────────────────────────────────
@@ -370,7 +394,7 @@ INSERT INTO books (
      '9780307887894',
      'Phương pháp xây dựng startup theo hướng phát triển sản phẩm linh hoạt, đo lường và học hỏi liên tục.',
      4, 5, 11,
-     'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9780307887894-L.jpg',
      'seed-lean-startup', 199000, 'cau-giay', 27),
 
 (20, 'Tư duy nhanh và chậm',
@@ -379,7 +403,7 @@ INSERT INTO books (
      '9780374533557',
      'Khám phá hai hệ thống tư duy trong não người và cách chúng ảnh hưởng đến quyết định kinh tế, xã hội hàng ngày.',
      3, 4, 1,
-     'https://images.unsplash.com/photo-1553729459-efe14ef6055d?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9780374533557-L.jpg',
      'seed-thinking-fast-slow', 229000, 'dai-la', 18),
 
 (21, 'Cha giàu cha nghèo',
@@ -388,7 +412,7 @@ INSERT INTO books (
      '9781612680194',
      'So sánh quan điểm tài chính của hai người cha để chỉ ra con đường đến tự do tài chính thông qua đầu tư và kinh doanh.',
      6, 8, 2,
-     'https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9781612680194-L.jpg',
      'seed-cha-giau-cha-ngheo', 149000, 'cau-giay', 60),
 
 (22, 'Nghệ thuật tư duy phản biện',
@@ -397,7 +421,7 @@ INSERT INTO books (
      '9780131993730',
      'Hướng dẫn phát triển tư duy phản biện để đánh giá thông tin, lập luận và đưa ra quyết định sáng suốt hơn.',
      2, 3, 11,
-     'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9780131993730-L.jpg',
      'seed-tu-duy-phan-bien', 175000, 'dai-la', 14),
 
 -- ── Lịch sử & Địa lý ─────────────────────────────────────
@@ -407,7 +431,7 @@ INSERT INTO books (
      '9786041175365',
      'Bộ tranh lịch sử Việt Nam từ thời Hùng Vương đến thời hiện đại, dễ tiếp cận và hấp dẫn mọi lứa tuổi.',
      3, 3, 2,
-     'https://images.unsplash.com/photo-1577695179012-6a73bd821558?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9786041175365-L.jpg',
      'seed-lich-su-vn-tranh', 320000, 'cau-giay', 7),
 
 (24, 'Địa lý kinh tế Việt Nam',
@@ -416,7 +440,7 @@ INSERT INTO books (
      '9786048018832',
      'Giáo trình phân tích toàn diện về điều kiện tự nhiên, dân cư và các vùng kinh tế trọng điểm của Việt Nam.',
      2, 3, 11,
-     'https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9786048018832-L.jpg',
      'seed-dia-ly-kinh-te-vn', 95000, 'dai-la', 6),
 
 -- ── Triết học & Tâm lý học ───────────────────────────────
@@ -426,7 +450,7 @@ INSERT INTO books (
      '9781443456081',
      'Tập hợp các bài học về kỷ luật bản thân, mục tiêu sống và nghệ thuật tận dụng từng khoảnh khắc cuộc đời.',
      3, 5, 1,
-     'https://images.unsplash.com/photo-1499810631641-541e76d678a2?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9781443456081-L.jpg',
      'seed-doi-ngan', 139000, 'cau-giay', 23),
 
 (26, 'Dám bị ghét',
@@ -435,7 +459,7 @@ INSERT INTO books (
      '9781501156700',
      'Trình bày tư tưởng tâm lý học của Alfred Adler qua cuộc đối thoại giữa triết gia và chàng thanh niên.',
      4, 5, 2,
-     'https://images.unsplash.com/photo-1491841573634-28140fc7ced7?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9781501156700-L.jpg',
      'seed-dam-bi-ghet', 129000, 'dai-la', 32),
 
 -- ── Ngoại ngữ ────────────────────────────────────────────
@@ -445,7 +469,7 @@ INSERT INTO books (
      '9781108457651',
      'Giáo trình ngữ pháp tiếng Anh toàn diện nhất dành cho trình độ trung cấp, kèm bài tập và đáp án chi tiết.',
      5, 7, 11,
-     'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9781108457651-L.jpg',
      'seed-grammar-in-use', 249000, 'cau-giay', 45),
 
 (28, 'Tiếng Nhật Minna no Nihongo – Sơ cấp 1',
@@ -454,7 +478,7 @@ INSERT INTO books (
      '9784883190195',
      'Giáo trình tiếng Nhật phổ biến nhất thế giới dành cho người mới bắt đầu, dùng trong các trường đại học và trung tâm ngoại ngữ.',
      4, 5, 11,
-     'https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9784883190195-L.jpg',
      'seed-minna-nihongo', 180000, 'dai-la', 20),
 
 -- ── Y học & Sức khoẻ ─────────────────────────────────────
@@ -464,7 +488,7 @@ INSERT INTO books (
      '9781496347213',
      'Giáo trình giải phẫu học kinh điển được sử dụng rộng rãi trong các trường y, kết hợp hình ảnh 3D và tình huống lâm sàng.',
      2, 2, 11,
-     'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9781496347213-L.jpg',
      'seed-giai-phau-hoc', 450000, 'cau-giay', 5),
 
 -- ── Toán học ─────────────────────────────────────────────
@@ -474,7 +498,7 @@ INSERT INTO books (
      '9781305085664',
      'Giáo trình giải tích toán học toàn diện dành cho sinh viên kỹ thuật và khoa học tự nhiên với nhiều ví dụ ứng dụng thực tiễn.',
      3, 4, 1,
-     'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=900&q=80',
+     'https://covers.openlibrary.org/b/isbn/9781305085664-L.jpg',
      'seed-giai-tich-1', 280000, 'dai-la', 13);
 
 

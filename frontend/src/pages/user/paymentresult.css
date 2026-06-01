@@ -34,8 +34,8 @@
 }
 
 .result-card.success .result-icon {
-  background-color: #10b981; /* green */
-  box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+  background-color: #2d6cb0;
+  box-shadow: 0 0 20px rgba(47, 85, 185, 0.3);
 }
 
 .result-card.error .result-icon {
@@ -112,7 +112,7 @@
 }
 
 .detail-row.total-row strong {
-  color: #10b981; /* primary green or theme color */
+  color: #2d6cb0;
   font-size: 20px;
 }
 

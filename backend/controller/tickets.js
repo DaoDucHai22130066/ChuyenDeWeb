@@ -1,3 +1,4 @@
+require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 const { clearCache } = require("../utils/cache");
 const calculateFine = require("../utils/fineCalculator");
 const {
@@ -72,12 +73,32 @@ function calculateDepositAmount(bookRows) {
   }, 0);
 }
 
+function normalizeIp(ip) {
+  if (!ip) {
+    return "127.0.0.1";
+  }
+
+  if (typeof ip !== "string") {
+    return String(ip);
+  }
+
+  if (ip === "::1" || ip === "0:0:0:0:0:0:0:1") {
+    return "127.0.0.1";
+  }
+
+  if (ip.startsWith("::ffff:")) {
+    return ip.replace("::ffff:", "");
+  }
+
+  return ip;
+}
+
 function getClientIp(req) {
   const forwarded = req.headers["x-forwarded-for"];
   if (forwarded) {
-    return forwarded.split(",")[0].trim();
+    return normalizeIp(forwarded.split(",")[0].trim());
   }
-  return req.socket?.remoteAddress || "127.0.0.1";
+  return normalizeIp(req.socket?.remoteAddress || "127.0.0.1");
 }
 
 function getDueDate() {
@@ -326,7 +347,7 @@ ticketController.createTicket = async (req, res) => {
       paymentUrl = createVnpayPaymentUrl({
         amount: totalAmount,
         txnRef: paymentRef,
-        orderInfo: `Borrow ticket #${ticketId}`,
+        orderInfo: `Borrow ticket ${ticketId}`,
         returnUrl: process.env.VNPAY_RETURN_URL || "http://localhost:5000/tickets/vnpay/return",
         ipnUrl: process.env.VNPAY_IPN_URL || "http://localhost:5000/tickets/vnpay/ipn",
         clientIp: getClientIp(req),

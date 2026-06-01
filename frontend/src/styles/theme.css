@@ -1,25 +1,29 @@
 :root {
-  --dfb-primary: #2d6a4f;
-  --dfb-primary-dark: #1b4332;
-  --dfb-primary-light: #40916c;
-  --dfb-accent: #d4a373;
-  --dfb-accent-dark: #bc6c25;
-  --dfb-bg: #faf8f5;
-  --dfb-bg-gradient: linear-gradient(135deg, #f6fbf6 0%, #eef9f0 100%);
-  --dfb-glass: rgba(255,255,255,0.6);
-  --dfb-backdrop: rgba(255,255,255,0.35);
-  --dfb-bg-alt: #f0ebe3;
-  --dfb-surface: #ffffff;
-  --dfb-text: #1a1a1a;
-  --dfb-text-muted: #5c5c5c;
-  --dfb-border: #e0d8cc;
-  --dfb-shadow: 0 4px 20px rgba(45, 106, 79, 0.08);
-  --dfb-shadow-lg: 0 8px 32px rgba(45, 106, 79, 0.12);
-  --dfb-radius: 12px;
-  --dfb-radius-sm: 8px;
-  --dfb-radius-pill: 50px;
+  --dfb-primary: #2d6cb0;
+  --dfb-primary-dark: #1c3e8f;
+  --dfb-primary-light: #7fb3ff;
+  --dfb-accent: #f97316;
+  --dfb-accent-dark: #c2410c;
+  --dfb-bg: #f7f8fe;
+  --dfb-bg-gradient: radial-gradient(circle at top left, #e8f2ff 0%, #eff5ff 45%, #fff6f0 100%);
+  --dfb-glass: rgba(255, 255, 255, 0.82);
+  --dfb-backdrop: rgba(255, 255, 255, 0.5);
+  --dfb-bg-alt: #eef4ff;
+  --dfb-surface: rgba(255, 255, 255, 0.96);
+  --dfb-surface-alt: #f6f8ff;
+  --dfb-text: #111827;
+  --dfb-text-muted: #5b6778;
+  --dark: #111827;
+  --dfb-border: rgba(59, 130, 246, 0.16);
+  --dfb-primary-soft: rgba(59, 130, 246, 0.12);
+  --dfb-accent-soft: rgba(249, 115, 22, 0.12);
+  --dfb-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+  --dfb-shadow-lg: 0 30px 70px rgba(15, 23, 42, 0.12);
+  --dfb-radius: 22px;
+  --dfb-radius-sm: 14px;
+  --dfb-radius-pill: 999px;
   --dfb-font: "Be Vietnam Pro", "Segoe UI", system-ui, sans-serif;
-  --dfb-transition: 0.25s ease;
+  --dfb-transition: 0.3s ease;
 }
 
 *,
@@ -28,21 +32,46 @@
   box-sizing: border-box;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   font-family: var(--dfb-font);
-  line-height: 1.6;
+  line-height: 1.7;
   color: var(--dfb-text);
+  min-height: 100vh;
   background: var(--dfb-bg-gradient);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   margin: 0;
 }
 
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  transition: border-color var(--dfb-transition), background var(--dfb-transition), color var(--dfb-transition), box-shadow var(--dfb-transition);
+}
+
+img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+
+::selection {
+  background: rgba(59, 130, 246, 0.24);
+  color: #1e293b;
+}
+
 /* Utility: subtle backdrop for glass surfaces */
 .dfb-glass {
   background: var(--dfb-glass);
-  backdrop-filter: blur(6px) saturate(120%);
   -webkit-backdrop-filter: blur(6px) saturate(120%);
+  backdrop-filter: blur(6px) saturate(120%);
   border: 1px solid rgba(255,255,255,0.5);
 }
 

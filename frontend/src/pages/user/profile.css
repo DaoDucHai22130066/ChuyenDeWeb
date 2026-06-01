@@ -2,8 +2,8 @@
 :root {
   --primary-gradient: linear-gradient(135deg, var(--dfb-primary-dark) 0%, var(--dfb-primary) 100%);
   --secondary-gradient: linear-gradient(135deg, var(--dfb-accent-dark) 0%, var(--dfb-accent) 100%);
-  --success-gradient: linear-gradient(135deg, #40916c 0%, #2d6a4f 100%);
-  --warning-gradient: linear-gradient(135deg, #d4a373 0%, #bc6c25 100%);
+  --success-gradient: linear-gradient(135deg, #60a5fa 0%, #2d6cb0 100%);
+  --warning-gradient: linear-gradient(135deg, #f97316 0%, #c2410c 100%);
   --danger-gradient: linear-gradient(135deg, #e63946 0%, #d62828 100%);
   
   --bg-primary: var(--dfb-bg);
@@ -208,7 +208,7 @@
 
 .btn-edit:hover {
   filter: brightness(1.1);
-  box-shadow: 0 4px 12px rgba(45, 106, 79, 0.3);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.18);
 }
 
 .btn-cancel {
@@ -228,7 +228,7 @@
 
 .btn-save:hover:not(:disabled) {
   filter: brightness(1.1);
-  box-shadow: 0 4px 12px rgba(45, 106, 79, 0.3);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.18);
 }
 
 .btn-save:disabled {
@@ -342,7 +342,7 @@
 .form-group input.editable:focus {
   outline: none;
   border-color: var(--dfb-primary);
-  box-shadow: 0 0 0 3px rgba(45, 106, 79, 0.15);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
 }
 
 .form-group input.disabled-field {
