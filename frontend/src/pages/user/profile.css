@@ -288,7 +288,7 @@
 }
 
 .stat-label {
-  font-size: 0.65rem;
+  font-size: 9.5px;
   color: var(--text-muted);
   text-transform: uppercase;
   font-weight: 600;

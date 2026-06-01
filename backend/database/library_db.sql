@@ -12,6 +12,7 @@ USE library_db;
 SET FOREIGN_KEY_CHECKS = 0;
 
 DROP TABLE IF EXISTS borrow_ticket_books;
+DROP TABLE IF EXISTS transactions;
 DROP TABLE IF EXISTS borrow_tickets;
 DROP TABLE IF EXISTS books;
 DROP TABLE IF EXISTS categories;
@@ -79,9 +80,16 @@ CREATE TABLE books (
 CREATE TABLE borrow_tickets (
   id          INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   user_id     INT UNSIGNED NOT NULL,
-  status      ENUM('Pending','Approved','Returned','Rejected') NOT NULL DEFAULT 'Pending',
+  status      ENUM('pending','awaiting_payment','paid','approved','dispatched','delivered','returned','closed','cancelled') NOT NULL DEFAULT 'pending',
   borrow_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  due_date    DATETIME NULL DEFAULT NULL,
   return_date TIMESTAMP NULL DEFAULT NULL,
+  deposit_amount  DECIMAL(10,2) NOT NULL DEFAULT 0,
+  deposit_status  ENUM('none','pending','held','refunded','forfeited') NOT NULL DEFAULT 'none',
+  shipping_fee    DECIMAL(10,2) NOT NULL DEFAULT 0,
+  shipping_status ENUM('none','pending','dispatched','delivered','returned') NOT NULL DEFAULT 'none',
+  shipping_address VARCHAR(255) NULL,
+  fine_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
   approved_by INT UNSIGNED NULL,
   approved_at TIMESTAMP NULL DEFAULT NULL,
   created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -101,6 +109,26 @@ CREATE TABLE borrow_ticket_books (
   PRIMARY KEY (ticket_id, book_id),
   CONSTRAINT fk_ticket_books_ticket FOREIGN KEY (ticket_id) REFERENCES borrow_tickets(id) ON DELETE CASCADE  ON UPDATE CASCADE,
   CONSTRAINT fk_ticket_books_book   FOREIGN KEY (book_id)   REFERENCES books(id)          ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+--  BẢNG transactions
+-- ============================================================
+CREATE TABLE transactions (
+  id           INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  ticket_id    INT UNSIGNED NOT NULL,
+  user_id      INT UNSIGNED NOT NULL,
+  type         ENUM('deposit','fine','shipping','volunteer_stipend') NOT NULL,
+  method       ENUM('cash','vnpay') NOT NULL,
+  amount       DECIMAL(10,2) NOT NULL,
+  status       ENUM('pending','completed','failed','refunded') NOT NULL DEFAULT 'pending',
+  vnpay_txn_ref VARCHAR(64) NULL,
+  created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_transactions_ticket (ticket_id),
+  INDEX idx_transactions_status (status),
+  CONSTRAINT fk_transactions_ticket FOREIGN KEY (ticket_id) REFERENCES borrow_tickets(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_transactions_user   FOREIGN KEY (user_id)   REFERENCES users(id) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
@@ -453,16 +481,16 @@ INSERT INTO books (
 --  DỮ LIỆU MẪU -- borrow_tickets  (10 phiếu mượn)
 -- ============================================================
 INSERT INTO borrow_tickets (id, user_id, status, borrow_date, return_date, approved_by, approved_at) VALUES
-  (1,  2,  'Returned', '2024-11-05 08:30:00', '2024-11-19 10:00:00', 1,  '2024-11-05 09:00:00'),
-  (2,  3,  'Returned', '2024-11-10 09:00:00', '2024-11-24 14:00:00', 1,  '2024-11-10 09:30:00'),
-  (3,  4,  'Returned', '2024-12-01 10:15:00', '2024-12-15 11:00:00', 11, '2024-12-01 10:45:00'),
-  (4,  5,  'Approved', '2025-01-07 08:00:00', NULL,                  1,  '2025-01-07 08:30:00'),
-  (5,  6,  'Approved', '2025-01-15 13:00:00', NULL,                  11, '2025-01-15 13:30:00'),
-  (6,  7,  'Pending',  '2025-02-01 09:45:00', NULL,                  NULL, NULL),
-  (7,  8,  'Pending',  '2025-02-03 11:00:00', NULL,                  NULL, NULL),
-  (8,  9,  'Rejected', '2025-02-10 14:00:00', NULL,                  1,  '2025-02-10 14:30:00'),
-  (9,  10, 'Approved', '2025-03-01 08:30:00', NULL,                  11, '2025-03-01 09:00:00'),
-  (10, 2,  'Pending',  '2025-03-05 10:00:00', NULL,                  NULL, NULL);
+  (1,  2,  'returned', '2024-11-05 08:30:00', '2024-11-19 10:00:00', 1,  '2024-11-05 09:00:00'),
+  (2,  3,  'returned', '2024-11-10 09:00:00', '2024-11-24 14:00:00', 1,  '2024-11-10 09:30:00'),
+  (3,  4,  'returned', '2024-12-01 10:15:00', '2024-12-15 11:00:00', 11, '2024-12-01 10:45:00'),
+  (4,  5,  'approved', '2025-01-07 08:00:00', NULL,                  1,  '2025-01-07 08:30:00'),
+  (5,  6,  'approved', '2025-01-15 13:00:00', NULL,                  11, '2025-01-15 13:30:00'),
+  (6,  7,  'pending',  '2025-02-01 09:45:00', NULL,                  NULL, NULL),
+  (7,  8,  'pending',  '2025-02-03 11:00:00', NULL,                  NULL, NULL),
+  (8,  9,  'cancelled', '2025-02-10 14:00:00', NULL,                 1,  '2025-02-10 14:30:00'),
+  (9,  10, 'approved', '2025-03-01 08:30:00', NULL,                  11, '2025-03-01 09:00:00'),
+  (10, 2,  'pending',  '2025-03-05 10:00:00', NULL,                  NULL, NULL);
 
 
 -- ============================================================

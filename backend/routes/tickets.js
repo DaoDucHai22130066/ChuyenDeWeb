@@ -6,7 +6,10 @@ const { checkRole } = require("../middlewares/checkRole");
 
 router.post("/", userAuth, checkRole("user"), ticketController.createTicket);
 router.get("/me", userAuth, checkRole("user"), ticketController.getMyTickets);
+router.get("/vnpay/return", ticketController.vnpayReturn);
+router.get("/vnpay/ipn", ticketController.vnpayIpn);
 router.get("/", userAuth, checkRole("admin"), ticketController.getAllTickets);
+router.get("/:id/transactions", userAuth, checkRole("admin"), ticketController.getTicketTransactions);
 router.put("/:id/status", userAuth, checkRole("admin"), ticketController.updateTicketStatus);
 
 module.exports = router;
