@@ -24,6 +24,15 @@ const STATUS_VI = {
   Approved: "Đã duyệt",
   Returned: "Đã trả",
   Rejected: "Từ chối",
+  pending: "Chờ duyệt",
+  awaiting_payment: "Chờ thanh toán",
+  paid: "Đã thanh toán",
+  approved: "Đã duyệt",
+  dispatched: "Đang giao",
+  delivered: "Đã giao",
+  returned: "Đã trả",
+  closed: "Hoàn tất",
+  cancelled: "Đã hủy",
 };
 
 function ProfilePage() {
@@ -102,14 +111,18 @@ function ProfilePage() {
 
   // Compute statistics
   const totalTickets = tickets.length;
-  const pendingTickets = tickets.filter(t => t.status === "Pending").length;
-  const approvedTickets = tickets.filter(t => t.status === "Approved").length;
-  const returnedTickets = tickets.filter(t => t.status === "Returned").length;
+  const pendingTickets = tickets.filter(t => ["Pending", "pending", "awaiting_payment"].includes(t.status)).length;
+  const approvedTickets = tickets.filter(t => ["Approved", "approved", "dispatched", "delivered"].includes(t.status)).length;
+  const returnedTickets = tickets.filter(t => ["Returned", "returned", "closed"].includes(t.status)).length;
 
   return (
     <div className="profile-page">
       <div className="profile-hero-banner">
         <div className="banner-overlay"></div>
+        <div className="profile-hero-copy">
+          <span>Hồ sơ độc giả</span>
+          <h1>Quản lý thông tin và lịch sử mượn sách</h1>
+        </div>
       </div>
       
       <div className="profile-container">

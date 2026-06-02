@@ -45,6 +45,44 @@ const DEPOSIT_STATUS_VI = {
   forfeited: "Bị tịch thu",
 };
 
+const SHIPPING_STATUS_VI = {
+  none: "Nhận tại quầy",
+  pending: "Chờ giao hàng",
+  dispatched: "Đang giao",
+  delivered: "Đã giao",
+  returned: "Đã trả",
+};
+
+const TRANSACTION_TYPE_VI = {
+  deposit: "Tiền cọc",
+  shipping: "Phí giao hàng",
+  fine: "Phí phạt",
+  refund: "Hoàn cọc",
+  deposit_refund: "Hoàn cọc",
+  outstanding_fine: "Phạt còn lại",
+  settle_outstanding_fine: "Thanh toán phạt còn lại",
+};
+
+const TRANSACTION_STATUS_VI = {
+  pending: "Chờ xử lý",
+  completed: "Hoàn tất",
+  success: "Thành công",
+  failed: "Thất bại",
+  refunded: "Đã hoàn",
+  cancelled: "Đã hủy",
+};
+
+const ACTION_SUCCESS_VI = {
+  confirm_cash: "Đã xác nhận thanh toán.",
+  approve: "Đã phê duyệt phiếu mượn.",
+  dispatch: "Đã chuyển phiếu sang trạng thái đang giao.",
+  deliver: "Đã xác nhận giao xong.",
+  return: "Đã xác nhận độc giả trả sách.",
+  settle_deposit: "Đã quyết toán tiền cọc.",
+  settle_outstanding_fine: "Đã xác nhận thanh toán phí phạt còn lại.",
+  cancel: "Đã hủy phiếu mượn.",
+};
+
 const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const [selectedSection, setSelectedSection] = useState(initialSection);
   const [users, setUsers] = useState([]);
@@ -64,6 +102,12 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
 
   const formatCurrency = (value) => new Intl.NumberFormat("vi-VN").format(value) + " đ";
 
+  const getStatusLabel = (value) => STATUS_VI[value] || "Chưa cập nhật";
+  const getDepositStatusLabel = (value) => DEPOSIT_STATUS_VI[value] || "Chưa cập nhật";
+  const getShippingStatusLabel = (value) => SHIPPING_STATUS_VI[value] || "Chưa cập nhật";
+  const getTransactionTypeLabel = (value) => TRANSACTION_TYPE_VI[value] || "Giao dịch";
+  const getTransactionStatusLabel = (value) => TRANSACTION_STATUS_VI[value] || "Chưa cập nhật";
+
   const canConfirmCash = (ticket) =>
     ticket.status === "pending" &&
     ticket.depositStatus === "pending" &&
@@ -78,7 +122,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
       const result = await axios.get(`${Server_URL}users`);
       setUsers(result.data.user || []);
     } catch (error) {
-      console.error("Error fetching users:", error);
+      console.error("Lỗi tải danh sách người dùng:", error);
     }
   };
 
@@ -87,7 +131,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
       const result = await axios.get(`${Server_URL}books`);
       setBooks(result.data.books || []);
     } catch (error) {
-      console.error("Error fetching books:", error);
+      console.error("Lỗi tải danh sách sách:", error);
     }
   };
 
@@ -98,7 +142,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
       });
       setTickets(result.data.tickets || []);
     } catch (error) {
-      console.error("Error fetching tickets:", error);
+      console.error("Lỗi tải danh sách phiếu mượn:", error);
     }
   };
 
@@ -112,7 +156,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
         [ticketId]: result.data.transactions || [],
       }));
     } catch (error) {
-      console.error("Error fetching transactions:", error);
+      console.error("Lỗi tải lịch sử giao dịch:", error);
     }
   };
 
@@ -125,15 +169,15 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
       );
 
       if (response.data.error) {
-        showErrorToast(response.data.message);
+        showErrorToast("Không thực hiện được thao tác. Vui lòng thử lại!");
         return;
       }
 
-      showSuccessToast(response.data.message || "Đã cập nhật trạng thái phiếu mượn.");
+      showSuccessToast(ACTION_SUCCESS_VI[action] || "Đã cập nhật trạng thái phiếu mượn.");
       fetchTickets();
       fetchBooks();
     } catch (error) {
-      showErrorToast(error.response?.data?.message || "Không cập nhật được phiếu mượn.");
+      showErrorToast("Không cập nhật được phiếu mượn. Vui lòng thử lại!");
     }
   };
 
@@ -169,7 +213,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
       <div className="row g-0">
         <nav className="col-md-3 col-lg-2 admin-sidebar">
           <h4 className="admin-sidebar-title">
-            <FiShield className="sidebar-icon-title" /> Panel Quản trị
+            <FiShield className="sidebar-icon-title" /> Bảng quản trị
           </h4>
           <ul className="admin-nav">
             <li className="admin-nav-item">
@@ -275,7 +319,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                         <td>{ticket.borrowDate ? new Date(ticket.borrowDate).toLocaleDateString("vi-VN") : "—"}</td>
                         <td>
                           <span className={`status-badge ${ticket.status.toLowerCase()}`}>
-                            {STATUS_VI[ticket.status] || ticket.status}
+                            {getStatusLabel(ticket.status)}
                           </span>
                         </td>
                       </tr>
@@ -313,7 +357,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                       </div>
                       <div className="ticket-header-status">
                         <span className={`status-badge ${ticket.status.toLowerCase()}`}>
-                          {STATUS_VI[ticket.status] || ticket.status}
+                          {getStatusLabel(ticket.status)}
                         </span>
                       </div>
                     </div>
@@ -341,11 +385,11 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                             <h4>Trạng thái</h4>
                             <div className="detail-row">
                               <span>Cọc:</span>
-                              <span className="badge">{DEPOSIT_STATUS_VI[ticket.depositStatus] || ticket.depositStatus}</span>
+                              <span className="badge">{getDepositStatusLabel(ticket.depositStatus)}</span>
                             </div>
                             <div className="detail-row">
                               <span>Giao hàng:</span>
-                              <span className="badge">{ticket.shippingStatus === "none" ? "Nhận tại quầy" : ticket.shippingStatus}</span>
+                              <span className="badge">{getShippingStatusLabel(ticket.shippingStatus)}</span>
                             </div>
                             {ticket.shippingAddress && (
                               <div className="detail-row">
@@ -362,9 +406,9 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                             <div className="transactions-list">
                               {ticketTransactions[ticket._id].map((txn) => (
                                 <div key={txn._id} className="transaction-item">
-                                  <span className="txn-type">{txn.type}</span>
+                                  <span className="txn-type">{getTransactionTypeLabel(txn.type)}</span>
                                   <span className="txn-amount">{formatCurrency(txn.amount)}</span>
-                                  <span className={`txn-status ${txn.status}`}>{txn.status}</span>
+                                  <span className={`txn-status ${txn.status}`}>{getTransactionStatusLabel(txn.status)}</span>
                                 </div>
                               ))}
                             </div>
@@ -389,7 +433,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                               <button
                                 className="btn btn-sm btn-outline-success"
                                 onClick={() => handleTicketAction(ticket._id, "confirm_cash", "vnpay")}
-                                title="Xác nhận thanh toán online thành công"
+                                title="Xác nhận thanh toán trực tuyến thành công"
                               >
                                 <FiCheck /> Duyệt thanh toán VNPAY
                               </button>
@@ -474,7 +518,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                     <tr>
                       <th>STT</th>
                       <th>Họ và tên</th>
-                      <th>Địa chỉ Email</th>
+                      <th>Địa chỉ email</th>
                       <th>Vai trò</th>
                     </tr>
                   </thead>

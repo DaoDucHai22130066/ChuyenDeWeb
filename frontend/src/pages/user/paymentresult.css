@@ -2,143 +2,133 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 60vh;
-  padding: 40px 20px;
+  min-height: 70vh;
+  padding: 4rem 1rem;
+  background: var(--dfb-bg-gradient);
 }
 
 .result-card {
-  background: white;
-  border-radius: 16px;
-  padding: 40px;
+  position: relative;
+  width: min(100%, 560px);
+  padding: clamp(1.6rem, 4vw, 2.6rem);
   text-align: center;
-  max-width: 500px;
-  width: 100%;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
-  border: 1px solid #f0f0f0;
+  border-radius: 32px;
+  background: rgba(255,255,255,0.94);
+  border: 1px solid var(--dfb-border);
+  box-shadow: var(--dfb-shadow-lg);
+  backdrop-filter: blur(16px);
+  overflow: hidden;
+}
+
+.result-card::before {
+  content: "";
+  position: absolute;
+  width: 240px;
+  height: 240px;
+  right: -120px;
+  top: -120px;
+  background: radial-gradient(circle, rgba(45,108,176,0.16), transparent 68%);
 }
 
 .result-icon {
-  width: 80px;
-  height: 80px;
-  margin: 0 auto 24px;
+  position: relative;
+  width: 86px;
+  height: 86px;
+  margin: 0 auto 1.4rem;
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
   color: white;
+  box-shadow: 0 20px 45px rgba(15,23,42,0.18);
 }
 
 .result-icon svg {
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
 }
 
-.result-card.success .result-icon {
-  background-color: #2d6cb0;
-  box-shadow: 0 0 20px rgba(47, 85, 185, 0.3);
-}
-
-.result-card.error .result-icon {
-  background-color: #ef4444; /* red */
-  box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
-}
-
-.result-card.info .result-icon {
-  background-color: #3b82f6; /* blue */
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
-}
+.result-card.success .result-icon { background: linear-gradient(135deg, #10b981, #047857); }
+.result-card.error .result-icon { background: linear-gradient(135deg, #ef4444, #b91c1c); }
+.result-card.info .result-icon { background: linear-gradient(135deg, var(--dfb-primary), var(--dfb-primary-dark)); }
 
 .spin {
-  animation: spin 2s linear infinite;
+  animation: result-spin 2s linear infinite;
 }
 
-@keyframes spin {
-  100% {
-    transform: rotate(360deg);
-  }
+@keyframes result-spin {
+  to { transform: rotate(360deg); }
 }
 
 .result-card h2 {
-  font-size: 24px;
-  font-weight: 700;
-  color: #1f2937;
-  margin-bottom: 12px;
+  position: relative;
+  color: var(--dfb-primary-dark);
+  font-size: clamp(1.65rem, 3vw, 2.25rem);
+  font-weight: 900;
+  letter-spacing: -0.045em;
+  margin-bottom: 0.75rem;
 }
 
 .result-card p {
-  color: #6b7280;
-  font-size: 16px;
-  line-height: 1.5;
-  margin-bottom: 24px;
+  position: relative;
+  color: var(--dfb-text-muted);
+  line-height: 1.75;
+  margin-bottom: 1.4rem;
 }
 
 .transaction-details {
-  background: #f9fafb;
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 32px;
+  position: relative;
+  padding: 1rem;
+  margin-bottom: 1.6rem;
   text-align: left;
-  border: 1px solid #f3f4f6;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(59,130,246,0.06), rgba(249,115,22,0.04));
+  border: 1px solid var(--dfb-border);
 }
 
 .detail-row {
   display: flex;
   justify-content: space-between;
-  padding: 12px 0;
-  border-bottom: 1px dashed #e5e7eb;
-  font-size: 15px;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px dashed rgba(45,108,176,0.18);
 }
 
 .detail-row:last-child {
   border-bottom: none;
-  padding-bottom: 0;
 }
 
 .detail-row span {
-  color: #6b7280;
+  color: var(--dfb-text-muted);
 }
 
 .detail-row strong {
-  color: #1f2937;
-  font-weight: 600;
+  color: var(--dfb-primary-dark);
 }
 
 .detail-row.total-row {
-  margin-top: 8px;
-  padding-top: 16px;
-  border-top: 1px solid #e5e7eb;
-  border-bottom: none;
-  font-size: 18px;
+  font-size: 1.08rem;
+  font-weight: 850;
 }
 
 .detail-row.total-row strong {
-  color: #2d6cb0;
-  font-size: 20px;
+  color: var(--dfb-accent-dark);
 }
 
 .result-actions {
+  position: relative;
   display: flex;
-  gap: 16px;
+  gap: 0.85rem;
   justify-content: center;
 }
 
 .result-actions button {
-  padding: 12px 24px;
-  font-weight: 600;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-}
-
-.result-actions .btn-dfb-primary {
   flex: 1;
-}
-
-.result-actions .btn-dfb-outline {
-  flex: 1;
+  justify-content: center;
 }
 
 @media (max-width: 600px) {
-  .result-actions {
+  .result-actions,
+  .detail-row {
     flex-direction: column;
   }
 }

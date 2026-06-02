@@ -16,6 +16,7 @@ const formatVND = (value) => {
 };
 
 const ViewBooks = () => {
+  const navigate = useNavigate();
   const [books, setBooks] = useState([]);
   const [selectedBook, setSelectedBook] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -40,7 +41,7 @@ const ViewBooks = () => {
       });
       setBooks(response.data.books);
     } catch (error) {
-      console.error("Error fetching books:", error.response?.data?.message || error.message);
+      console.error("Lỗi tải danh sách sách:", error.response?.data?.message || error.message);
     }
   };
 
@@ -51,11 +52,11 @@ const ViewBooks = () => {
       await axios.delete(`${Server_URL}books/delete/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` },
       });
-      showSuccessToast("Book deleted successfully!");
+      showSuccessToast("Đã xóa sách thành công!");
       fetchBooks();
     } catch (error) {
-      console.error("Error deleting book:", error.response?.data?.message || error.message);
-      showErrorToast("Failed to delete book!");
+      console.error("Lỗi xóa sách:", error.response?.data?.message || error.message);
+      showErrorToast("Không xóa được sách!");
     }
   };
 
@@ -85,12 +86,12 @@ const ViewBooks = () => {
         headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` },
       });
   
-      showSuccessToast("Book updated successfully!");
+      showSuccessToast("Đã cập nhật sách thành công!");
       setShowModal(false);
       fetchBooks();
     } catch (error) {
-      console.error("Error updating book:", error.response?.data?.message || error.message);
-      showErrorToast("Failed to update book!");
+      console.error("Lỗi cập nhật sách:", error.response?.data?.message || error.message);
+      showErrorToast("Không cập nhật được sách!");
     }
   };
   
@@ -98,10 +99,19 @@ const ViewBooks = () => {
   return (
     <motion.div className="admin-page-wrap" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.34 }}>
       <div className="admin-page-hero">
-        <div className="admin-page-kicker">Admin library</div>
+        <div className="admin-page-kicker">Quản trị thư viện</div>
         <h2 className="admin-page-title admin-book-heading">Quản lý sách</h2>
-        <p className="admin-page-lead">Danh sách sách dùng cùng hệ màu với toàn bộ giao diện quản trị.</p>
+        <p className="admin-page-lead">Theo dõi kho sách, chỉnh sửa thông tin và xử lý sách không còn phù hợp trong một giao diện trực quan.</p>
       </div>
+
+      <div className="admin-books-toolbar">
+        <div>
+          <span className="admin-books-count">{books.length}</span>
+          <span className="admin-books-label">đầu sách đang hiển thị</span>
+        </div>
+        <button type="button" className="btn admin-btn-primary" onClick={() => navigate("/admin/addbook")}>+ Thêm sách mới</button>
+      </div>
+
         <div className="container admin-book-grid">
   <div className="row">
     {books.length > 0 ? (
@@ -124,10 +134,10 @@ const ViewBooks = () => {
             </div>
             <div className="card-footer text-center">
               <button className="btn edit-btn me-2" onClick={() => handleEdit(book)}>
-                ✏ Edit
+                ✏ Sửa
               </button>
               <button className="btn delete-btn" onClick={() => handleDelete(book._id)}>
-                🗑 Delete
+                🗑 Xóa
               </button>
             </div>
           </div>
@@ -135,7 +145,7 @@ const ViewBooks = () => {
       ))
     ) : (
       <div className="text-center py-4">
-        <h5 className="text-muted">No books found.</h5>
+        <h5 className="text-muted">Chưa có sách nào trong hệ thống.</h5>
       </div>
     )}
   </div>
@@ -148,8 +158,8 @@ const ViewBooks = () => {
    
       {showModal && selectedBook && (
   <div className="modal d-block" tabIndex="-1">
-    <div className="modal-dialog modal-dialog-centered modal-lg"> {/* Centered and Larger Modal */}
-      <div className="modal-content admin-modal-content"> {/* Added Shadow & Rounded Corners */}
+    <div className="modal-dialog modal-dialog-centered modal-lg"> {/* Hộp thoại căn giữa và mở rộng */}
+      <div className="modal-content admin-modal-content"> {/* Thêm bóng đổ và bo góc */}
         <div className="modal-header admin-modal-header">
           <h5 className="modal-title">Chỉnh sửa sách</h5>
           <button type="button" className="btn-close btn-close-white" onClick={() => setShowModal(false)}></button>
@@ -157,15 +167,15 @@ const ViewBooks = () => {
         <div className="modal-body p-4">
           <form>
             <div className="mb-3">
-              <label className="form-label fw-bold">Title</label>
+              <label className="form-label fw-bold">Tên sách</label>
               <input type="text" className="form-control" name="title" value={formData.title} onChange={handleChange} />
             </div>
             <div className="mb-3">
-              <label className="form-label fw-bold">Author</label>
+              <label className="form-label fw-bold">Tác giả</label>
               <input type="text" className="form-control" name="author" value={formData.author} onChange={handleChange} />
             </div>
             <div className="mb-3">
-              <label className="form-label fw-bold">Category</label>
+              <label className="form-label fw-bold">Danh mục</label>
               <input type="text" className="form-control" name="category" value={formData.category} onChange={handleChange} />
             </div>
             <div className="row">
@@ -174,12 +184,12 @@ const ViewBooks = () => {
                 <input type="text" className="form-control" name="isbn" value={formData.isbn} onChange={handleChange} />
               </div>
               <div className="col-md-6 mb-3">
-                <label className="form-label fw-bold">Price (VNĐ)</label>
+                <label className="form-label fw-bold">Giá tham khảo (VNĐ)</label>
                 <input type="number" className="form-control" name="price" value={formData.price} onChange={handleChange} />
               </div>
             </div>
             <div className="mb-3">
-              <label className="form-label fw-bold">Total Copies</label>
+              <label className="form-label fw-bold">Tổng số bản</label>
               <input type="number" className="form-control" name="totalCopies" value={formData.totalCopies} onChange={handleChange} />
             </div>
           </form>

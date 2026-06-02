@@ -601,3 +601,74 @@
     margin-top: 0;
   }
 }
+
+/* Professional user-profile polish */
+.profile-hero-copy {
+  position: relative;
+  z-index: 2;
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 2.2rem 1.25rem;
+  color: white;
+}
+
+.profile-hero-copy span {
+  display: inline-flex;
+  padding: 0.38rem 0.75rem;
+  border-radius: var(--dfb-radius-pill);
+  background: rgba(255,255,255,0.14);
+  border: 1px solid rgba(255,255,255,0.22);
+  font-size: 0.76rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.profile-hero-copy h1 {
+  max-width: 680px;
+  margin: 0.85rem 0 0;
+  font-size: clamp(1.65rem, 3.6vw, 3rem);
+  font-weight: 900;
+  letter-spacing: -0.045em;
+  line-height: 1.08;
+}
+
+.profile-card {
+  background: rgba(255,255,255,0.94);
+  backdrop-filter: blur(14px);
+}
+
+.summary-card,
+.stats-card,
+.details-card,
+.tickets-card {
+  border-radius: 28px;
+}
+
+.profile-avatar {
+  background: linear-gradient(135deg, var(--dfb-primary), var(--dfb-primary-dark));
+}
+
+.tickets-table {
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.status-badge.awaiting_payment,
+.status-badge.paid,
+.status-badge.dispatched,
+.status-badge.delivered,
+.status-badge.closed,
+.status-badge.cancelled {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.status-badge.awaiting_payment { background: #fef3c7; color: #d97706; }
+.status-badge.paid { background: #dbeafe; color: #1d4ed8; }
+.status-badge.dispatched,
+.status-badge.delivered { background: #e0f2fe; color: #0369a1; }
+.status-badge.closed { background: #d1fae5; color: #065f46; }
+.status-badge.cancelled { background: #fee2e2; color: #b91c1c; }

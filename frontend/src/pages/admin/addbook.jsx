@@ -35,7 +35,7 @@ const AddBookForm = () => {
     try {
       const formData = new FormData();
       
-      // Append all text fields
+      // Thêm tất cả trường văn bản
       Object.keys(data).forEach((key) => {
         if (key !== "coverImage" && key !== "categoryName") {
           formData.append(key, data[key]);
@@ -46,9 +46,9 @@ const AddBookForm = () => {
         formData.append("category", data.categoryName);
       }
   
-      // Append the file manually
+      // Thêm file ảnh bìa
       if (data.coverImage && data.coverImage[0]) {
-        formData.append("coverImage", data.coverImage[0]); // Ensure it's the file object
+        formData.append("coverImage", data.coverImage[0]); // Đảm bảo đây là file ảnh
       }
   
       const authToken = localStorage.getItem("authToken");
@@ -64,22 +64,22 @@ const AddBookForm = () => {
       const { error, message } = response.data;
 
       if (error) {
-        showErrorToast(message);
+        showErrorToast("Không thêm được sách. Vui lòng kiểm tra lại thông tin!");
       } else {
-        showSuccessToast(message);
+        showSuccessToast("Đã thêm sách thành công!");
         reset();
       }
       
     } catch (error) {
-      console.error("Error:", error.response?.data?.message || error.message);
-      showErrorToast("Không thêm được sách!");
+      console.error("Lỗi thêm sách:", error.response?.data?.message || error.message);
+      showErrorToast("Không thêm được sách. Vui lòng thử lại!");
     }
   };
 
   return (
     <motion.div className="admin-page-wrap" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.32 }}>
       <div className="admin-page-hero">
-        <div className="admin-page-kicker">Admin library</div>
+        <div className="admin-page-kicker">Quản trị thư viện</div>
         <h2 className="admin-page-title">Thêm sách mới</h2>
         <p className="admin-page-lead">Bổ sung đầu sách vào kho với cùng phong cách giao diện của toàn bộ khu vực quản trị.</p>
       </div>
@@ -89,7 +89,7 @@ const AddBookForm = () => {
           <input
             type="text"
             className="form-control"
-            {...register("title", { required: "Title is required" })}
+            {...register("title", { required: "Vui lòng nhập tên sách" })}
           />
           {errors.title && <small className="text-danger">{errors.title.message}</small>}
         </div>
@@ -99,7 +99,7 @@ const AddBookForm = () => {
           <input
             type="text"
             className="form-control"
-            {...register("author", { required: "Author is required" })}
+            {...register("author", { required: "Vui lòng nhập tên tác giả" })}
           />
           {errors.author && <small className="text-danger">{errors.author.message}</small>}
         </div>
@@ -140,7 +140,7 @@ const AddBookForm = () => {
           <input
             type="text"
             className="form-control"
-            {...register("isbn", { required: "ISBN is required" })}
+            {...register("isbn", { required: "Vui lòng nhập mã ISBN" })}
           />
           {errors.isbn && <small className="text-danger">{errors.isbn.message}</small>}
         </div>
@@ -161,8 +161,9 @@ const AddBookForm = () => {
           <input 
             type="number" 
             className="form-control" 
-            {...register("totalCopies", { required: true, min: 1 })} 
+            {...register("totalCopies", { required: "Vui lòng nhập số bản", min: { value: 1, message: "Số bản phải lớn hơn hoặc bằng 1" } })} 
           />
+          {errors.totalCopies && <small className="text-danger">{errors.totalCopies.message}</small>}
         </div>
         
         <div className="mb-3">
@@ -180,7 +181,7 @@ const AddBookForm = () => {
           <textarea
             className="form-control"
             rows="3"
-            {...register("description", { required: "Description is required" })}
+            {...register("description", { required: "Vui lòng nhập mô tả sách" })}
           ></textarea>
           {errors.description && <small className="text-danger">{errors.description.message}</small>}
         </div>
