@@ -782,6 +782,38 @@ ticketController.vnpayReturn = async (req, res) => {
     const ticketId = ticketIdMatch ? ticketIdMatch[1] : "";
     const amount = params.vnp_Amount ? Number(params.vnp_Amount) / 100 : 0;
     
+    // Sync status on return for local testing or immediate update
+    if (vnpTxnRef) {
+      try {
+        const transactionRows = await query(
+          `SELECT id, ticket_id, status FROM transactions WHERE vnpay_txn_ref = ? ORDER BY id ASC`,
+          [vnpTxnRef]
+        );
+
+        if (transactionRows.length > 0) {
+          const dbTicketId = transactionRows[0].ticket_id;
+          await withTransaction(async (connection) => {
+            for (const transaction of transactionRows) {
+              if (transaction.status === "pending") {
+                await updateTransactionStatus(connection, transaction.id, isSuccess ? "completed" : "failed", vnpTxnRef);
+              }
+            }
+
+            if (isSuccess) {
+              await connection.query(
+                `UPDATE borrow_tickets
+                 SET deposit_status = 'held', updated_at = NOW()
+                 WHERE id = ? AND deposit_status = 'pending'`,
+                [dbTicketId]
+              );
+            }
+          });
+        }
+      } catch (err) {
+        console.error("Error updating status in vnpayReturn:", err);
+      }
+    }
+    
     res.redirect(`${frontendUrl}/payment-result?status=${isSuccess ? 'success' : 'failed'}&method=vnpay&ticketId=${ticketId}&amount=${amount}`);
   } catch (error) {
     res.status(500).json({ error: true, message: "Internal Server Error", details: error.message });

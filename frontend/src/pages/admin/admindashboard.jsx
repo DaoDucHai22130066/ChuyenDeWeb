@@ -386,9 +386,13 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                           {ticket.status === "pending" &&
                             ticket.depositStatus === "pending" &&
                             ticket.paymentMethod === "vnpay" && (
-                              <div className="admin-alert admin-alert-info">
-                                <FiDollarSign /> Chờ thanh toán VNPAY
-                              </div>
+                              <button
+                                className="btn btn-sm btn-outline-success"
+                                onClick={() => handleTicketAction(ticket._id, "confirm_cash", "vnpay")}
+                                title="Xác nhận thanh toán online thành công"
+                              >
+                                <FiCheck /> Duyệt thanh toán VNPAY
+                              </button>
                             )}
 
                           {canApproveTicket(ticket) && (
