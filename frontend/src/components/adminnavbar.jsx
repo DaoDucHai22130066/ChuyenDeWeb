@@ -1,6 +1,6 @@
 import React, { useState } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useCart } from "../context/CartContext";
-import { Link, useNavigate } from "react-router-dom";
 import "./adminnavbar.css";
 
 export default function AdminNavbar() {
@@ -9,77 +9,116 @@ export default function AdminNavbar() {
   const role = localStorage.getItem("role");
   const { clearCart } = useCart();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = () => {
     localStorage.removeItem("authToken");
     localStorage.removeItem("role");
-      try { clearCart(); } catch (e) {}
-      navigate("/login");
+    try {
+      clearCart();
+    } catch (e) {}
+    navigate("/login");
+  };
+
+  const isActive = (path) => {
+    if (path === "/admin") return location.pathname === "/admin";
+    return location.pathname.startsWith(path);
+  };
+
+  const getRoleLabel = (value) => {
+    if (value === "admin") return "Quản trị";
+    if (value === "librarian") return "Thủ thư";
+    if (value === "user") return "Độc giả";
+    return "Quản trị";
   };
 
   return (
-    <nav className="navbar navbar-expand-lg navbar-light admin-navbar-dfb shadow">
-      <div className="container">
-        <Link className="navbar-brand fw-bold" to="/admin">
-          D Free Book — Quản trị
+    <nav className="navbar navbar-expand-lg navbar-light admin-navbar-dfb">
+      <div className="container-fluid admin-navbar-container">
+        <Link className="navbar-brand admin-brand" to="/admin" onClick={() => setMenuOpen(false)}>
+          <span className="admin-brand-mark">DFB</span>
+          <span>
+            <strong>D Free Book</strong>
+            <small>Khu vực quản trị</small>
+          </span>
         </Link>
 
         <button
           className="navbar-toggler"
           type="button"
           onClick={() => setMenuOpen(!menuOpen)}
-          aria-label="Menu"
+          aria-label="Mở menu"
         >
           <span className="navbar-toggler-icon"></span>
         </button>
 
         <div className={`collapse navbar-collapse ${menuOpen ? "show" : ""}`}>
-          <ul className="navbar-nav me-auto">
+          <ul className="navbar-nav me-auto admin-navbar-links">
             <li className="nav-item">
-              <Link className="nav-link" to="/admin">Bảng điều khiển</Link>
+              <Link
+                className={`nav-link ${isActive("/admin") ? "active" : ""}`}
+                to="/admin"
+                onClick={() => setMenuOpen(false)}
+              >
+                Bảng điều khiển
+              </Link>
             </li>
             <li className="nav-item dropdown">
               <Link
-                className="nav-link dropdown-toggle"
+                className={`nav-link dropdown-toggle ${isActive("/admin/addbook") || isActive("/admin/viewbook") ? "active" : ""}`}
                 to="#"
                 data-bs-toggle="dropdown"
                 aria-expanded="false"
               >
                 Sách
               </Link>
-              <ul className="dropdown-menu">
+              <ul className="dropdown-menu admin-dropdown-menu">
                 <li>
-                  <Link className="dropdown-item" to="/admin/addbook">Thêm sách</Link>
+                  <Link className="dropdown-item" to="/admin/addbook" onClick={() => setMenuOpen(false)}>
+                    Thêm sách
+                  </Link>
                 </li>
                 <li>
-                  <Link className="dropdown-item" to="/admin/viewbook">Danh sách sách</Link>
+                  <Link className="dropdown-item" to="/admin/viewbook" onClick={() => setMenuOpen(false)}>
+                    Danh sách sách
+                  </Link>
                 </li>
               </ul>
             </li>
 
             <li className="nav-item">
-              <Link className="nav-link" to="/admin/tickets">Phiếu mượn</Link>
+              <Link
+                className={`nav-link ${isActive("/admin/tickets") ? "active" : ""}`}
+                to="/admin/tickets"
+                onClick={() => setMenuOpen(false)}
+              >
+                Phiếu mượn
+              </Link>
             </li>
           </ul>
 
-          <ul className="navbar-nav">
+          <ul className="navbar-nav admin-account-zone">
             {token ? (
               <li className="nav-item dropdown">
                 <button
-                  className="btn btn-light dropdown-toggle"
+                  className="btn admin-account-btn dropdown-toggle"
                   data-bs-toggle="dropdown"
                   aria-expanded="false"
                   type="button"
                 >
-                  Tài khoản
+                  <span className="admin-account-avatar">A</span>
+                  <span className="admin-account-text">
+                    <strong>Quản trị viên</strong>
+                    <small>{getRoleLabel(role)}</small>
+                  </span>
                 </button>
-                <ul className="dropdown-menu dropdown-menu-end">
+                <ul className="dropdown-menu dropdown-menu-end admin-dropdown-menu">
                   <li>
-                    <Link className="dropdown-item" to="/">Về trang chủ</Link>
+                    <Link className="dropdown-item" to="/" onClick={() => setMenuOpen(false)}>Về trang chủ</Link>
                   </li>
                   <li><hr className="dropdown-divider" /></li>
                   <li>
-                    <button className="dropdown-item" type="button" onClick={handleLogout}>
+                    <button className="dropdown-item text-danger" type="button" onClick={handleLogout}>
                       Đăng xuất
                     </button>
                   </li>
@@ -87,7 +126,7 @@ export default function AdminNavbar() {
               </li>
             ) : (
               <li className="nav-item">
-                <Link className="btn btn-light" to="/login">Đăng nhập</Link>
+                <Link className="btn admin-account-btn" to="/login">Đăng nhập</Link>
               </li>
             )}
           </ul>

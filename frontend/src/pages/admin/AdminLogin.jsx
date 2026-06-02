@@ -21,50 +21,52 @@ const AdminLogin = () => {
         try {
           const url =Server_URL + 'admin/login';
           const response = await axios.post(url, data);
-          console.log("Response:", response.data);
-          showSuccessToast("Login Successful!");
+          console.log("Phản hồi đăng nhập:", response.data);
+          showSuccessToast("Đăng nhập thành công!");
           localStorage.setItem("authToken", response.data.token);
           localStorage.setItem("role", response.data.user?.role || "admin");
           navigate("/admin")
           
   
         } catch (error) {
-          console.error("Error:", error.response?.data || error.message);
-          showErrorToast("Login Failed!");
+          console.error("Lỗi đăng nhập:", error.response?.data || error.message);
+          showErrorToast("Đăng nhập thất bại. Vui lòng kiểm tra email và mật khẩu!");
         }
       };
 
   return (
     <div className="admin-auth-shell">
       <div className="admin-auth-card">
+        <div className="admin-auth-logo">DFB</div>
         <div className="admin-auth-badge">Quản trị D Free Book</div>
-        <h3 className="admin-auth-title">Đăng nhập admin</h3>
-        <p className="admin-auth-subtitle">Truy cập khu vực quản trị bằng tài khoản được cấp quyền.</p>
+        <h3 className="admin-auth-title">Đăng nhập quản trị</h3>
+        <p className="admin-auth-subtitle">Truy cập khu vực quản trị bằng tài khoản được cấp quyền để quản lý sách, phiếu mượn và giao dịch.</p>
         <form onSubmit={handleSubmit(onSubmit)}>
         
           <div className="mb-3">
-            <label className="form-label">Email</label>
+            <label className="form-label">Địa chỉ email quản trị</label>
             <input
               type="email"
               className="form-control"
-              {...register("email", { required: "Email is required" })}
+              {...register("email", { required: "Vui lòng nhập địa chỉ email" })}
             />
             {errors.email && <p className="text-danger">{errors.email.message}</p>}
           </div>
 
        
           <div className="mb-3">
-            <label className="form-label">Password</label>
+            <label className="form-label">Mật khẩu</label>
             <input
               type="password"
               className="form-control"
-              {...register("password", { required: "Password is required" })}
+              {...register("password", { required: "Vui lòng nhập mật khẩu" })}
             />
             {errors.password && <p className="text-danger">{errors.password.message}</p>}
           </div>
 
           
-          <button type="submit" className="btn admin-auth-submit w-100">Đăng nhập</button>
+          <button type="submit" className="btn admin-auth-submit w-100">Đăng nhập vào hệ thống</button>
+          <p className="admin-auth-help">Chỉ tài khoản có quyền quản trị mới truy cập được khu vực này.</p>
         </form>
       </div>
     </div>
