@@ -11,6 +11,7 @@ const {
   getTransactionsByTicket,
 } = require("../utils/mysql");
 const { createVnpayPaymentUrl, verifyVnpaySignature } = require("../utils/vnpay");
+const { sendDepositSuccessMail, sendApprovalSuccessMail } = require("../utils/mail");
 
 const ticketController = {};
 
@@ -433,6 +434,9 @@ ticketController.updateTicketStatus = async (req, res) => {
       return res.status(400).json({ error: true, message: "Invalid action" });
     }
 
+    let triggerDepositMail = false;
+    let triggerApproveMail = false;
+
     const updatedTicket = await withTransaction(async (connection) => {
       const ticket = await fetchSingleTicket(connection, id);
       if (!ticket) {
@@ -471,6 +475,7 @@ ticketController.updateTicketStatus = async (req, res) => {
            WHERE id = ?`,
           [id]
         );
+        triggerDepositMail = true;
       }
 
       if (nextAction === "approve") {
@@ -498,6 +503,7 @@ ticketController.updateTicketStatus = async (req, res) => {
            WHERE id = ?`,
           [getDueDate(), req.userInfo.id, id]
         );
+        triggerApproveMail = true;
       }
 
       if (nextAction === "dispatch") {
@@ -725,6 +731,14 @@ ticketController.updateTicketStatus = async (req, res) => {
       return res.status(404).json({ error: true, message: "Ticket not found" });
     }
 
+    if (triggerDepositMail && updatedTicket.userId?.email) {
+      sendDepositSuccessMail(updatedTicket).catch(console.error);
+    }
+    
+    if (triggerApproveMail && updatedTicket.userId?.email) {
+      sendApprovalSuccessMail(updatedTicket).catch(console.error);
+    }
+
     clearCache("homeData");
     res.status(200).json({
       error: false,
@@ -792,6 +806,9 @@ ticketController.vnpayReturn = async (req, res) => {
 
         if (transactionRows.length > 0) {
           const dbTicketId = transactionRows[0].ticket_id;
+          let triggerDepositMail = false;
+          let ticketInfoForMail = null;
+
           await withTransaction(async (connection) => {
             for (const transaction of transactionRows) {
               if (transaction.status === "pending") {
@@ -800,14 +817,23 @@ ticketController.vnpayReturn = async (req, res) => {
             }
 
             if (isSuccess) {
-              await connection.query(
+              const [updateResult] = await connection.query(
                 `UPDATE borrow_tickets
                  SET deposit_status = 'held', updated_at = NOW()
                  WHERE id = ? AND deposit_status = 'pending'`,
                 [dbTicketId]
               );
+              
+              if (updateResult && updateResult.affectedRows > 0) {
+                triggerDepositMail = true;
+                ticketInfoForMail = await fetchSingleTicket(connection, dbTicketId);
+              }
             }
           });
+
+          if (triggerDepositMail && ticketInfoForMail) {
+            sendDepositSuccessMail(ticketInfoForMail).catch(console.error);
+          }
         }
       } catch (err) {
         console.error("Error updating status in vnpayReturn:", err);
@@ -846,20 +872,34 @@ ticketController.vnpayIpn = async (req, res) => {
     }
 
     const ticketId = transactionRows[0].ticket_id;
+    let triggerDepositMail = false;
+    let ticketInfoForMail = null;
+
     await withTransaction(async (connection) => {
       for (const transaction of transactionRows) {
-        await updateTransactionStatus(connection, transaction.id, isSuccess ? "completed" : "failed", vnpTxnRef);
+        if (transaction.status === "pending") {
+          await updateTransactionStatus(connection, transaction.id, isSuccess ? "completed" : "failed", vnpTxnRef);
+        }
       }
 
       if (isSuccess) {
-        await connection.query(
+        const [updateResult] = await connection.query(
           `UPDATE borrow_tickets
            SET deposit_status = 'held', updated_at = NOW()
-           WHERE id = ?`,
+           WHERE id = ? AND deposit_status = 'pending'`,
           [ticketId]
         );
+
+        if (updateResult && updateResult.affectedRows > 0) {
+          triggerDepositMail = true;
+          ticketInfoForMail = await fetchSingleTicket(connection, ticketId);
+        }
       }
     });
+
+    if (triggerDepositMail && ticketInfoForMail) {
+      sendDepositSuccessMail(ticketInfoForMail).catch(console.error);
+    }
 
     return res.status(200).json({ RspCode: "00", Message: "Success" });
   } catch (error) {
