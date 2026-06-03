@@ -7,12 +7,15 @@ import './styles/components.css'
 import 'react-toastify/dist/ReactToastify.css'
 import App from './App.jsx'
 import { CartProvider } from './context/CartContext.jsx'
+import { WishlistProvider } from './context/WishlistContext.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
   <BrowserRouter>
     <CartProvider>
-      <App />
+      <WishlistProvider>
+        <App />
+      </WishlistProvider>
     </CartProvider>
   </BrowserRouter>
   </StrictMode>

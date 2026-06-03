@@ -796,3 +796,135 @@
     min-height: 135px;
   }
 }
+
+/* ============================================================
+   ADMIN REVIEWS MANAGEMENT
+   ============================================================ */
+
+/* Star display in table */
+.admin-review-stars {
+  font-size: 1rem;
+  letter-spacing: 2px;
+  color: #f59e0b;
+  line-height: 1;
+}
+
+.admin-review-stars .empty-star {
+  color: #e2e8f0;
+}
+
+/* Review user info cell */
+.admin-review-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-review-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.82rem;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(102,126,234,0.25);
+}
+
+.admin-review-user-info strong {
+  display: block;
+  color: #0f172a;
+  font-size: 0.88rem;
+  font-weight: 800;
+  margin-bottom: 2px;
+}
+
+.admin-review-user-info span {
+  color: #94a3b8;
+  font-size: 0.76rem;
+}
+
+/* Book title cell */
+.admin-review-book {
+  font-weight: 700;
+  color: #1d4ed8;
+  font-size: 0.88rem;
+}
+
+/* Comment cell */
+.admin-review-comment {
+  color: #475569;
+  font-size: 0.85rem;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-style: italic;
+}
+
+.admin-review-no-comment {
+  color: #cbd5e1;
+  font-style: italic;
+  font-size: 0.82rem;
+}
+
+/* Date cell */
+.admin-review-date {
+  color: #64748b;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+/* Status badge in reviews */
+.status-badge.visible-review {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: rgba(16,185,129,0.2);
+}
+
+.status-badge.hidden-review {
+  background: #f8fafc;
+  color: #94a3b8;
+  border-color: rgba(148,163,184,0.3);
+}
+
+/* Action buttons row in review table */
+.admin-review-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* "Chưa có đánh giá" empty */
+.admin-reviews-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #94a3b8;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.admin-reviews-empty span {
+  display: block;
+  font-size: 2.5rem;
+  margin-bottom: 0.6rem;
+}
+
+/* Scrollable review table on small screens */
+@media (max-width: 768px) {
+  .admin-review-comment {
+    max-width: 120px;
+  }
+
+  .admin-review-book {
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+

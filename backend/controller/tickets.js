@@ -488,13 +488,18 @@ ticketController.updateTicketStatus = async (req, res) => {
         }
 
         for (const book of ticket.books) {
-          await connection.query(
+          const [result] = await connection.query(
             `UPDATE books
              SET available_copies = available_copies - 1,
                  borrow_count = borrow_count + 1
-             WHERE id = ?`,
+             WHERE id = ? AND available_copies > 0`,
             [book._id]
           );
+          if (result.affectedRows === 0) {
+            const error = new Error(`Book "${book.title}" is no longer available`);
+            error.statusCode = 400;
+            throw error;
+          }
         }
 
         await connection.query(

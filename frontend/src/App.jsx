@@ -25,6 +25,7 @@ const Partners = lazy(() => import('./pages/user/Partners'));
 const Policies = lazy(() => import('./pages/user/Policies'));
 const NotFound = lazy(() => import('./pages/user/NotFound'));
 const PaymentResult = lazy(() => import('./pages/user/PaymentResult'));
+const Wishlist = lazy(() => import('./pages/user/wishlist'));
 const ForgotPassword = lazy(() => import('./pages/user/ForgetPassword/ForgetPassword'));
 const VerifyOTP = lazy(() => import('./pages/user/ForgetPassword/VerifyOtp'));
 const ResetPassword = lazy(() => import('./pages/user/ForgetPassword/UpdatePassword'));
@@ -51,43 +52,44 @@ function App() {
   return (
     <Suspense fallback={<Preloader />}>
       <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
-        <Route path="/admin-login" element={<Navigate to="/login" replace />} />
+        <Routes location={location} key={location.pathname}>
+          <Route path="/admin-login" element={<Navigate to="/login" replace />} />
 
-        <Route path="/" element={<Userlayout />}>
-          <Route index element={<Home />} />
-          <Route path="books" element={<Books />} />
-          <Route path="bookdetails/:id" element={<BookDetails />} />
-          <Route path="cart" element={<CartPage />} />
-          <Route path="category" element={<AllCategories />} />
-          <Route path="register" element={<Register />} />
-          <Route path="login" element={<Login />} />
-          <Route path="aboutus" element={<AboutUs />} />
-          <Route path="ve-d-free-book" element={<AboutUs />} />
-          <Route path="contactus" element={<ContactUs />} />
-          <Route path="lien-he" element={<ContactUs />} />
-          <Route path="hoat-dong" element={<Activities />} />
-          <Route path="doi-tac" element={<Partners />} />
-          <Route path="chinh-sach/:slug" element={<Policies />} />
-          <Route path="forgetPassword" element={<ForgotPassword />} />
-          <Route path="verifyotp" element={<VerifyOTP />} />
-          <Route path="resetpass" element={<ResetPassword />} />
-          <Route path="payment-result" element={<PaymentResult />} />
-        </Route>
+          <Route path="/" element={<Userlayout />}>
+            <Route index element={<Home />} />
+            <Route path="books" element={<Books />} />
+            <Route path="bookdetails/:id" element={<BookDetails />} />
+            <Route path="cart" element={<CartPage />} />
+            <Route path="wishlist" element={<Wishlist />} />
+            <Route path="category" element={<AllCategories />} />
+            <Route path="register" element={<Register />} />
+            <Route path="login" element={<Login />} />
+            <Route path="aboutus" element={<AboutUs />} />
+            <Route path="ve-d-free-book" element={<AboutUs />} />
+            <Route path="contactus" element={<ContactUs />} />
+            <Route path="lien-he" element={<ContactUs />} />
+            <Route path="hoat-dong" element={<Activities />} />
+            <Route path="doi-tac" element={<Partners />} />
+            <Route path="chinh-sach/:slug" element={<Policies />} />
+            <Route path="forgetPassword" element={<ForgotPassword />} />
+            <Route path="verifyotp" element={<VerifyOTP />} />
+            <Route path="resetpass" element={<ResetPassword />} />
+            <Route path="payment-result" element={<PaymentResult />} />
+          </Route>
 
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<AdminDashboard />} />
-          <Route path="tickets" element={<AdminDashboard initialSection="tickets" />} />
-          <Route path="addbook" element={<AddBookForm />} />
-          <Route path="viewbook" element={<ViewBooks />} />
-        </Route>
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminDashboard />} />
+            <Route path="tickets" element={<AdminDashboard initialSection="tickets" />} />
+            <Route path="addbook" element={<AddBookForm />} />
+            <Route path="viewbook" element={<ViewBooks />} />
+          </Route>
 
-        <Route path="/user" element={<Userlayout />}>
-          <Route index element={<ProfilePage />} />
-        </Route>
+          <Route path="/user" element={<Userlayout />}>
+            <Route index element={<ProfilePage />} />
+          </Route>
 
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+          <Route path="*" element={<NotFound />} />
+        </Routes>
       </AnimatePresence>
     </Suspense>
   );

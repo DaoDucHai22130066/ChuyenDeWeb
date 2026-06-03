@@ -177,4 +177,81 @@ const sendApprovalSuccessMail = async (ticket) => {
   }
 };
 
-module.exports = { transporter, sendDepositSuccessMail, sendApprovalSuccessMail, sendOtpMail };
+const sendContactNotification = async (contactInfo) => {
+  try {
+    const { name, email, subject, message } = contactInfo;
+    const adminEmail = "caominhhieunq@gmail.com";
+    
+    const subjectMap = {
+      general: "Câu hỏi chung",
+      borrow: "Mượn / trả sách",
+      donate: "Hiến sách",
+      volunteer: "Tình nguyện",
+      feedback: "Góp ý",
+      other: "Khác"
+    };
+    const displaySubject = subjectMap[subject] || subject;
+
+    const htmlContent = `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 12px; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+        <div style="text-align: center; margin-bottom: 25px; border-bottom: 2px solid #f0f0f0; padding-bottom: 15px;">
+          <h1 style="color: #2e7d32; margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 1px;">THƯ VIỆN SỐ</h1>
+        </div>
+        <div style="background-color: #f4fcf5; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid #4CAF50;">
+          <h2 style="color: #2e7d32; margin-top: 0; font-size: 18px;">Tin nhắn liên hệ mới</h2>
+          <p style="color: #444; font-size: 15px; margin-bottom: 0;">Bạn vừa nhận được một tin nhắn liên hệ mới từ người dùng trên hệ thống website.</p>
+        </div>
+        
+        <div style="margin-bottom: 25px; background-color: #fafafa; padding: 15px; border-radius: 8px;">
+          <h3 style="color: #333; border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-top: 0; font-size: 16px;">THÔNG TIN NGƯỜI GỬI</h3>
+          <table style="width: 100%; font-size: 14px; color: #555; line-height: 1.8;">
+            <tr>
+              <td style="width: 35%;"><strong>Họ và tên:</strong></td>
+              <td><span style="color: #333; font-weight: 500;">${name}</span></td>
+            </tr>
+            <tr>
+              <td><strong>Email:</strong></td>
+              <td><a href="mailto:${email}" style="color: #1976d2; text-decoration: none;">${email}</a></td>
+            </tr>
+            <tr>
+              <td><strong>Thời gian:</strong></td>
+              <td>${new Date().toLocaleString('vi-VN')}</td>
+            </tr>
+          </table>
+        </div>
+
+        <div>
+          <h3 style="color: #333; border-bottom: 1px solid #ddd; padding-bottom: 8px; font-size: 16px;">NỘI DUNG LIÊN HỆ</h3>
+          <div style="margin-bottom: 15px;">
+            <span style="display: inline-block; background-color: #e3f2fd; color: #1565c0; padding: 4px 10px; border-radius: 4px; font-size: 13px; font-weight: bold; margin-bottom: 10px;">
+              Chủ đề: ${displaySubject}
+            </span>
+          </div>
+          <div style="background-color: #fff; padding: 15px; border: 1px solid #e0e0e0; border-radius: 6px; color: #444; font-size: 15px; line-height: 1.6; white-space: pre-wrap;">${message}</div>
+        </div>
+
+        <div style="text-align: center; margin-top: 35px; padding-top: 20px; border-top: 1px solid #eaeaea;">
+          <a href="mailto:${email}" style="display: inline-block; background-color: #4CAF50; color: #fff; text-decoration: none; padding: 10px 25px; border-radius: 4px; font-weight: bold; font-size: 14px;">Trả lời Email này</a>
+        </div>
+
+        <div style="text-align: center; margin-top: 25px; color: #999; font-size: 12px; line-height: 1.5;">
+          <p style="margin: 5px 0;">Đây là email tự động từ hệ thống Thư Viện Số.</p>
+          <p style="margin: 5px 0;">&copy; ${new Date().getFullYear()} Hệ thống Thư Viện Số. All rights reserved.</p>
+        </div>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: `"Thư Viện Số" <${process.env.EMAIL_USER}>`,
+      to: adminEmail,
+      replyTo: email,
+      subject: `[Liên hệ mới] Chủ đề: ${displaySubject}`,
+      html: htmlContent,
+    });
+    console.log(`Sent contact notification to ${adminEmail}`);
+  } catch (error) {
+    console.error("Error sending contact notification:", error);
+  }
+};
+
+module.exports = { transporter, sendDepositSuccessMail, sendApprovalSuccessMail, sendOtpMail, sendContactNotification };

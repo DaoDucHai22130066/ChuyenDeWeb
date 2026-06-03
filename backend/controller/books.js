@@ -60,6 +60,50 @@ async function fetchBooks(connection, { orderByLatest = false } = {}) {
   return rows.map(mapBookRow);
 }
 
+const getBookReviews = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const sql = `
+            SELECT r.*, u.name as user_name
+            FROM book_reviews r
+            JOIN users u ON r.user_id = u.id
+            WHERE r.book_id = ? AND r.status = 'visible'
+            ORDER BY r.created_at DESC
+        `;
+        const reviews = await query(sql, [id]);
+        res.status(200).json({ success: true, reviews });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const getReviewSummary = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const sql = `
+            SELECT 
+                COUNT(*) as total_reviews,
+                AVG(rating) as average_rating
+            FROM book_reviews
+            WHERE book_id = ? AND status = 'visible'
+        `;
+        const result = await query(sql, [id]);
+        const summary = result[0] || { total_reviews: 0, average_rating: 0 };
+        res.status(200).json({ 
+            success: true, 
+            summary: {
+                totalReviews: summary.total_reviews,
+                averageRating: summary.average_rating ? Number(summary.average_rating).toFixed(1) : 0
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+booksController.getBookReviews = getBookReviews;
+booksController.getReviewSummary = getReviewSummary;
+
 booksController.addNewBook = async (req, res) => {
   try {
     const {
