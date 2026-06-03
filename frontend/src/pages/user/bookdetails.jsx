@@ -22,6 +22,8 @@ function BookDetails() {
   const [book, setBook] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const [reviewSummary, setReviewSummary] = useState({ totalReviews: 0, averageRating: 0 });
   const { addToCart, isInCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const categoryLabel = book?.categoryId?.name || book?.category || "Chưa phân loại";
@@ -64,6 +66,16 @@ function BookDetails() {
       }
     }
     fetchBook();
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    axios.get(`${Server_URL}books/${id}/reviews`)
+      .then(res => { if (res.data.success) setReviews(res.data.reviews || []); })
+      .catch(() => {});
+    axios.get(`${Server_URL}books/${id}/review-summary`)
+      .then(res => { if (res.data.success) setReviewSummary(res.data.summary); })
+      .catch(() => {});
   }, [id]);
 
   useEffect(() => {
@@ -218,6 +230,54 @@ function BookDetails() {
               </Link>
             </div>
           </div>
+        </div>
+
+        {/* Review Section */}
+        <div className="bdr-section">
+          <div className="bdr-header">
+            <h3 className="bdr-title">⭐ Đánh giá &amp; Nhận xét</h3>
+            {reviewSummary.totalReviews > 0 && (
+              <div className="bdr-summary-badge">
+                <span className="bdr-avg-score">{reviewSummary.averageRating}</span>
+                <span className="bdr-stars-fill">★★★★★</span>
+                <span className="bdr-count">({reviewSummary.totalReviews} lượt đánh giá)</span>
+              </div>
+            )}
+          </div>
+
+          {reviews.length === 0 ? (
+            <div className="bdr-empty">
+              <span className="bdr-empty-icon">💬</span>
+              <p>Chưa có đánh giá nào. Hãy là người đầu tiên!</p>
+            </div>
+          ) : (
+            <div className="bdr-list">
+              {reviews.map((r) => (
+                <div key={r.id} className="bdr-card">
+                  <div className="bdr-card-top">
+                    <div className="bdr-user-info">
+                      <div className="bdr-avatar">
+                        {r.user_name?.charAt(0)?.toUpperCase() || '?'}
+                      </div>
+                      <div>
+                        <div className="bdr-user-name">{r.user_name}</div>
+                        <div className="bdr-user-date">
+                          {new Date(r.created_at).toLocaleDateString('vi-VN')}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bdr-rating-stars">
+                      {'★'.repeat(r.rating)}
+                      <span className="bdr-empty-stars">{'★'.repeat(5 - r.rating)}</span>
+                    </div>
+                  </div>
+                  {r.comment && (
+                    <p className="bdr-comment">{r.comment}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </motion.div>

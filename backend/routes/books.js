@@ -10,6 +10,8 @@ router.post("/add", userAuth, checkRole("admin"), upload.single("coverImage"), b
 router.get("/", booksController.getAllBooks)
 router.get("/new", booksController.getLatestBooks)
 router.get("/:id", booksController.getParticularBook)
+router.get("/:id/reviews", booksController.getBookReviews)
+router.get("/:id/review-summary", booksController.getReviewSummary)
 router.delete("/delete/:id", userAuth, checkRole("admin"), booksController.deleteBook)
 router.put("/update/:id", userAuth, checkRole("admin"), booksController.updateBook)
 

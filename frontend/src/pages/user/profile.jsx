@@ -15,8 +15,10 @@ import {
   FiX, 
   FiCalendar, 
   FiBook,
-  FiActivity
+  FiActivity,
+  FiStar
 } from "react-icons/fi";
+import { FaStar, FaRegStar } from "react-icons/fa";
 import { FaGraduationCap } from "react-icons/fa";
 
 const STATUS_VI = {
@@ -41,6 +43,14 @@ function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({ name: "", stream: "", year: "" });
   const [isSaving, setIsSaving] = useState(false);
+
+  // Review modal state
+  const [reviewModal, setReviewModal] = useState(null); // { ticket, book }
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewedKeys, setReviewedKeys] = useState(new Set()); // "ticketId-bookId"
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [hoverRating, setHoverRating] = useState(0);
 
   async function fetchProfile() {
     try {
@@ -97,6 +107,39 @@ function ProfilePage() {
       showErrorToast(err.response?.data?.message || "Không thể cập nhật hồ sơ.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const openReviewModal = (ticket, book) => {
+    setReviewModal({ ticket, book });
+    setReviewRating(5);
+    setReviewComment("");
+    setHoverRating(0);
+  };
+
+  const closeReviewModal = () => {
+    setReviewModal(null);
+  };
+
+  const submitReview = async () => {
+    if (!reviewModal) return;
+    setIsSubmittingReview(true);
+    try {
+      await axios.post(`${Server_URL}reviews`, {
+        bookId: reviewModal.book._id || reviewModal.book.id,
+        ticketId: reviewModal.ticket._id,
+        rating: reviewRating,
+        comment: reviewComment,
+      }, {
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
+      });
+      showSuccessToast("Cảm ơn bạn đã đánh giá!");
+      setReviewedKeys(prev => new Set([...prev, `${reviewModal.ticket._id}-${reviewModal.book._id || reviewModal.book.id}`]));
+      closeReviewModal();
+    } catch (err) {
+      showErrorToast(err.response?.data?.message || "Không thể gửi đánh giá.");
+    } finally {
+      setIsSubmittingReview(false);
     }
   };
 
@@ -313,6 +356,7 @@ function ProfilePage() {
                       <th>Danh sách sách mượn</th>
                       <th>Ngày mượn</th>
                       <th>Trạng thái</th>
+                      <th>Đánh giá</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -332,6 +376,29 @@ function ProfilePage() {
                             {STATUS_VI[ticket.status] || ticket.status}
                           </span>
                         </td>
+                        <td>
+                          {(ticket.status === 'returned' || ticket.status === 'closed') ? (
+                            <div className="review-action-cell">
+                              {ticket.books.map((book) => {
+                                const key = `${ticket._id}-${book._id || book.id}`;
+                                const alreadyReviewed = reviewedKeys.has(key);
+                                return (
+                                  <button
+                                    key={key}
+                                    className={`btn-review ${alreadyReviewed ? 'reviewed' : ''}`}
+                                    onClick={() => !alreadyReviewed && openReviewModal(ticket, book)}
+                                    disabled={alreadyReviewed}
+                                    title={alreadyReviewed ? 'Đã đánh giá' : `Đánh giá: ${book.title}`}
+                                  >
+                                    {alreadyReviewed ? '✓ Đã đánh giá' : `⭐ ${book.title.substring(0, 14)}${book.title.length > 14 ? '...' : ''}`}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <span className="no-review-dash">—</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -341,6 +408,59 @@ function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Review Modal */}
+      {reviewModal && (
+        <div className="review-modal-overlay">
+          <div className="review-modal-box">
+            <div className="review-modal-header">
+              <h3>⭐ Đánh giá sách</h3>
+              <button className="review-modal-close" onClick={closeReviewModal} title="Đóng">✕</button>
+            </div>
+
+            <div className="review-modal-book-title">
+              📖 {reviewModal.book.title}
+            </div>
+
+            {/* Star Rating */}
+            <span className="review-stars-label">Chọn số sao:</span>
+            <div className="review-stars-row">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  className={`star-btn ${(hoverRating || reviewRating) >= star ? 'filled' : 'empty'}`}
+                  onClick={() => setReviewRating(star)}
+                  onMouseEnter={() => setHoverRating(star)}
+                  onMouseLeave={() => setHoverRating(0)}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+            <p className="review-rating-label">
+              {['' , '⭐ Rất tệ', '⭐⭐ Tệ', '⭐⭐⭐ Bình thường', '⭐⭐⭐⭐ Tốt', '⭐⭐⭐⭐⭐ Tuyệt vời'][reviewRating]}
+            </p>
+
+            {/* Comment */}
+            <span className="review-comment-label">Nhận xét (tuỳ chọn):</span>
+            <textarea
+              className="review-comment-textarea"
+              value={reviewComment}
+              onChange={(e) => setReviewComment(e.target.value)}
+              placeholder="Chia sẻ cảm nhận của bạn về cuốn sách này..."
+              rows={4}
+            />
+
+            {/* Actions */}
+            <div className="review-modal-actions">
+              <button className="btn-review-cancel" onClick={closeReviewModal}>Hủy</button>
+              <button className="btn-review-submit" onClick={submitReview} disabled={isSubmittingReview}>
+                {isSubmittingReview ? 'Đang gửi...' : 'Gửi đánh giá ⭐'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -88,6 +88,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const [users, setUsers] = useState([]);
   const [books, setBooks] = useState([]);
   const [tickets, setTickets] = useState([]);
+  const [reviews, setReviews] = useState([]);
   const [expandedTicket, setExpandedTicket] = useState(null);
   const [ticketTransactions, setTicketTransactions] = useState({});
 
@@ -146,6 +147,43 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
     }
   };
 
+  const fetchReviews = async () => {
+    try {
+      const result = await axios.get(`${Server_URL}admin/reviews`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setReviews(result.data.reviews || []);
+    } catch (error) {
+      console.error("Lỗi tải đánh giá:", error);
+    }
+  };
+
+  const handleToggleReviewStatus = async (review) => {
+    const newStatus = review.status === 'visible' ? 'hidden' : 'visible';
+    try {
+      await axios.put(`${Server_URL}admin/reviews/${review.id}/status`, { status: newStatus }, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      showSuccessToast(newStatus === 'hidden' ? 'Đã ẩn đánh giá' : 'Đã hiện đánh giá');
+      fetchReviews();
+    } catch {
+      showErrorToast('Không thể cập nhật trạng thái');
+    }
+  };
+
+  const handleDeleteReview = async (reviewId) => {
+    if (!window.confirm('Xóa đánh giá này?')) return;
+    try {
+      await axios.delete(`${Server_URL}admin/reviews/${reviewId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      showSuccessToast('Đã xóa đánh giá');
+      fetchReviews();
+    } catch {
+      showErrorToast('Không thể xóa');
+    }
+  };
+
   const fetchTicketTransactions = async (ticketId) => {
     try {
       const result = await axios.get(`${Server_URL}tickets/${ticketId}/transactions`, {
@@ -196,6 +234,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
     fetchUsers();
     fetchBooks();
     fetchTickets();
+    fetchReviews();
   }, []);
 
   useEffect(() => {
@@ -246,6 +285,14 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                 onClick={() => setSelectedSection("books")}
               >
                 <FiBook /> Kho sách
+              </button>
+            </li>
+            <li className="admin-nav-item">
+              <button
+                className={`admin-nav-btn ${selectedSection === "reviews" ? "active" : ""}`}
+                onClick={() => setSelectedSection("reviews")}
+              >
+                <FiCheckCircle /> Đánh giá
               </button>
             </li>
           </ul>
@@ -576,7 +623,80 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
               </div>
             </>
           )}
+
+          {selectedSection === "reviews" && (
+            <>
+              <h2 className="admin-section-title">Quản lý Đánh giá</h2>
+              <div className="admin-table-container">
+                {reviews.length === 0 ? (
+                  <p style={{ padding: '24px', color: '#94a3b8', textAlign: 'center' }}>Chưa có đánh giá nào.</p>
+                ) : (
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Độc giả</th>
+                        <th>Sách</th>
+                        <th>Sao</th>
+                        <th>Nội dung</th>
+                        <th>Ngày</th>
+                        <th>Trạng thái</th>
+                        <th>Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reviews.map((review) => (
+                        <tr key={review.id}>
+                          <td>
+                            <div style={{ fontWeight: 600 }}>{review.user_name}</div>
+                            <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{review.user_email}</div>
+                          </td>
+                          <td style={{ maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {review.book_title}
+                          </td>
+                          <td>
+                            <span style={{ color: '#f59e0b', fontSize: '1rem' }}>
+                              {'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}
+                            </span>
+                          </td>
+                          <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {review.comment || <em style={{ color: '#cbd5e1' }}>Không có</em>}
+                          </td>
+                          <td style={{ whiteSpace: 'nowrap' }}>
+                            {new Date(review.created_at).toLocaleDateString('vi-VN')}
+                          </td>
+                          <td>
+                            <span className={`status-badge ${review.status === 'visible' ? 'approved' : 'cancelled'}`}>
+                              {review.status === 'visible' ? 'Hiển thị' : 'Đã ẩn'}
+                            </span>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <button
+                                className="btn btn-sm btn-outline-secondary"
+                                onClick={() => handleToggleReviewStatus(review)}
+                                title={review.status === 'visible' ? 'Ẩn đánh giá' : 'Hiện đánh giá'}
+                              >
+                                <FiEye /> {review.status === 'visible' ? 'Ẩn' : 'Hiện'}
+                              </button>
+                              <button
+                                className="btn btn-sm btn-outline-danger"
+                                onClick={() => handleDeleteReview(review.id)}
+                                title="Xóa đánh giá"
+                              >
+                                <FiX /> Xóa
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </>
+          )}
         </main>
+
       </div>
     </motion.div>
   );
