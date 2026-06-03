@@ -20,11 +20,11 @@ export default function Navbar() {
       if (token) {
         // token is still present in some flows; prefer explicit remove
       }
-    } catch (e) {}
+    } catch (e) { }
     // clear client cart UI now; server cart remains for reload on next login
     try {
       clearCart();
-    } catch (e) {}
+    } catch (e) { }
     navigate("/login");
   };
 
@@ -105,6 +105,11 @@ export default function Navbar() {
                   <li>
                     <Link className="dropdown-item" to="/user">
                       Hồ sơ mượn sách
+                    </Link>
+                  </li>
+                  <li>
+                    <Link className="dropdown-item" to="/wishlist">
+                      Sách yêu thích
                     </Link>
                   </li>
                   <li>

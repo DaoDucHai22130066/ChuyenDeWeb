@@ -155,56 +155,56 @@ async function createSchema(connection) {
   await ensureBorrowTicketSchema(connection);
 
 
-async function columnExists(connection, tableName, columnName) {
-  const [rows] = await connection.query("SHOW COLUMNS FROM ?? LIKE ?", [tableName, columnName]);
-  return rows.length > 0;
-}
-
-async function addColumnIfMissing(connection, tableName, columnName, definition) {
-  const exists = await columnExists(connection, tableName, columnName);
-  if (!exists) {
-    await connection.query(`ALTER TABLE ?? ADD COLUMN ${definition}`, [tableName]);
-  }
-}
-
-async function ensureBorrowTicketSchema(connection) {
-  // Add missing columns (won't fail if they exist)
-  await addColumnIfMissing(connection, "users", "phone", "phone VARCHAR(20) NULL");
-  await addColumnIfMissing(connection, "borrow_tickets", "due_date", "due_date DATETIME NULL DEFAULT NULL");
-  await addColumnIfMissing(connection, "borrow_tickets", "deposit_amount", "deposit_amount DECIMAL(10,2) NOT NULL DEFAULT 0");
-  await addColumnIfMissing(connection, "borrow_tickets", "deposit_status", "deposit_status ENUM('none', 'pending', 'held', 'refunded', 'forfeited') NOT NULL DEFAULT 'none'");
-  await addColumnIfMissing(connection, "borrow_tickets", "payment_method", "payment_method ENUM('cash', 'vnpay') NOT NULL DEFAULT 'cash'");
-  await addColumnIfMissing(connection, "borrow_tickets", "shipping_fee", "shipping_fee DECIMAL(10,2) NOT NULL DEFAULT 0");
-  await addColumnIfMissing(connection, "borrow_tickets", "shipping_status", "shipping_status ENUM('none', 'pending', 'dispatched', 'delivered', 'returned') NOT NULL DEFAULT 'none'");
-  await addColumnIfMissing(connection, "borrow_tickets", "shipping_address", "shipping_address VARCHAR(255) NULL");
-  await addColumnIfMissing(connection, "borrow_tickets", "shipping_phone", "shipping_phone VARCHAR(20) NULL");
-  await addColumnIfMissing(connection, "borrow_tickets", "fine_amount", "fine_amount DECIMAL(10,2) NOT NULL DEFAULT 0");
-
-  // Safely migrate old status values to new format
-  try {
-    await connection.query("UPDATE borrow_tickets SET status = 'pending' WHERE status = 'Pending' OR status = 'pending'");
-  } catch (e) {
-    // Ignore if no rows to update
-  }
-  try {
-    await connection.query("UPDATE borrow_tickets SET status = 'approved' WHERE status = 'Approved'");
-  } catch (e) {
-    // Ignore
-  }
-  try {
-    await connection.query("UPDATE borrow_tickets SET status = 'returned' WHERE status = 'Returned'");
-  } catch (e) {
-    // Ignore
-  }
-  try {
-    await connection.query("UPDATE borrow_tickets SET status = 'cancelled' WHERE status = 'Rejected'");
-  } catch (e) {
-    // Ignore
+  async function columnExists(connection, tableName, columnName) {
+    const [rows] = await connection.query("SHOW COLUMNS FROM ?? LIKE ?", [tableName, columnName]);
+    return rows.length > 0;
   }
 
-  // Try to modify the status column - use safe approach
-  try {
-    await connection.query(`
+  async function addColumnIfMissing(connection, tableName, columnName, definition) {
+    const exists = await columnExists(connection, tableName, columnName);
+    if (!exists) {
+      await connection.query(`ALTER TABLE ?? ADD COLUMN ${definition}`, [tableName]);
+    }
+  }
+
+  async function ensureBorrowTicketSchema(connection) {
+    // Add missing columns (won't fail if they exist)
+    await addColumnIfMissing(connection, "users", "phone", "phone VARCHAR(20) NULL");
+    await addColumnIfMissing(connection, "borrow_tickets", "due_date", "due_date DATETIME NULL DEFAULT NULL");
+    await addColumnIfMissing(connection, "borrow_tickets", "deposit_amount", "deposit_amount DECIMAL(10,2) NOT NULL DEFAULT 0");
+    await addColumnIfMissing(connection, "borrow_tickets", "deposit_status", "deposit_status ENUM('none', 'pending', 'held', 'refunded', 'forfeited') NOT NULL DEFAULT 'none'");
+    await addColumnIfMissing(connection, "borrow_tickets", "payment_method", "payment_method ENUM('cash', 'vnpay') NOT NULL DEFAULT 'cash'");
+    await addColumnIfMissing(connection, "borrow_tickets", "shipping_fee", "shipping_fee DECIMAL(10,2) NOT NULL DEFAULT 0");
+    await addColumnIfMissing(connection, "borrow_tickets", "shipping_status", "shipping_status ENUM('none', 'pending', 'dispatched', 'delivered', 'returned') NOT NULL DEFAULT 'none'");
+    await addColumnIfMissing(connection, "borrow_tickets", "shipping_address", "shipping_address VARCHAR(255) NULL");
+    await addColumnIfMissing(connection, "borrow_tickets", "shipping_phone", "shipping_phone VARCHAR(20) NULL");
+    await addColumnIfMissing(connection, "borrow_tickets", "fine_amount", "fine_amount DECIMAL(10,2) NOT NULL DEFAULT 0");
+
+    // Safely migrate old status values to new format
+    try {
+      await connection.query("UPDATE borrow_tickets SET status = 'pending' WHERE status = 'Pending' OR status = 'pending'");
+    } catch (e) {
+      // Ignore if no rows to update
+    }
+    try {
+      await connection.query("UPDATE borrow_tickets SET status = 'approved' WHERE status = 'Approved'");
+    } catch (e) {
+      // Ignore
+    }
+    try {
+      await connection.query("UPDATE borrow_tickets SET status = 'returned' WHERE status = 'Returned'");
+    } catch (e) {
+      // Ignore
+    }
+    try {
+      await connection.query("UPDATE borrow_tickets SET status = 'cancelled' WHERE status = 'Rejected'");
+    } catch (e) {
+      // Ignore
+    }
+
+    // Try to modify the status column - use safe approach
+    try {
+      await connection.query(`
       ALTER TABLE borrow_tickets
       MODIFY COLUMN status ENUM(
         'pending',
@@ -218,11 +218,11 @@ async function ensureBorrowTicketSchema(connection) {
         'cancelled'
       ) NOT NULL DEFAULT 'pending'
     `);
-  } catch (e) {
-    // If MODIFY fails, table might already have this schema
-    console.log("Status column already has new enum or similar error - skipping MODIFY");
+    } catch (e) {
+      // If MODIFY fails, table might already have this schema
+      console.log("Status column already has new enum or similar error - skipping MODIFY");
+    }
   }
-}
   await connection.query(`
     CREATE TABLE IF NOT EXISTS carts (
       id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -260,6 +260,18 @@ async function ensureBorrowTicketSchema(connection) {
       email VARCHAR(255) NOT NULL UNIQUE,
       otp VARCHAR(16) NOT NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS wishlists (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      user_id INT UNSIGNED NOT NULL,
+      book_id INT UNSIGNED NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY unique_user_book (user_id, book_id),
+      CONSTRAINT fk_wishlists_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT fk_wishlists_book FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE ON UPDATE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
 }
@@ -372,9 +384,9 @@ function mapBookRow(row) {
     category: row.category,
     categoryId: row.category_id
       ? {
-          _id: row.category_id,
-          name: row.category_name,
-        }
+        _id: row.category_id,
+        name: row.category_name,
+      }
       : null,
     isbn: row.isbn,
     description: row.description,
@@ -382,11 +394,11 @@ function mapBookRow(row) {
     totalCopies: row.total_copies,
     addedBy: row.added_by
       ? {
-          _id: row.added_by,
-          name: row.user_name,
-          email: row.user_email,
-          role: row.user_role,
-        }
+        _id: row.added_by,
+        name: row.user_name,
+        email: row.user_email,
+        role: row.user_role,
+      }
       : null,
     coverImage: row.cover_image,
     cloudinaryId: row.cloudinary_id,
@@ -438,11 +450,11 @@ function mapTicketRow(row) {
     fineAmount: row.fine_amount === null || row.fine_amount === undefined ? 0 : Number(row.fine_amount),
     approvedBy: row.approved_by
       ? {
-          _id: row.approved_by,
-          name: row.approver_name,
-          email: row.approver_email,
-          role: row.approver_role,
-        }
+        _id: row.approved_by,
+        name: row.approver_name,
+        email: row.approver_email,
+        role: row.approver_role,
+      }
       : null,
     approvedAt: row.approved_at,
     createdAt: row.created_at,

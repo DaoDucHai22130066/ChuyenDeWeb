@@ -1,21 +1,21 @@
 const express = require("express");
-const  router = express.Router();
-const {checkRole} = require("../middlewares/checkRole");
-const {userAuth} = require("../middlewares/userAuth");
+const router = express.Router();
+const { checkRole } = require("../middlewares/checkRole");
+const { userAuth } = require("../middlewares/userAuth");
 
-const {userController} = require("../controller/user")
-router.get("/",userController.getUsers)
+const { userController } = require("../controller/user")
+router.get("/", userController.getUsers)
 
-router.post("/register",userController.userRegistration);
+router.post("/register", userController.userRegistration);
 
-router.post("/login",userController.login)
+router.post("/login", userController.login)
 
 router.post("/google-login", userController.googleLogin);
 
-router.get("/profile",userAuth,checkRole("user"),userController.profile);
-router.put("/profile",userAuth,checkRole("user"),userController.updateProfile);
+router.get("/profile", userAuth, checkRole("user"), userController.profile);
+router.put("/profile", userAuth, checkRole("user"), userController.updateProfile);
 
-router.post("/contact",userController.addContact)
+router.post("/contact", userController.addContact)
 
 router.post("/forgot-password", userController.forgotPassword);
 router.post("/verify-otp", userController.verifyOTP);

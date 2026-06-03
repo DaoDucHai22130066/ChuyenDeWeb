@@ -6,6 +6,8 @@ import { FiFilter, FiSearch, FiBookOpen, FiMapPin, FiGrid, FiShoppingBag } from 
 import { Server_URL } from "../../utils/config";
 import { showErrorToast, showSuccessToast } from "../../utils/toasthelper";
 import { useCart } from "../../context/CartContext";
+import { useWishlist } from "../../context/WishlistContext";
+import { FaHeart, FaRegHeart } from "react-icons/fa";
 
 const STATUS_ALL = "all";
 const STATUS_IN_LIBRARY = "in_library";
@@ -30,6 +32,7 @@ const Books = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { addToCart, isInCart } = useCart();
+  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
 
   const getCategoryLabel = (book) => book.categoryId?.name || book.category || "Khác";
 
@@ -248,6 +251,42 @@ const Books = () => {
                           e.currentTarget.src = "/assets/library.avif";
                         }}
                       />
+                      <button
+                        className="wishlist-icon-btn list-wishlist-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const bookId = book._id || book.id;
+                          if (isInWishlist(bookId)) {
+                            removeFromWishlist(bookId);
+                          } else {
+                            addToWishlist(book).then(res => {
+                              if (res && res.success) {
+                                showSuccessToast("Đã lưu vào sách yêu thích");
+                              }
+                            });
+                          }
+                        }}
+                        title={isInWishlist(book._id || book.id) ? "Bỏ lưu" : "Lưu yêu thích"}
+                        style={{
+                          position: "absolute",
+                          top: "10px",
+                          right: "10px",
+                          background: "white",
+                          border: "none",
+                          borderRadius: "50%",
+                          width: "32px",
+                          height: "32px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
+                          zIndex: 2,
+                          padding: 0
+                        }}
+                      >
+                        {isInWishlist(book._id || book.id) ? <FaHeart color="#e74c3c" size={16} /> : <FaRegHeart color="#7f8c8d" size={16} />}
+                      </button>
                       <div className="book-badge">{getCategoryLabel(book)}</div>
                       {book.availableCopies > 0 ? (
                         <span className="book-status available">Còn {book.availableCopies} cuốn</span>

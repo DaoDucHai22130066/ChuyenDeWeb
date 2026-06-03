@@ -9,6 +9,8 @@ import { RiBookmarkLine } from "react-icons/ri";
 import "./bookdetails.css";
 import { showSuccessToast } from "../../utils/toasthelper";
 import { useCart } from "../../context/CartContext";
+import { useWishlist } from "../../context/WishlistContext";
+import { FaHeart, FaRegHeart } from "react-icons/fa";
 
 const BRANCH_LABELS = {
   "dai-la": "Cs. Đại La",
@@ -21,7 +23,23 @@ function BookDetails() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const { addToCart, isInCart } = useCart();
+  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const categoryLabel = book?.categoryId?.name || book?.category || "Chưa phân loại";
+
+  const handleWishlistToggle = async () => {
+    if (!book) return;
+    const bookId = book._id || book.id;
+    if (isInWishlist(bookId)) {
+      await removeFromWishlist(bookId);
+    } else {
+      const result = await addToWishlist(book);
+      if (result.success) {
+        showSuccessToast("Đã lưu vào sách yêu thích");
+      } else if (result.message) {
+        // Optional: show error toast
+      }
+    }
+  };
 
   useEffect(() => {
     async function fetchBook() {
@@ -121,7 +139,17 @@ function BookDetails() {
 
           <div className="book-info-panel dfb-card">
             <div className="book-header">
-              <span className="book-detail-kicker">Chi tiết sách</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="book-detail-kicker">Chi tiết sách</span>
+                <button 
+                  className="wishlist-icon-btn"
+                  onClick={handleWishlistToggle}
+                  title={isInWishlist(book._id || book.id) ? "Bỏ lưu" : "Lưu yêu thích"}
+                  style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                >
+                  {isInWishlist(book._id || book.id) ? <FaHeart color="#e74c3c" /> : <FaRegHeart color="#7f8c8d" />}
+                </button>
+              </div>
               <h1 className="book-title">{book.title}</h1>
               <p className="book-author">Tác giả: {book.author}</p>
             </div>
