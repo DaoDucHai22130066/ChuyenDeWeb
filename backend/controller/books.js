@@ -1,6 +1,5 @@
 const booksController = {};
 const { clearCache } = require("../utils/cache");
-const { cloudinary } = require("../utils/cloudConfig");
 const { withTransaction, query, mapBookRow } = require("../utils/mysql");
 
 async function resolveCategory(connection, categoryInput) {
@@ -41,7 +40,6 @@ async function fetchBooks(connection, { orderByLatest = false } = {}) {
        b.total_copies,
        b.added_by,
        b.cover_image,
-       b.cloudinary_id,
        b.price,
        b.branch,
        b.borrow_count,
@@ -140,16 +138,15 @@ booksController.addNewBook = async (req, res) => {
       return res.status(400).json({ error: true, message: "Category is required" });
     }
 
-    const coverImageUrl = req.file ? req.file.path : coverImage || "";
-    const cloudinaryId = req.file ? req.file.filename : "";
+    const coverImageUrl = coverImage || "";
     const totalCopiesValue = Number(totalCopies);
     const availableCopiesValue = Number.isFinite(Number(availableCopies)) ? Number(availableCopies) : totalCopiesValue;
     const numericPrice = price === undefined || price === "" ? null : Number(price);
 
     const insertResult = await query(
       `INSERT INTO books
-        (title, author, category, category_id, isbn, description, available_copies, total_copies, added_by, cover_image, cloudinary_id, price, branch)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+        (title, author, category, category_id, isbn, description, available_copies, total_copies, added_by, cover_image, price, branch)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
       [
         title,
         author,
@@ -161,7 +158,6 @@ booksController.addNewBook = async (req, res) => {
         totalCopiesValue,
         id,
         coverImageUrl,
-        cloudinaryId,
         numericPrice,
         branch || "dai-la",
       ]
@@ -182,7 +178,6 @@ booksController.addNewBook = async (req, res) => {
          b.total_copies,
          b.added_by,
          b.cover_image,
-         b.cloudinary_id,
          b.price,
          b.branch,
          b.borrow_count,
@@ -222,7 +217,6 @@ booksController.getAllBooks = async (req, res) => {
          b.total_copies,
          b.added_by,
          b.cover_image,
-         b.cloudinary_id,
          b.price,
          b.branch,
          b.borrow_count,
@@ -270,7 +264,6 @@ booksController.getLatestBooks = async (req, res) => {
          b.total_copies,
          b.added_by,
          b.cover_image,
-         b.cloudinary_id,
          b.price,
          b.branch,
          b.borrow_count,
@@ -336,7 +329,6 @@ booksController.getParticularBook = async (req, res) => {
          b.total_copies,
          b.added_by,
          b.cover_image,
-         b.cloudinary_id,
          b.price,
          b.branch,
          b.borrow_count,
@@ -368,7 +360,7 @@ booksController.getParticularBook = async (req, res) => {
 booksController.deleteBook = async (req, res) => {
   try {
     const { id } = req.params;
-    const rows = await query("SELECT cloudinary_id FROM books WHERE id = ? LIMIT 1", [id]);
+    const rows = await query("SELECT id FROM books WHERE id = ? LIMIT 1", [id]);
     const book = rows[0];
 
     if (!book) {
@@ -379,14 +371,6 @@ booksController.deleteBook = async (req, res) => {
       await connection.query("DELETE FROM borrow_ticket_books WHERE book_id = ?", [id]);
       await connection.query("DELETE FROM books WHERE id = ?", [id]);
     });
-
-    if (book.cloudinary_id) {
-      try {
-        await cloudinary.uploader.destroy(book.cloudinary_id, { invalidate: true });
-      } catch (cloudError) {
-        console.warn("Cloudinary cleanup failed:", cloudError.message);
-      }
-    }
 
     clearCache("homeData");
     res.status(200).json({ error: false, message: "Book deleted successfully" });
@@ -446,20 +430,7 @@ booksController.updateBook = async (req, res) => {
       ]
     );
 
-    if (req.file && currentBook.cloudinary_id) {
-      try {
-        await cloudinary.uploader.destroy(currentBook.cloudinary_id, { invalidate: true });
-      } catch (cloudError) {
-        console.warn("Cloudinary cleanup failed:", cloudError.message);
-      }
-    }
 
-    if (req.file) {
-      await query(
-        `UPDATE books SET cover_image = ?, cloudinary_id = ? WHERE id = ?`,
-        [req.file.path, req.file.filename, id]
-      );
-    }
 
     clearCache("homeData");
     res.status(200).json({ error: false, message: "Book updated successfully" });

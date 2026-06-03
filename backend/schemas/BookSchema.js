@@ -11,7 +11,6 @@ const BookSchema = new Schema({
     totalCopies: { type: Number, required: true },
     addedBy: { type: Schema.Types.ObjectId, ref: 'User',required: true },
     coverImage: { type: String },
-    cloudinaryId: { type: String, required: true },
     price: {type:Number},
     branch: { type: String, enum: ['dai-la', 'cau-giay'], default: 'dai-la' },
     borrowCount: { type: Number, default: 0 },

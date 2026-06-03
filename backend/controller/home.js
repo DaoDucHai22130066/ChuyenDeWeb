@@ -26,7 +26,6 @@ homeController.getHomeData = async (req, res) => {
          b.total_copies,
          b.added_by,
          b.cover_image,
-         b.cloudinary_id,
          b.price,
          b.branch,
          b.borrow_count,

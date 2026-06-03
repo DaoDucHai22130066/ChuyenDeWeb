@@ -11,7 +11,7 @@ const {
   getTransactionsByTicket,
 } = require("../utils/mysql");
 const { createVnpayPaymentUrl, verifyVnpaySignature } = require("../utils/vnpay");
-const { sendDepositSuccessMail, sendApprovalSuccessMail } = require("../utils/mail");
+const { sendDepositSuccessMail, sendApprovalSuccessMail, sendRenewalSuccessMail } = require("../utils/mail");
 
 const ticketController = {};
 
@@ -127,6 +127,7 @@ async function fetchTicketBundle(connection, whereClause = "", params = []) {
       t.shipping_phone,
       t.payment_method,
       t.fine_amount,
+      t.renew_count,
       t.approved_by,
       t.approved_at,
       t.created_at,
@@ -165,7 +166,6 @@ async function fetchTicketBundle(connection, whereClause = "", params = []) {
       b.total_copies,
       b.added_by,
       b.cover_image,
-      b.cloudinary_id,
       b.price,
       b.branch,
       b.borrow_count,
@@ -952,6 +952,99 @@ ticketController.vnpayIpn = async (req, res) => {
     return res.status(200).json({ RspCode: "00", Message: "Success" });
   } catch (error) {
     return res.status(200).json({ RspCode: "99", Message: "Unknown error" });
+  }
+};
+
+ticketController.renewTicket = async (req, res) => {
+  try {
+    const ticketId = req.params.id;
+    const userId = req.userInfo.id;
+
+    const ticket = await fetchSingleTicket(null, ticketId);
+    if (!ticket) return res.status(404).json({ error: true, message: "Không tìm thấy phiếu" });
+
+    if (ticket.user_id !== userId) {
+      return res.status(403).json({ error: true, message: "Không có quyền" });
+    }
+
+    if (!["approved", "dispatched", "delivered"].includes(ticket.status)) {
+      return res.status(400).json({ error: true, message: "Trạng thái phiếu không hợp lệ để gia hạn" });
+    }
+
+    if (ticket.return_date) {
+      return res.status(400).json({ error: true, message: "Phiếu đã được trả" });
+    }
+
+    if (!ticket.due_date) {
+       return res.status(400).json({ error: true, message: "Phiếu chưa có hạn trả để gia hạn" });
+    }
+
+    const now = new Date();
+    const dueDate = new Date(ticket.due_date);
+    if (dueDate < now) {
+      return res.status(400).json({ error: true, message: "Phiếu đã quá hạn, không thể gia hạn" });
+    }
+
+    const MAX_RENEW_COUNT = 1;
+    if (ticket.renew_count >= MAX_RENEW_COUNT) {
+      return res.status(400).json({ error: true, message: "Đã vượt quá số lần gia hạn cho phép" });
+    }
+
+    const oldDueDate = new Date(dueDate);
+    const newDueDate = new Date(dueDate);
+    newDueDate.setDate(newDueDate.getDate() + 7);
+
+    await withTransaction(async (connection) => {
+      await connection.query(
+        `UPDATE borrow_tickets SET due_date = ?, renew_count = renew_count + 1, last_renewed_at = NOW() WHERE id = ?`,
+        [newDueDate, ticketId]
+      );
+      
+      await connection.query(
+        `INSERT INTO ticket_renewals (ticket_id, user_id, old_due_date, new_due_date) VALUES (?, ?, ?, ?)`,
+        [ticketId, userId, oldDueDate, newDueDate]
+      );
+    });
+
+    ticket.due_date = newDueDate;
+    ticket.renew_count += 1;
+    sendRenewalSuccessMail(ticket, oldDueDate, newDueDate).catch(console.error);
+
+    res.status(200).json({
+      error: false,
+      message: "Gia hạn thành công",
+      oldDueDate,
+      newDueDate,
+      renewCount: ticket.renewCount
+    });
+  } catch (error) {
+    console.error("Lỗi khi gia hạn phiếu:", error);
+    res.status(500).json({ error: true, message: "Lỗi Server Nội Bộ" });
+  }
+};
+
+ticketController.getTicketRenewals = async (req, res) => {
+  try {
+    const ticketId = req.params.id;
+    const userId = req.userInfo.id;
+    const userRole = req.userInfo.role;
+
+    const ticketRows = await query(`SELECT user_id FROM borrow_tickets WHERE id = ?`, [ticketId]);
+    if (!ticketRows.length) return res.status(404).json({ error: true, message: "Không tìm thấy phiếu" });
+
+    if (userRole !== "admin" && ticketRows[0].user_id !== userId) {
+      return res.status(403).json({ error: true, message: "Không có quyền" });
+    }
+
+    const renewals = await query(
+      `SELECT id, old_due_date as oldDueDate, new_due_date as newDueDate, created_at as createdAt FROM ticket_renewals WHERE ticket_id = ? ORDER BY created_at DESC`,
+      [ticketId]
+    );
+
+    res.status(200).json({ error: false, renewals });
+  } catch (error) {
+    console.error("Lỗi lấy lịch sử gia hạn:", error);
+    res.status(500).json({ error: true, message: "Lỗi Server Nội Bộ" });
   }
 };
 

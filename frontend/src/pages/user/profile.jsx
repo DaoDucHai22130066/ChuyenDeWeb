@@ -4,16 +4,16 @@ import { Server_URL } from "../../utils/config";
 import "./profile.css";
 import { getAuthToken } from "../../utils/auth";
 import { showErrorToast, showSuccessToast } from "../../utils/toasthelper";
-import { 
-  FiUser, 
-  FiMail, 
-  FiBookOpen, 
-  FiClock, 
-  FiCheckCircle, 
-  FiEdit2, 
-  FiSave, 
-  FiX, 
-  FiCalendar, 
+import {
+  FiUser,
+  FiMail,
+  FiBookOpen,
+  FiClock,
+  FiCheckCircle,
+  FiEdit2,
+  FiSave,
+  FiX,
+  FiCalendar,
   FiBook,
   FiActivity,
   FiStar
@@ -143,6 +143,23 @@ function ProfilePage() {
     }
   };
 
+  const handleRenewTicket = async (ticketId) => {
+    try {
+      const response = await axios.post(`${Server_URL}tickets/${ticketId}/renew`, {}, {
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
+      });
+      showSuccessToast("Gia hạn thành công! Hạn trả mới: " + new Date(response.data.newDueDate).toLocaleDateString("vi-VN"));
+      setTickets(tickets.map(t => {
+        if (t._id === ticketId) {
+          return { ...t, dueDate: response.data.newDueDate, renewCount: response.data.renewCount };
+        }
+        return t;
+      }));
+    } catch (err) {
+      showErrorToast(err.response?.data?.message || "Không thể gia hạn phiếu.");
+    }
+  };
+
   if (!user) return <div className="loading-container"><div className="spinner"></div><p>Đang tải hồ sơ...</p></div>;
 
   const getInitials = (name) => {
@@ -167,7 +184,7 @@ function ProfilePage() {
           <h1>Quản lý thông tin và lịch sử mượn sách</h1>
         </div>
       </div>
-      
+
       <div className="profile-container">
         {/* Left Side: Summary & Quick Stats */}
         <div className="profile-sidebar">
@@ -180,10 +197,10 @@ function ProfilePage() {
                 {user.role === "admin" ? "Thủ thư" : "Độc giả"}
               </span>
             </div>
-            
+
             <h2 className="user-display-name">{user.name}</h2>
             <p className="user-display-email">{user.email}</p>
-            
+
             <div className="profile-meta-list">
               <div className="meta-item">
                 <FiCalendar className="meta-icon" />
@@ -341,7 +358,7 @@ function ProfilePage() {
               <h3>Lịch sử mượn sách</h3>
               <span className="tickets-count">Tổng số: {tickets.length} phiếu</span>
             </div>
-            
+
             {tickets.length === 0 ? (
               <div className="empty-tickets">
                 <FiBook className="empty-icon" />
@@ -355,52 +372,73 @@ function ProfilePage() {
                       <th>Mã phiếu</th>
                       <th>Danh sách sách mượn</th>
                       <th>Ngày mượn</th>
+                      <th>Hạn trả</th>
                       <th>Trạng thái</th>
-                      <th>Đánh giá</th>
+                      <th>Thao tác</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {tickets.map((ticket) => (
-                      <tr key={ticket._id}>
-                        <td className="ticket-id">
-                          #{ticket._id.toString().slice(-6).toUpperCase()}
-                        </td>
-                        <td className="ticket-books">
-                          {ticket.books.map((book) => book.title).join(", ")}
-                        </td>
-                        <td className="ticket-date">
-                          {ticket.borrowDate ? new Date(ticket.borrowDate).toLocaleDateString("vi-VN") : "—"}
-                        </td>
-                        <td>
-                          <span className={`status-badge ${ticket.status.toLowerCase()}`}>
-                            {STATUS_VI[ticket.status] || ticket.status}
-                          </span>
-                        </td>
-                        <td>
-                          {(ticket.status === 'returned' || ticket.status === 'closed') ? (
-                            <div className="review-action-cell">
-                              {ticket.books.map((book) => {
-                                const key = `${ticket._id}-${book._id || book.id}`;
-                                const alreadyReviewed = reviewedKeys.has(key);
-                                return (
-                                  <button
-                                    key={key}
-                                    className={`btn-review ${alreadyReviewed ? 'reviewed' : ''}`}
-                                    onClick={() => !alreadyReviewed && openReviewModal(ticket, book)}
-                                    disabled={alreadyReviewed}
-                                    title={alreadyReviewed ? 'Đã đánh giá' : `Đánh giá: ${book.title}`}
-                                  >
-                                    {alreadyReviewed ? '✓ Đã đánh giá' : `⭐ ${book.title.substring(0, 14)}${book.title.length > 14 ? '...' : ''}`}
-                                  </button>
-                                );
-                              })}
+                    {tickets.map((ticket) => {
+                      const canRenew = ["approved", "dispatched", "delivered"].includes(ticket.status) &&
+                        !ticket.returnDate &&
+                        ticket.dueDate &&
+                        new Date(ticket.dueDate) >= new Date() &&
+                        (ticket.renewCount || 0) < 1;
+                      return (
+                        <tr key={ticket._id}>
+                          <td className="ticket-id">
+                            #{ticket._id.toString().slice(-6).toUpperCase()}
+                          </td>
+                          <td className="ticket-books">
+                            {ticket.books.map((book) => book.title).join(", ")}
+                          </td>
+                          <td className="ticket-date">
+                            {ticket.borrowDate ? new Date(ticket.borrowDate).toLocaleDateString("vi-VN") : "—"}
+                          </td>
+                          <td className="ticket-date">
+                            {ticket.dueDate ? new Date(ticket.dueDate).toLocaleDateString("vi-VN") : "—"}
+                          </td>
+                          <td>
+                            <span className={`status-badge ${ticket.status.toLowerCase()}`}>
+                              {STATUS_VI[ticket.status] || ticket.status}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="action-cell-flex">
+                              {(ticket.status === 'returned' || ticket.status === 'closed') ? (
+                                <div className="review-action-cell">
+                                  {ticket.books.map((book) => {
+                                    const key = `${ticket._id}-${book._id || book.id}`;
+                                    const alreadyReviewed = reviewedKeys.has(key);
+                                    return (
+                                      <button
+                                        key={key}
+                                        className={`btn-review ${alreadyReviewed ? 'reviewed' : ''}`}
+                                        onClick={() => !alreadyReviewed && openReviewModal(ticket, book)}
+                                        disabled={alreadyReviewed}
+                                        title={alreadyReviewed ? 'Đã đánh giá' : `Đánh giá: ${book.title}`}
+                                      >
+                                        {alreadyReviewed ? '✓ Đã đánh giá' : `⭐ ${book.title.substring(0, 14)}${book.title.length > 14 ? '...' : ''}`}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              ) : canRenew ? (
+                                <button
+                                  className="btn-renew"
+                                  onClick={() => handleRenewTicket(ticket._id)}
+                                  title="Gia hạn thêm 7 ngày"
+                                >
+                                  <FiClock /> Gia hạn
+                                </button>
+                              ) : (
+                                <span className="no-review-dash">—</span>
+                              )}
                             </div>
-                          ) : (
-                            <span className="no-review-dash">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -438,7 +476,7 @@ function ProfilePage() {
               ))}
             </div>
             <p className="review-rating-label">
-              {['' , '⭐ Rất tệ', '⭐⭐ Tệ', '⭐⭐⭐ Bình thường', '⭐⭐⭐⭐ Tốt', '⭐⭐⭐⭐⭐ Tuyệt vời'][reviewRating]}
+              {['', '⭐ Rất tệ', '⭐⭐ Tệ', '⭐⭐⭐ Bình thường', '⭐⭐⭐⭐ Tốt', '⭐⭐⭐⭐⭐ Tuyệt vời'][reviewRating]}
             </p>
 
             {/* Comment */}

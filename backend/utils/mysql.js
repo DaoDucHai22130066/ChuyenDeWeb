@@ -73,7 +73,6 @@ async function createSchema(connection) {
       total_copies INT NOT NULL,
       added_by INT UNSIGNED NOT NULL,
       cover_image TEXT NULL,
-      cloudinary_id VARCHAR(255) NOT NULL,
       price DECIMAL(10,2) NULL,
       branch ENUM('dai-la', 'cau-giay') NOT NULL DEFAULT 'dai-la',
       borrow_count INT NOT NULL DEFAULT 0,
@@ -85,6 +84,11 @@ async function createSchema(connection) {
       CONSTRAINT fk_books_user FOREIGN KEY (added_by) REFERENCES users(id) ON DELETE RESTRICT ON UPDATE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
+
+  const [bookColumns] = await connection.query("SHOW COLUMNS FROM books LIKE 'cloudinary_id'");
+  if (bookColumns.length > 0) {
+    await connection.query("ALTER TABLE books DROP COLUMN cloudinary_id");
+  }
 
   await connection.query(`
     CREATE TABLE IF NOT EXISTS borrow_tickets (
@@ -152,6 +156,19 @@ async function createSchema(connection) {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
 
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS ticket_renewals (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      ticket_id INT UNSIGNED NOT NULL,
+      user_id INT UNSIGNED NOT NULL,
+      old_due_date DATETIME NOT NULL,
+      new_due_date DATETIME NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_renewals_ticket FOREIGN KEY (ticket_id) REFERENCES borrow_tickets(id) ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT fk_renewals_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
   await ensureBorrowTicketSchema(connection);
 
 
@@ -179,6 +196,8 @@ async function createSchema(connection) {
     await addColumnIfMissing(connection, "borrow_tickets", "shipping_address", "shipping_address VARCHAR(255) NULL");
     await addColumnIfMissing(connection, "borrow_tickets", "shipping_phone", "shipping_phone VARCHAR(20) NULL");
     await addColumnIfMissing(connection, "borrow_tickets", "fine_amount", "fine_amount DECIMAL(10,2) NOT NULL DEFAULT 0");
+    await addColumnIfMissing(connection, "borrow_tickets", "renew_count", "renew_count INT NOT NULL DEFAULT 0");
+    await addColumnIfMissing(connection, "borrow_tickets", "last_renewed_at", "last_renewed_at DATETIME NULL DEFAULT NULL");
 
     // Safely migrate old status values to new format
     try {
@@ -419,7 +438,6 @@ function mapBookRow(row) {
       }
       : null,
     coverImage: row.cover_image,
-    cloudinaryId: row.cloudinary_id,
     price: row.price === null || row.price === undefined ? null : Number(row.price),
     branch: row.branch,
     borrowCount: row.borrow_count,
@@ -475,6 +493,8 @@ function mapTicketRow(row) {
       }
       : null,
     approvedAt: row.approved_at,
+    renewCount: row.renew_count || 0,
+    lastRenewedAt: row.last_renewed_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
