@@ -33,30 +33,27 @@ const AddBookForm = () => {
 
   const onSubmit = async (data) => {
     try {
-      const formData = new FormData();
+      const payload = {};
       
-      // Thêm tất cả trường văn bản
+      // Thêm tất cả trường
       Object.keys(data).forEach((key) => {
-        if (key !== "coverImage" && key !== "categoryName") {
-          formData.append(key, data[key]);
+        if (key !== "categoryName") {
+          if (data[key] !== undefined && data[key] !== null && data[key] !== "") {
+            payload[key] = data[key];
+          }
         }
       });
 
       if (!data.categoryId && data.categoryName) {
-        formData.append("category", data.categoryName);
-      }
-  
-      // Thêm file ảnh bìa
-      if (data.coverImage && data.coverImage[0]) {
-        formData.append("coverImage", data.coverImage[0]); // Đảm bảo đây là file ảnh
+        payload.category = data.categoryName;
       }
   
       const authToken = localStorage.getItem("authToken");
       const url = Server_URL + "books/add";
   
-      const response = await axios.post(url, formData, {
+      const response = await axios.post(url, payload, {
         headers: {
-          "Content-Type": "multipart/form-data",
+          "Content-Type": "application/json",
           Authorization: `Bearer ${authToken}`,
         },
       });
@@ -148,12 +145,14 @@ const AddBookForm = () => {
         
 
         <div className="mb-3">
-          <label className="form-label">Ảnh bìa</label>
+          <label className="form-label">Ảnh bìa (URL)</label>
           <input
-            type="file"
+            type="text"
             className="form-control"
+            placeholder="Ví dụ: https://covers.openlibrary.org/b/isbn/9780132350884-L.jpg"
             {...register("coverImage")}
           />
+          <small className="text-muted d-block mt-1">Nhập liên kết URL của ảnh bìa sách</small>
         </div>
 
         <div className="mb-3">

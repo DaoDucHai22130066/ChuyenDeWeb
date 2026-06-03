@@ -75,6 +75,7 @@ const TRANSACTION_STATUS_VI = {
 const ACTION_SUCCESS_VI = {
   confirm_cash: "Đã xác nhận thanh toán.",
   approve: "Đã phê duyệt phiếu mượn.",
+  pickup: "Đã xác nhận độc giả nhận sách tại quầy.",
   dispatch: "Đã chuyển phiếu sang trạng thái đang giao.",
   deliver: "Đã xác nhận giao xong.",
   return: "Đã xác nhận độc giả trả sách.",
@@ -89,6 +90,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const [books, setBooks] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [reviews, setReviews] = useState([]);
+  const [ticketFilter, setTicketFilter] = useState("all");
   const [expandedTicket, setExpandedTicket] = useState(null);
   const [ticketTransactions, setTicketTransactions] = useState({});
 
@@ -114,9 +116,40 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
     ticket.depositStatus === "pending" &&
     ticket.paymentMethod === "cash";
 
+  // VNPay: chỉ show badge, không cho admin tự duyệt
+  const isWaitingVnpay = (ticket) =>
+    ticket.depositStatus === "pending" &&
+    ticket.paymentMethod === "vnpay" &&
+    ["pending", "awaiting_payment"].includes(ticket.status);
+
   const canApproveTicket = (ticket) =>
-    ticket.status === "pending" &&
+    ["pending", "paid"].includes(ticket.status) &&
     ticket.depositStatus === "held";
+
+  // Nhận tại quầy: sau approved, shippingStatus = none
+  const canPickup = (ticket) =>
+    ticket.status === "approved" && ticket.shippingStatus === "none";
+
+  // Giao tận nơi: bắt đầu giao
+  const canDispatch = (ticket) =>
+    ticket.status === "approved" && ticket.shippingStatus === "pending";
+
+  // Xác nhận đã giao (giao tận nơi)
+  const canDeliver = (ticket) =>
+    ticket.status === "dispatched" && ticket.shippingStatus === "dispatched";
+
+  // Trả sách: chỉ sau khi delivered (cả quầy lẫn giao hàng)
+  const canReturn = (ticket) =>
+    ticket.status === "delivered";
+
+  const canSettle = (ticket) =>
+    ticket.status === "returned" && ticket.depositStatus === "held";
+
+  const canSettleOutstanding = (ticket) =>
+    ticket.depositStatus === "forfeited" && ticket.status !== "closed";
+
+  const canCancel = (ticket) =>
+    ["pending", "awaiting_payment"].includes(ticket.status);
 
   const fetchUsers = async () => {
     try {
@@ -380,8 +413,39 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
           {selectedSection === "tickets" && (
             <>
               <h2 className="admin-section-title">Quản lý Phiếu mượn</h2>
+
+              {/* Filter tabs */}
+              <div className="ticket-filter-tabs">
+                {[
+                  { key: "all",              label: "Tất cả" },
+                  { key: "pending",          label: "Chờ duyệt" },
+                  { key: "awaiting_payment", label: "Chờ thanh toán" },
+                  { key: "approved",         label: "Đã duyệt" },
+                  { key: "dispatched",       label: "Đang giao" },
+                  { key: "delivered",        label: "Đã giao / Nhận" },
+                  { key: "returned",         label: "Đã trả" },
+                  { key: "closed",           label: "Hoàn tất" },
+                  { key: "cancelled",        label: "Đã hủy" },
+                ].map(({ key, label }) => (
+                  <button
+                    key={key}
+                    className={`ticket-filter-btn ${ticketFilter === key ? "active" : ""}`}
+                    onClick={() => setTicketFilter(key)}
+                  >
+                    {label}
+                    {key !== "all" && (
+                      <span className="ticket-filter-count">
+                        {tickets.filter(t => t.status === key).length}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
               <div className="admin-table-container">
-                {tickets.map((ticket) => (
+                {tickets
+                  .filter(t => ticketFilter === "all" || t.status === ticketFilter)
+                  .map((ticket) => (
                   <div key={ticket._id} className="ticket-item">
                     <div className="ticket-header" onClick={() => toggleTicketExpand(ticket._id)}>
                       <div className="ticket-header-main">
@@ -411,6 +475,30 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
 
                     {expandedTicket === ticket._id && (
                       <div className="ticket-expanded">
+
+                        {/* Timeline trạng thái */}
+                        <div className="ticket-timeline">
+                          {[
+                            { key: "awaiting",  label: "Chờ TT",   done: !["pending","awaiting_payment"].includes(ticket.status) || ticket.depositStatus === "held" },
+                            { key: "pending",   label: "Chờ duyệt", done: !["pending","awaiting_payment"].includes(ticket.status) },
+                            { key: "approved",  label: "Đã duyệt",  done: ["dispatched","delivered","returned","closed"].includes(ticket.status) },
+                            { key: "delivered", label: "Nhận sách",  done: ["delivered","returned","closed"].includes(ticket.status) },
+                            { key: "returned",  label: "Trả sách",   done: ["returned","closed"].includes(ticket.status) },
+                            { key: "closed",    label: "Hoàn tất",   done: ticket.status === "closed" },
+                          ].map((step, idx, arr) => (
+                            <div key={step.key} className="tl-step">
+                              <div className={`tl-dot ${step.done ? "done" : ""} ${
+                                (step.key === ticket.status ||
+                                (step.key === "awaiting" && ticket.status === "awaiting_payment") ||
+                                (step.key === "pending" && ticket.status === "pending"))
+                                ? "current" : ""
+                              }`} />
+                              <span className="tl-label">{step.label}</span>
+                              {idx < arr.length - 1 && <div className={`tl-line ${step.done ? "done" : ""}`} />}
+                            </div>
+                          ))}
+                        </div>
+
                         <div className="ticket-details-grid">
                           <div className="detail-section">
                             <h4>Chi phí</h4>
@@ -437,6 +525,12 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                             <div className="detail-row">
                               <span>Giao hàng:</span>
                               <span className="badge">{getShippingStatusLabel(ticket.shippingStatus)}</span>
+                            </div>
+                            <div className="detail-row">
+                              <span>Thanh toán:</span>
+                              <span className="badge">
+                                {ticket.paymentMethod === "vnpay" ? "VNPay" : "Tiền mặt"}
+                              </span>
                             </div>
                             {ticket.shippingAddress && (
                               <div className="detail-row">
@@ -465,6 +559,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                         </div>
 
                         <div className="ticket-actions">
+                          {/* Tiền mặt: admin thu */}
                           {canConfirmCash(ticket) && (
                             <button
                               className="btn btn-sm btn-success"
@@ -474,18 +569,22 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                             </button>
                           )}
 
-                          {ticket.status === "pending" &&
-                            ticket.depositStatus === "pending" &&
-                            ticket.paymentMethod === "vnpay" && (
-                              <button
-                                className="btn btn-sm btn-outline-success"
-                                onClick={() => handleTicketAction(ticket._id, "confirm_cash", "vnpay")}
-                                title="Xác nhận thanh toán trực tuyến thành công"
-                              >
-                                <FiCheck /> Duyệt thanh toán VNPAY
-                              </button>
-                            )}
+                          {/* VNPay: chỉ badge, không cho tự duyệt */}
+                          {isWaitingVnpay(ticket) && (
+                            <span className="badge-vnpay-waiting">
+                              ⏳ Chờ VNPay xác nhận
+                            </span>
+                          )}
 
+                          {/* VNPay đã xác nhận: show badge xanh */}
+                          {ticket.paymentMethod === "vnpay" && ticket.depositStatus === "held" &&
+                            ["pending", "paid"].includes(ticket.status) && (
+                            <span className="badge-vnpay-ok">
+                              ✅ VNPay đã xác nhận
+                            </span>
+                          )}
+
+                          {/* Duyệt phiếu */}
                           {canApproveTicket(ticket) && (
                             <button
                               className="btn btn-sm btn-success"
@@ -495,35 +594,48 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                             </button>
                           )}
 
-                          {ticket.status === "approved" && (
-                            <>
-                              {ticket.shippingStatus === "none" && (
-                                <button
-                                  className="btn btn-sm btn-primary"
-                                  onClick={() => handleTicketAction(ticket._id, "deliver")}
-                                >
-                                  <FiCheckCircle /> Giao xong
-                                </button>
-                              )}
-                              {ticket.shippingStatus === "pending" && (
-                                <button
-                                  className="btn btn-sm btn-info"
-                                  onClick={() => handleTicketAction(ticket._id, "dispatch")}
-                                >
-                                  <FiRefreshCw /> Bắt đầu giao
-                                </button>
-                              )}
-                              {(ticket.shippingStatus === "dispatched" || ticket.shippingStatus === "none") && (
-                                <button
-                                  className="btn btn-sm btn-warning"
-                                  onClick={() => handleTicketAction(ticket._id, "return")}
-                                >
-                                  <FiRefreshCw /> Xác nhận đã trả
-                                </button>
-                              )}
-                            </>
+                          {/* Nhận tại quầy */}
+                          {canPickup(ticket) && (
+                            <button
+                              className="btn btn-sm btn-primary"
+                              onClick={() => handleTicketAction(ticket._id, "pickup")}
+                            >
+                              <FiCheckCircle /> Đã nhận tại quầy
+                            </button>
                           )}
-                          {ticket.status === "returned" && (
+
+                          {/* Bắt đầu giao hàng (giao tận nơi) */}
+                          {canDispatch(ticket) && (
+                            <button
+                              className="btn btn-sm btn-info"
+                              onClick={() => handleTicketAction(ticket._id, "dispatch")}
+                            >
+                              <FiRefreshCw /> Bắt đầu giao
+                            </button>
+                          )}
+
+                          {/* Xác nhận đã giao (giao tận nơi) */}
+                          {canDeliver(ticket) && (
+                            <button
+                              className="btn btn-sm btn-warning"
+                              onClick={() => handleTicketAction(ticket._id, "deliver")}
+                            >
+                              <FiCheckCircle /> Xác nhận đã giao
+                            </button>
+                          )}
+
+                          {/* Trả sách: chỉ sau delivered */}
+                          {canReturn(ticket) && (
+                            <button
+                              className="btn btn-sm btn-warning"
+                              onClick={() => handleTicketAction(ticket._id, "return")}
+                            >
+                              <FiRefreshCw /> Xác nhận đã trả
+                            </button>
+                          )}
+
+                          {/* Quyết toán cọc */}
+                          {canSettle(ticket) && (
                             <button
                               className="btn btn-sm btn-secondary"
                               onClick={() => handleTicketAction(ticket._id, "settle_deposit")}
@@ -531,7 +643,9 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                               <FiDollarSign /> Quyết toán cọc
                             </button>
                           )}
-                          {ticket.depositStatus === "forfeited" && ticket.fineAmount > 0 && (
+
+                          {/* Phạt còn lại */}
+                          {canSettleOutstanding(ticket) && (
                             <button
                               className="btn btn-sm btn-info"
                               onClick={() => handleTicketAction(ticket._id, "settle_outstanding_fine", "cash")}
@@ -539,7 +653,9 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                               <FiDollarSign /> Thanh toán phạt còn lại
                             </button>
                           )}
-                          {["pending", "awaiting_payment"].includes(ticket.status) && (
+
+                          {/* Hủy phiếu */}
+                          {canCancel(ticket) && (
                             <button
                               className="btn btn-sm btn-outline-danger"
                               onClick={() => handleTicketAction(ticket._id, "cancel")}

@@ -45,6 +45,17 @@ const sendOtpMail = async (email, otp) => {
   }
 };
 
+const getDepositStatusText = (status) => {
+  const map = {
+    pending: "Chờ xác nhận",
+    held: "Đã cọc",
+    refunded: "Đã hoàn",
+    forfeited: "Bị tịch thu",
+    none: "Không có"
+  };
+  return map[status] || "Chưa cập nhật";
+};
+
 const generateEmailTemplate = (title, content, ticket) => {
   const booksHtml = ticket.books.map(book => `
     <tr>
@@ -70,7 +81,7 @@ const generateEmailTemplate = (title, content, ticket) => {
         </div>
       </div>
       <div style="margin-bottom: 25px; background-color: #fafafa; padding: 15px; border-radius: 8px;">
-        <h3 style="color: #333; border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-top: 0; font-size: 16px;">THÔNG TIN PHIẾU MƯỢN #${ticket._id}</h3>
+        <h3 style="color: #333; border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-top: 0; font-size: 16px;">CHI TIẾT PHIẾU MƯỢN #${ticket._id}</h3>
         <table style="width: 100%; font-size: 14px; color: #555; line-height: 1.8;">
           <tr>
             <td style="width: 40%;"><strong>Người mượn:</strong></td>
@@ -80,23 +91,37 @@ const generateEmailTemplate = (title, content, ticket) => {
             <td><strong>Ngày tạo phiếu:</strong></td>
             <td>${new Date(ticket.createdAt).toLocaleString('vi-VN')}</td>
           </tr>
+          ${ticket.dueDate ? `
+          <tr>
+            <td><strong>Hạn trả sách:</strong></td>
+            <td><strong style="color: #d84315;">${new Date(ticket.dueDate).toLocaleDateString('vi-VN')}</strong></td>
+          </tr>
+          ` : ''}
+          <tr>
+            <td><strong>Trạng thái cọc:</strong></td>
+            <td>
+              <span style="display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; background-color: ${ticket.depositStatus === 'held' ? '#e8f5e9' : '#fff3e0'}; color: ${ticket.depositStatus === 'held' ? '#2e7d32' : '#e65100'}; border: 1px solid ${ticket.depositStatus === 'held' ? '#a5d6a7' : '#ffcc80'};">
+                ${getDepositStatusText(ticket.depositStatus)}
+              </span>
+            </td>
+          </tr>
           <tr>
             <td><strong>Tiền cọc sách:</strong></td>
-            <td><strong style="color: #e53935;">${Number(ticket.depositAmount).toLocaleString('vi-VN')} VNĐ</strong></td>
+            <td><strong>${Number(ticket.depositAmount).toLocaleString('vi-VN')} VNĐ</strong></td>
           </tr>
           ${ticket.shippingFee > 0 ? `
           <tr>
-            <td><strong>Phí vận chuyển:</strong></td>
-            <td><strong style="color: #e53935;">${Number(ticket.shippingFee).toLocaleString('vi-VN')} VNĐ</strong></td>
+            <td><strong>Phí giao hàng:</strong></td>
+            <td><strong>${Number(ticket.shippingFee).toLocaleString('vi-VN')} VNĐ</strong></td>
           </tr>
           <tr>
             <td><strong>Tổng thanh toán:</strong></td>
-            <td><strong style="color: #e53935;">${(Number(ticket.depositAmount) + Number(ticket.shippingFee)).toLocaleString('vi-VN')} VNĐ</strong></td>
+            <td><strong style="color: #e53935; font-size: 15px;">${(Number(ticket.depositAmount) + Number(ticket.shippingFee)).toLocaleString('vi-VN')} VNĐ</strong></td>
           </tr>
           ` : ''}
           <tr>
             <td><strong>Phương thức nhận:</strong></td>
-            <td>${ticket.shippingAddress ? '<span style="color: #1976d2; font-weight: bold;">Giao hàng tận nơi</span>' : '<span style="color: #388e3c; font-weight: bold;">Nhận tại thư viện</span>'}</td>
+            <td>${ticket.shippingAddress ? '<span style="color: #1976d2; font-weight: bold;">Giao tận nơi</span>' : '<span style="color: #388e3c; font-weight: bold;">Nhận tại quầy</span>'}</td>
           </tr>
           ${ticket.shippingAddress ? `
           <tr>
@@ -254,4 +279,34 @@ const sendContactNotification = async (contactInfo) => {
   }
 };
 
-module.exports = { transporter, sendDepositSuccessMail, sendApprovalSuccessMail, sendOtpMail, sendContactNotification };
+const sendRenewalSuccessMail = async (ticket, oldDueDate, newDueDate) => {
+  if (!ticket || !ticket.userId || !ticket.userId.email) return;
+  const email = ticket.userId.email;
+  
+  try {
+    const title = "Gia hạn phiếu mượn thành công";
+    const oldDateStr = new Date(oldDueDate).toLocaleDateString('vi-VN');
+    const newDateStr = new Date(newDueDate).toLocaleDateString('vi-VN');
+    
+    const content = `
+      <p>Chào <strong>${ticket.userId.name}</strong>,</p>
+      <p>Yêu cầu gia hạn sách của bạn đã được xử lý thành công.</p>
+      <p>Hạn trả sách cũ: <strike>${oldDateStr}</strike></p>
+      <p>Hạn trả sách mới: <strong style="color: #d84315;">${newDateStr}</strong></p>
+      <p>Bạn vui lòng hoàn trả sách đúng hạn mới để tránh bị trừ tiền cọc nhé.</p>
+      <p>Chúc bạn có những giờ phút đọc sách thật thú vị và bổ ích!</p>
+    `;
+
+    await transporter.sendMail({
+      from: `"Thư Viện Số" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: `[Thư Viện] Gia hạn sách thành công - Phiếu #${ticket._id}`,
+      html: generateEmailTemplate(title, content, ticket),
+    });
+    console.log(`Sent renewal success email to ${email} for ticket ${ticket._id}`);
+  } catch (error) {
+    console.error("Error sending renewal success mail:", error);
+  }
+};
+
+module.exports = { transporter, sendDepositSuccessMail, sendApprovalSuccessMail, sendOtpMail, sendContactNotification, sendRenewalSuccessMail };
