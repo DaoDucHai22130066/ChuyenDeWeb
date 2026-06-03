@@ -24,6 +24,7 @@ const VALID_RECEIVE_METHODS = new Set(["pickup", "delivery"]);
 const VALID_TICKET_ACTIONS = new Set([
   "confirm_cash",
   "approve",
+  "pickup",
   "dispatch",
   "deliver",
   "return",
@@ -479,6 +480,19 @@ ticketController.updateTicketStatus = async (req, res) => {
       }
 
       if (nextAction === "approve") {
+        // Guard: chỉ duyệt khi trạng thái hợp lệ
+        if (!["pending", "paid"].includes(currentStatus)) {
+          const err = new Error("Phiếu phải ở trạng thái chờ duyệt (pending/paid) mới được phê duyệt");
+          err.statusCode = 400;
+          throw err;
+        }
+
+        // Guard: bắt buộc tiền cọc phải được giữ
+        if (currentDepositStatus !== "held") {
+          const err = new Error("Chỉ được phê duyệt khi tiền cọc đã được xác nhận (held)");
+          err.statusCode = 400;
+          throw err;
+        }
 
         const unavailableBooks = ticket.books.filter((book) => (book.availableCopies || 0) < 1);
         if (unavailableBooks.length > 0) {
@@ -511,6 +525,26 @@ ticketController.updateTicketStatus = async (req, res) => {
         triggerApproveMail = true;
       }
 
+      if (nextAction === "pickup") {
+        // Nhận tại quầy: chỉ áp dụng khi shipping_status = 'none'
+        if (currentStatus !== "approved") {
+          const err = new Error("Chỉ xác nhận nhận tại quầy khi phiếu đã được phê duyệt");
+          err.statusCode = 400;
+          throw err;
+        }
+        if (currentShippingStatus !== "none") {
+          const err = new Error("Action 'pickup' chỉ áp dụng cho phiếu nhận tại quầy");
+          err.statusCode = 400;
+          throw err;
+        }
+        await connection.query(
+          `UPDATE borrow_tickets
+           SET status = 'delivered', shipping_status = 'none', updated_at = NOW()
+           WHERE id = ?`,
+          [id]
+        );
+      }
+
       if (nextAction === "dispatch") {
         if (currentShippingStatus !== "pending") {
           throw new Error("Only pending shipping tickets can be dispatched");
@@ -540,7 +574,16 @@ ticketController.updateTicketStatus = async (req, res) => {
 
       if (nextAction === "return") {
         if (!['approved', 'dispatched', 'delivered'].includes(currentStatus)) {
-          throw new Error("Only active tickets can be marked as returned");
+          const err = new Error("Chỉ phiếu đang hoạt động mới có thể trả sách");
+          err.statusCode = 400;
+          throw err;
+        }
+
+        // Nếu giao tận nơi: phải delivered trước mới được return
+        if (currentShippingStatus !== "none" && currentStatus !== "delivered") {
+          const err = new Error("Phải xác nhận đã giao hàng trước khi trả sách");
+          err.statusCode = 400;
+          throw err;
         }
 
         for (const book of ticket.books) {
@@ -824,7 +867,7 @@ ticketController.vnpayReturn = async (req, res) => {
             if (isSuccess) {
               const [updateResult] = await connection.query(
                 `UPDATE borrow_tickets
-                 SET deposit_status = 'held', updated_at = NOW()
+                 SET deposit_status = 'held', status = 'pending', updated_at = NOW()
                  WHERE id = ? AND deposit_status = 'pending'`,
                 [dbTicketId]
               );
@@ -890,7 +933,7 @@ ticketController.vnpayIpn = async (req, res) => {
       if (isSuccess) {
         const [updateResult] = await connection.query(
           `UPDATE borrow_tickets
-           SET deposit_status = 'held', updated_at = NOW()
+           SET deposit_status = 'held', status = 'pending', updated_at = NOW()
            WHERE id = ? AND deposit_status = 'pending'`,
           [ticketId]
         );
