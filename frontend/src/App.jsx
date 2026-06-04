@@ -1,36 +1,34 @@
 import { useEffect, lazy, Suspense } from 'react';
-import { BrowserRouter as Router, HashRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import { Routes, Route, useNavigate, useLocation, Navigate } from "react-router-dom";
+import { AnimatePresence } from 'framer-motion';
 import { jwtDecode } from "jwt-decode";
 import './App.css';
 import Userlayout from "./layout/userlayout";
+import AdminLayout from "./layout/adminlayout";
+import Preloader from "./components/Preloader";
 
-// Lazy load all page components
 const Login = lazy(() => import("./pages/user/login"));
 const Register = lazy(() => import('./pages/user/register'));
 const Home = lazy(() => import("./pages/user/home"));
 const Books = lazy(() => import('./pages/user/books'));
 const AllCategories = lazy(() => import('./pages/user/allcategories'));
+const CartPage = lazy(() => import('./pages/user/cart'));
+const AdminDashboard = lazy(() => import('./pages/admin/admindashboard'));
+const AddBookForm = lazy(() => import('./pages/admin/addbook'));
+const ViewBooks = lazy(() => import('./pages/admin/viewbook'));
 const BookDetails = lazy(() => import('./pages/user/bookdetails'));
 const ProfilePage = lazy(() => import('./pages/user/profile'));
 const AboutUs = lazy(() => import('./pages/user/AboutUs'));
 const ContactUs = lazy(() => import('./pages/user/ContactUs'));
+const Activities = lazy(() => import('./pages/user/Activities'));
+const Partners = lazy(() => import('./pages/user/Partners'));
+const Policies = lazy(() => import('./pages/user/Policies'));
+const NotFound = lazy(() => import('./pages/user/NotFound'));
+const PaymentResult = lazy(() => import('./pages/user/PaymentResult'));
+const Wishlist = lazy(() => import('./pages/user/wishlist'));
 const ForgotPassword = lazy(() => import('./pages/user/ForgetPassword/ForgetPassword'));
 const VerifyOTP = lazy(() => import('./pages/user/ForgetPassword/VerifyOtp'));
 const ResetPassword = lazy(() => import('./pages/user/ForgetPassword/UpdatePassword'));
-const Branches = lazy(() => import('./pages/user/branches'));
-const Articles = lazy(() => import('./pages/user/articles'));
-const Donations = lazy(() => import('./pages/user/donations'));
-
-// Lazy load dashboard components
-const UserDashboard = lazy(() => import('./pages/user/dashboard'));
-const AdminDashboard = lazy(() => import('./pages/admin/dashboard'));
-const LibrarianDashboard = lazy(() => import('./pages/librarian/dashboard'));
-
-const Preloader = () => (
-  <div className="flex h-screen items-center justify-center bg-gray-50">
-    <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-  </div>
-);
 
 function App() {
   const navigate = useNavigate();
@@ -41,53 +39,60 @@ function App() {
     if (token && location.pathname === "/") {
       try {
         const decoded = jwtDecode(token);
-        if (decoded.role === "admin" || decoded.role === "librarian") {
-          navigate("/");
-        } else if (decoded.role === "user") {
-          navigate("/");
+        if (decoded.role === "admin") {
+          navigate("/admin");
         }
-      } catch (err) {
-        console.error("Token decode failed", err);
+      } catch {
         localStorage.removeItem("authToken");
+        localStorage.removeItem("role");
       }
     }
   }, [location.pathname, navigate]);
 
   return (
     <Suspense fallback={<Preloader />}>
-      <Routes>
-        <Route path="/" element={<Userlayout/>}>
-          <Route index element={<Home/>}/>
-          <Route path="books" element={<Books/>}/>
-          <Route path="bookdetails/:id" element={<BookDetails/>}/>
-          <Route path="category" element={<AllCategories/>}/>
-          <Route path="branches" element={<Branches/>}/>
-          <Route path="articles" element={<Articles/>}/>
-          <Route path="donations" element={<Donations/>}/>
-          <Route path="register" element={<Register/>}/>
-          <Route path="login" element={<Login/>}/>
-          <Route path="aboutus" element={<AboutUs/>}/>
-          <Route path="contactus" element={<ContactUs/>}/>
-          <Route path="forgetPassword" element={<ForgotPassword/>}/>
-          <Route path="verifyotp" element={<VerifyOTP/>}/>
-          <Route path="resetpass" element={<ResetPassword/>}/>
-        </Route>
-        
-        {/* User Dashboard */}
-        <Route path="/user" element={<UserDashboard/>}/>
-        <Route path="/user/dashboard" element={<UserDashboard/>}/>
-        <Route path="/user/profile" element={<UserDashboard/>}/>
+      <AnimatePresence mode="wait">
+        <Routes location={location} key={location.pathname}>
+          <Route path="/admin-login" element={<Navigate to="/login" replace />} />
 
-        {/* Admin Dashboard */}
-        <Route path="/admin" element={<AdminDashboard/>}/>
-        <Route path="/admin/dashboard" element={<AdminDashboard/>}/>
+          <Route path="/" element={<Userlayout />}>
+            <Route index element={<Home />} />
+            <Route path="books" element={<Books />} />
+            <Route path="bookdetails/:id" element={<BookDetails />} />
+            <Route path="cart" element={<CartPage />} />
+            <Route path="wishlist" element={<Wishlist />} />
+            <Route path="category" element={<AllCategories />} />
+            <Route path="register" element={<Register />} />
+            <Route path="login" element={<Login />} />
+            <Route path="aboutus" element={<AboutUs />} />
+            <Route path="ve-d-free-book" element={<AboutUs />} />
+            <Route path="contactus" element={<ContactUs />} />
+            <Route path="lien-he" element={<ContactUs />} />
+            <Route path="hoat-dong" element={<Activities />} />
+            <Route path="doi-tac" element={<Partners />} />
+            <Route path="chinh-sach/:slug" element={<Policies />} />
+            <Route path="forgetPassword" element={<ForgotPassword />} />
+            <Route path="verifyotp" element={<VerifyOTP />} />
+            <Route path="resetpass" element={<ResetPassword />} />
+            <Route path="payment-result" element={<PaymentResult />} />
+          </Route>
 
-        {/* Librarian Dashboard */}
-        <Route path="/librarian" element={<LibrarianDashboard/>}/>
-        <Route path="/librarian/dashboard" element={<LibrarianDashboard/>}/>
-      </Routes>
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminDashboard />} />
+            <Route path="tickets" element={<AdminDashboard initialSection="tickets" />} />
+            <Route path="addbook" element={<AddBookForm />} />
+            <Route path="viewbook" element={<ViewBooks />} />
+          </Route>
+
+          <Route path="/user" element={<Userlayout />}>
+            <Route index element={<ProfilePage />} />
+          </Route>
+
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </AnimatePresence>
     </Suspense>
-  )
+  );
 }
 
 export default App;

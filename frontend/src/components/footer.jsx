@@ -1,68 +1,84 @@
-import React from "react";
-import { Link } from "react-router-dom";
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { FiFacebook, FiInstagram, FiMail } from 'react-icons/fi';
+import './footer.css';
 
-export default function Footer() {
+const Footer = () => {
+  const handleLinkClick = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
-    <footer className="bg-primary text-white pt-16 pb-8">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
-          
-          <div className="space-y-4">
-            <h3 className="text-2xl font-bold flex items-center gap-2">
-              <span className="text-3xl">📚</span>
-              D Free Book
-            </h3>
-            <p className="text-[#cedee0] leading-relaxed">
-              Thư viện cộng đồng cho mượn sách miễn phí và đặt cọc niềm tin.
-            </p>
-          </div>
+    <footer className="library-footer">
+      <div className="footer-container">
+        <div className="footer-tagline">
+          <p>
+            D Free Book là một thư viện cộng đồng cho mượn sách miễn phí, đặt cọc hoàn lại và phí trễ hạn minh bạch.
+          </p>
+        </div>
 
-          <div className="space-y-4">
-            <h4 className="text-xl font-semibold">Liên kết nhanh</h4>
-            <ul className="space-y-2">
-              <li><Link to="/" className="text-[#cedee0] hover:text-white transition-colors block">Trang chủ</Link></li>
-              <li><Link to="/books" className="text-[#cedee0] hover:text-white transition-colors block">Tủ sách</Link></li>
-              <li><Link to="/category" className="text-[#cedee0] hover:text-white transition-colors block">Phân loại</Link></li>
-              <li><Link to="/aboutus" className="text-[#cedee0] hover:text-white transition-colors block">Giới thiệu</Link></li>
+        <div className="footer-main">
+          <div className="footer-column">
+            <h3 className="footer-heading">Trang</h3>
+            <ul className="footer-links">
+              <li><Link to="/" className="footer-link" onClick={handleLinkClick}>Trang chủ</Link></li>
+              <li><Link to="/ve-d-free-book" className="footer-link" onClick={handleLinkClick}>Về D Free Book</Link></li>
+              <li><Link to="/books" className="footer-link" onClick={handleLinkClick}>Sách</Link></li>
+              <li><Link to="/hoat-dong" className="footer-link" onClick={handleLinkClick}>Hoạt động</Link></li>
+              <li><Link to="/doi-tac" className="footer-link" onClick={handleLinkClick}>Đối tác & truyền thông</Link></li>
+              <li><Link to="/lien-he" className="footer-link" onClick={handleLinkClick}>Liên hệ</Link></li>
             </ul>
           </div>
 
-          <div className="space-y-4">
-            <h4 className="text-xl font-semibold">Hỗ trợ</h4>
-            <ul className="space-y-2">
-              <li><Link to="/contactus" className="text-[#cedee0] hover:text-white transition-colors block">Liên hệ</Link></li>
-              <li><Link to="/faq" className="text-[#cedee0] hover:text-white transition-colors block">Câu hỏi thường gặp</Link></li>
-              <li><Link to="/rules" className="text-[#cedee0] hover:text-white transition-colors block">Quy định mượn sách</Link></li>
+          <div className="footer-column">
+            <h3 className="footer-heading">Hỗ trợ</h3>
+            <ul className="footer-links">
+              <li><Link to="/chinh-sach/ho-tro" className="footer-link" onClick={handleLinkClick}>Chính sách hỗ trợ</Link></li>
+              <li><Link to="/chinh-sach/doi-tra" className="footer-link" onClick={handleLinkClick}>Chính sách đổi trả</Link></li>
+              <li><Link to="/chinh-sach/bao-mat" className="footer-link" onClick={handleLinkClick}>Chính sách bảo mật</Link></li>
+              <li><Link to="/chinh-sach/dieu-khoan" className="footer-link" onClick={handleLinkClick}>Điều khoản dịch vụ</Link></li>
             </ul>
           </div>
 
-          <div className="space-y-4">
-            <h4 className="text-xl font-semibold">Kết nối với chúng tôi</h4>
-            <p className="text-[#cedee0]">Theo dõi Fanpage để cập nhật sách mới mỗi ngày.</p>
-            <div className="flex space-x-4 pt-2">
-              <a href="#" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/30 transition-colors">
-                <span className="text-lg">F</span>
+          <div className="footer-column">
+            <h3 className="footer-heading">Giữ liên lạc</h3>
+            <ul className="footer-contact-info">
+              <li className="contact-item">
+                <FiMail className="contact-icon" />
+                <a href="mailto:thuviendfb@gmail.com" className="footer-link">thuviendfb@gmail.com</a>
+              </li>
+            </ul>
+            <div className="footer-social">
+              <a
+                href="https://www.facebook.com/dfreebook"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="social-icon"
+                aria-label="Facebook"
+              >
+                <FiFacebook />
               </a>
-              <a href="#" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/30 transition-colors">
-                <span className="text-lg">I</span>
-              </a>
-              <a href="#" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/30 transition-colors">
-                <span className="text-lg">Y</span>
+              <a
+                href="https://www.instagram.com/dfree.book"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="social-icon"
+                aria-label="Instagram"
+              >
+                <FiInstagram />
               </a>
             </div>
           </div>
         </div>
 
-        <div className="border-t border-white/20 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-[#cedee0] text-sm text-center md:text-left">
-            &copy; {new Date().getFullYear()} D Free Book. Nền tảng chia sẻ tri thức cộng đồng.
-          </p>
-          <div className="flex space-x-6 text-sm text-[#cedee0]">
-            <Link to="/privacy" className="hover:text-white transition-colors">Bảo mật</Link>
-            <Link to="/terms" className="hover:text-white transition-colors">Điều khoản</Link>
+        <div className="footer-bottom">
+          <div className="footer-copyright">
+            &copy; {new Date().getFullYear()} D Free Book. Mượn sách miễn phí, đặt cọc hoàn lại, ủng hộ tự nguyện.
           </div>
         </div>
       </div>
     </footer>
   );
-}
+};
+
+export default Footer;

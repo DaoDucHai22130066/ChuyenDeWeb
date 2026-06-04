@@ -1,194 +1,367 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import "./books.css";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { FiFilter, FiSearch, FiBookOpen, FiMapPin, FiGrid, FiShoppingBag } from "react-icons/fi";
 import { Server_URL } from "../../utils/config";
 import { showErrorToast, showSuccessToast } from "../../utils/toasthelper";
-import { FiSearch, FiFilter } from "react-icons/fi";
-import Preloader from "../../components/Preloader";
+import { useCart } from "../../context/CartContext";
+import { useWishlist } from "../../context/WishlistContext";
+import { FaHeart, FaRegHeart } from "react-icons/fa";
+
+const STATUS_ALL = "all";
+const STATUS_IN_LIBRARY = "in_library";
+const STATUS_AVAILABLE = "available";
+
+const BRANCH_LABELS = {
+  "dai-la": "Cs. Đại La",
+  "cau-giay": "Cs. Cầu Giấy",
+};
 
 const Books = () => {
   const [books, setBooks] = useState([]);
-  const [filteredBooks, setFilteredBooks] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [statusFilter, setStatusFilter] = useState(STATUS_ALL);
+  const [branchFilter, setBranchFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("borrowCount");
   const [isLoading, setIsLoading] = useState(true);
-
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 9;
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { addToCart, isInCart } = useCart();
+  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
 
-  async function issueBook(bookid) {
-    try {
-      const authToken = localStorage.getItem("authToken");
-      if (!authToken) {
-        showErrorToast("Please login to issue a book.");
-        return;
-      }
-      const response = await axios.post(`${Server_URL}books/borrow/request-issue/${bookid}`, {}, {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
+  const getCategoryLabel = (book) => book.categoryId?.name || book.category || "Khác";
 
-      const { error, message } = response.data;
-      if (error) {
-        showErrorToast(message);
-      } else {
-        showSuccessToast(message);
-      }
-    } catch (error) {
-      showErrorToast(error.response?.data?.message || "Something went wrong! Please try again.");
+  useEffect(() => {
+    const cat = searchParams.get("category");
+    const q = searchParams.get("q");
+    if (cat) setSelectedCategory(cat);
+    if (q) setSearchTerm(q);
+  }, [searchParams]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategory, statusFilter, branchFilter, searchTerm, sortBy]);
+
+  useEffect(() => {
+    setIsLoading(true);
+    axios
+      .get(`${Server_URL}books`)
+      .then((response) => {
+        if (!response.data.error) {
+          const list = response.data.books || [];
+          setBooks(list);
+          const uniqueCategories = [
+            "All",
+            ...new Set(list.map((book) => getCategoryLabel(book))),
+          ];
+          setCategories(uniqueCategories);
+        }
+      })
+      .catch(() => {
+        showErrorToast("Không tải được danh sách sách.");
+      })
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  const branches = useMemo(() => {
+    const set = new Set(books.map((b) => b.branch).filter(Boolean));
+    return ["all", ...set];
+  }, [books]);
+
+  const filteredBooks = useMemo(() => {
+    let filtered = [...books];
+
+    if (selectedCategory !== "All") {
+      filtered = filtered.filter((book) => getCategoryLabel(book) === selectedCategory);
     }
-  }
+
+    if (statusFilter === STATUS_AVAILABLE) {
+      filtered = filtered.filter((book) => book.availableCopies > 0);
+    } else if (statusFilter === STATUS_IN_LIBRARY) {
+      filtered = filtered.filter((book) => book.availableCopies === 0);
+    }
+
+    if (branchFilter !== "all") {
+      filtered = filtered.filter((book) => (book.branch || "dai-la") === branchFilter);
+    }
+
+    if (searchTerm) {
+      const q = searchTerm.toLowerCase();
+      filtered = filtered.filter(
+        (book) =>
+          book.title?.toLowerCase().includes(q) ||
+          book.author?.toLowerCase().includes(q) ||
+          getCategoryLabel(book).toLowerCase().includes(q)
+      );
+    }
+
+    if (sortBy === "borrowCount") {
+      filtered.sort((a, b) => (b.borrowCount || 0) - (a.borrowCount || 0));
+    } else if (sortBy === "title") {
+      filtered.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+    } else if (sortBy === "newest") {
+      filtered.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    }
+
+    return filtered;
+  }, [books, selectedCategory, statusFilter, branchFilter, searchTerm, sortBy]);
+
+  const totalPages = Math.ceil(filteredBooks.length / itemsPerPage);
+  const indexOfLastBook = currentPage * itemsPerPage;
+  const indexOfFirstBook = indexOfLastBook - itemsPerPage;
+  const currentBooks = filteredBooks.slice(indexOfFirstBook, indexOfLastBook);
 
   function bookDetails(bookid) {
     navigate(`/bookdetails/${bookid}`);
   }
 
-  useEffect(() => {
-    setIsLoading(true);
-    axios.get(`${Server_URL}books`)
-      .then((response) => {
-        if (!response.data.error) {
-          setBooks(response.data.books);
-          setFilteredBooks(response.data.books);
-          const uniqueCategories = ["All", ...new Set(response.data.books.map(book => book.category))];
-          setCategories(uniqueCategories);
-        }
-      })
-      .catch((error) => {
-        console.error("Error fetching books:", error);
-      }).finally(() => {
-        setIsLoading(false);
-      });
-  }, []);
-
-  const handleSearch = (e) => {
-    setSearchTerm(e.target.value);
-    filterBooks(e.target.value, selectedCategory);
-  };
-
-  const handleCategoryChange = (category) => {
-    setSelectedCategory(category);
-    filterBooks(searchTerm, category);
-  };
-
-  const filterBooks = (search, category) => {
-    let filtered = books;
-    if (category !== "All") {
-      filtered = filtered.filter(book => book.category === category);
-    }
-    if (search) {
-      filtered = filtered.filter(book => book.title.toLowerCase().includes(search.toLowerCase()));
-    }
-    setFilteredBooks(filtered);
-  };
-
-  if (isLoading) return <Preloader />;
-
   return (
-    <div className="bg-gray-50 min-h-screen py-10">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col md:flex-row gap-8">
-          
-          {/* Sidebar / Categories */}
-          <div className="w-full md:w-1/4">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sticky top-24">
-              <h4 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                <FiFilter className="text-primary" /> Danh mục
-              </h4>
-              <div className="flex flex-col space-y-2 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-                {categories.map((category, index) => (
+    <div className="books-page">
+      <section className="books-hero">
+        <div className="container-dfb books-hero-inner">
+          <span className="books-eyebrow">Kho sách D Free Book</span>
+          <h1>Chọn cuốn sách tiếp theo cho hành trình đọc của bạn</h1>
+          <p>Tìm kiếm, lọc theo chi nhánh, trạng thái và danh mục để gửi yêu cầu mượn nhanh hơn.</p>
+        </div>
+      </section>
+
+      <div className="container-dfb books-layout">
+        <aside className="filter-sidebar books-filter-panel">
+          <div className="books-filter-heading">
+            <FiFilter />
+            <h3 className="books-sidebar-title">Bộ lọc</h3>
+          </div>
+
+          <div className="filter-group">
+            <h4>Trạng thái sách</h4>
+            {[
+              [STATUS_ALL, "Tất cả"],
+              [STATUS_IN_LIBRARY, "Đang ở thư viện"],
+              [STATUS_AVAILABLE, "Có sẵn để mượn"],
+            ].map(([val, label]) => (
+              <button
+                key={val}
+                type="button"
+                className={`filter-option ${statusFilter === val ? "active" : ""}`}
+                onClick={() => setStatusFilter(val)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {branches.length > 1 && (
+            <div className="filter-group">
+              <h4>Chi nhánh thư viện</h4>
+              <button
+                type="button"
+                className={`filter-option ${branchFilter === "all" ? "active" : ""}`}
+                onClick={() => setBranchFilter("all")}
+              >
+                Tất cả chi nhánh
+              </button>
+              {branches
+                .filter((b) => b !== "all")
+                .map((branch) => (
                   <button
-                    key={index}
-                    className={`text-left px-4 py-2.5 rounded-lg font-medium transition-colors ${
-                      selectedCategory === category 
-                        ? "bg-primary text-white shadow-md shadow-primary/20" 
-                        : "text-gray-600 hover:bg-gray-100"
-                    }`}
-                    onClick={() => handleCategoryChange(category)}
+                    key={branch}
+                    type="button"
+                    className={`filter-option ${branchFilter === branch ? "active" : ""}`}
+                    onClick={() => setBranchFilter(branch)}
                   >
-                    {category === "All" ? "Tất cả sách" : category}
+                    {BRANCH_LABELS[branch] || branch}
                   </button>
                 ))}
-              </div>
+            </div>
+          )}
+
+          <div className="filter-group">
+            <h4>Danh mục</h4>
+            <div className="books-category-list">
+              {categories.map((category, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  className={`filter-option ${selectedCategory === category ? "active" : ""}`}
+                  onClick={() => setSelectedCategory(category)}
+                >
+                  {category === "All" ? "Tất cả loại sách" : category}
+                </button>
+              ))}
             </div>
           </div>
+        </aside>
 
-          {/* Main Content */}
-          <div className="w-full md:w-3/4">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-              <h2 className="text-2xl font-bold text-gray-900">Tủ sách</h2>
-              <div className="relative w-full sm:w-96">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FiSearch className="text-gray-400" />
-                </div>
+        <main className="books-main">
+          <div className="books-toolbar dfb-card">
+            <div>
+              <span className="books-toolbar-kicker"><FiGrid /> Danh sách sách</span>
+              <h2 className="page-title">{filteredBooks.length} kết quả phù hợp</h2>
+            </div>
+            <div className="books-toolbar-actions">
+              <div className="books-search-box">
+                <FiSearch />
                 <input
                   type="text"
-                  className="block w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50 focus:ring-primary focus:border-primary transition-colors text-sm"
-                  placeholder="Tìm kiếm sách theo tiêu đề..."
+                  className="books-search-input"
+                  placeholder="Tìm theo tên sách, tác giả, danh mục..."
                   value={searchTerm}
-                  onChange={handleSearch}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
+              <select
+                className="books-sort-select"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+              >
+                <option value="borrowCount">Số lượng mượn</option>
+                <option value="newest">Mới nhất</option>
+                <option value="title">Tên sách (A-Z)</option>
+              </select>
             </div>
+          </div>
 
-            {filteredBooks.length > 0 ? (
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredBooks.map((book, index) => (
-                  <div key={index} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300 flex flex-col">
-                    <div className="aspect-[2/3] relative overflow-hidden bg-gray-100 group">
+          <div className="books-active-filters">
+            <span>{selectedCategory === "All" ? "Tất cả danh mục" : selectedCategory}</span>
+            <span>{statusFilter === STATUS_AVAILABLE ? "Có sẵn" : statusFilter === STATUS_IN_LIBRARY ? "Đang ở thư viện" : "Mọi trạng thái"}</span>
+            <span>{branchFilter === "all" ? "Tất cả chi nhánh" : BRANCH_LABELS[branchFilter] || branchFilter}</span>
+          </div>
+
+          {isLoading ? (
+            <div className="books-loading dfb-card">
+              <div className="books-loading-spinner" />
+              <p>Đang tải danh sách sách...</p>
+            </div>
+          ) : filteredBooks.length > 0 ? (
+            <>
+              <div className="books-grid-dfb">
+                {currentBooks.map((book) => (
+                  <article key={book._id} className="book-card-dfb">
+                    <div className="card-image-container">
                       <img
-                        src={book.coverImage || "/assets/images/default-book.png"}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        src={book.coverImage || "/assets/library.avif"}
+                        className="card-image"
                         alt={book.title}
-                        onError={(e) => { e.target.src = "/assets/images/default-book.png"; }}
+                        onError={(e) => {
+                          e.currentTarget.src = "/assets/library.avif";
+                        }}
                       />
-                      <div className="absolute top-3 left-3">
-                        <span className="bg-black/50 backdrop-blur-md text-white text-xs font-semibold px-3 py-1 rounded-full">
-                          {book.category}
-                        </span>
+                      <button
+                        className="wishlist-icon-btn list-wishlist-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const bookId = book._id || book.id;
+                          if (isInWishlist(bookId)) {
+                            removeFromWishlist(bookId);
+                          } else {
+                            addToWishlist(book).then(res => {
+                              if (res && res.success) {
+                                showSuccessToast("Đã lưu vào sách yêu thích");
+                              }
+                            });
+                          }
+                        }}
+                        title={isInWishlist(book._id || book.id) ? "Bỏ lưu" : "Lưu yêu thích"}
+                        style={{
+                          position: "absolute",
+                          top: "10px",
+                          right: "10px",
+                          background: "white",
+                          border: "none",
+                          borderRadius: "50%",
+                          width: "32px",
+                          height: "32px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          cursor: "pointer",
+                          boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
+                          zIndex: 2,
+                          padding: 0
+                        }}
+                      >
+                        {isInWishlist(book._id || book.id) ? <FaHeart color="#e74c3c" size={16} /> : <FaRegHeart color="#7f8c8d" size={16} />}
+                      </button>
+                      <div className="book-badge">{getCategoryLabel(book)}</div>
+                      {book.availableCopies > 0 ? (
+                        <span className="book-status available">Còn {book.availableCopies} cuốn</span>
+                      ) : (
+                        <span className="book-status unavailable">Đã mượn hết</span>
+                      )}
+                    </div>
+                    <div className="card-body">
+                      <h5 className="card-title">{book.title}</h5>
+                      <p className="card-author">{book.author}</p>
+                      <div className="book-meta-line">
+                        <span><FiMapPin /> {BRANCH_LABELS[book.branch] || "Cs. Đại La"}</span>
+                        <span><FiBookOpen /> {book.borrowCount || 0} lượt mượn</span>
+                      </div>
+                      <div className="card-footer">
+                        <button
+                          type="button"
+                          className="btn-dfb-outline btn-sm"
+                          onClick={() => bookDetails(book._id)}
+                        >
+                          Chi tiết
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-dfb-primary btn-sm"
+                          onClick={() => {
+                            addToCart(book);
+                            showSuccessToast("Đã thêm vào giỏ sách mượn.");
+                          }}
+                          disabled={book.availableCopies === 0 || isInCart(book._id)}
+                        >
+                          <FiShoppingBag /> {isInCart(book._id) ? "Đã trong giỏ" : "Thêm vào giỏ"}
+                        </button>
                       </div>
                     </div>
-                    <div className="p-5 flex-grow flex flex-col">
-                      <h5 className="font-bold text-gray-900 text-lg line-clamp-2 mb-1">{book.title}</h5>
-                      <p className="text-gray-500 text-sm mb-4">bởi {book.author}</p>
-                      
-                      <div className="mt-auto flex flex-col gap-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-primary font-bold">Cọc đ {book.price || '50,000'}</span>
-                          <span className={`text-xs font-semibold px-2 py-1 rounded-md ${book.availableCopies > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                            {book.availableCopies > 0 ? `Còn ${book.availableCopies}` : 'Hết sách'}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            className="px-3 py-2 text-sm font-medium border border-primary text-primary rounded-lg hover:bg-teal-50 transition-colors text-center"
-                            onClick={() => bookDetails(book.id || book._id)}
-                          >
-                            Chi tiết
-                          </button>
-                          <button
-                            className={`px-3 py-2 text-sm font-medium rounded-lg text-center transition-colors ${book.availableCopies > 0 ? 'bg-primary text-white hover:bg-[#3d5c5f] shadow-md shadow-primary/20' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
-                            onClick={() => book.availableCopies > 0 && issueBook(book.id || book._id)}
-                            disabled={book.availableCopies <= 0}
-                          >
-                            Mượn sách
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  </article>
                 ))}
               </div>
-            ) : (
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-16 text-center">
-                <FiSearch className="mx-auto h-16 w-16 text-gray-300 mb-4" />
-                <h4 className="text-xl font-bold text-gray-900 mb-2">Không tìm thấy sách!</h4>
-                <p className="text-gray-500">Vui lòng thử điều chỉnh tìm kiếm hoặc danh mục của bạn.</p>
-              </div>
-            )}
-          </div>
-        </div>
+              {totalPages > 1 && (
+                <div className="pagination-container">
+                  <button
+                    type="button"
+                    className="btn-dfb-outline pagination-btn"
+                    onClick={() => {
+                      setCurrentPage((p) => Math.max(1, p - 1));
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    disabled={currentPage === 1}
+                  >
+                    Trang trước
+                  </button>
+                  <span className="pagination-info">
+                    Trang {currentPage} / {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn-dfb-outline pagination-btn"
+                    onClick={() => {
+                      setCurrentPage((p) => Math.min(totalPages, p + 1));
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    disabled={currentPage === totalPages}
+                  >
+                    Trang sau
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="no-books-found dfb-card">
+              <h4>Không tìm thấy sách</h4>
+              <p>Thử đổi bộ lọc hoặc từ khóa tìm kiếm.</p>
+            </div>
+          )}
+        </main>
       </div>
     </div>
   );

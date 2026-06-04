@@ -1,7 +1,7 @@
 import React from "react";
 import { useForm } from "react-hook-form";
 import axios from "axios";
-import { FiMail, FiPhone, FiMapPin, FiClock, FiSend } from "react-icons/fi";
+import { FiMail, FiMapPin, FiClock, FiSend } from "react-icons/fi";
 import "./contact.css";
 import { Server_URL } from "../../utils/config";
 import { showErrorToast, showSuccessToast } from "../../utils/toasthelper";
@@ -16,17 +16,11 @@ const ContactUs = () => {
 
   const onSubmit = async (data) => {
     try {
-      const url = Server_URL + "users/contact";
-      const response = await axios.post(url, data);
-      showSuccessToast(
-        "Your message has been sent! We will get back to you soon."
-      );
+      await axios.post(Server_URL + "users/contact", data);
+      showSuccessToast("Tin nhắn đã được gửi! Chúng tôi sẽ phản hồi sớm.");
       reset();
     } catch (error) {
-      console.error(error);
-      showErrorToast(
-        "There was a problem sending your message. Please try again later."
-      );
+      showErrorToast("Không gửi được tin nhắn. Vui lòng thử lại sau.");
     }
   };
 
@@ -34,10 +28,8 @@ const ContactUs = () => {
     <div className="contact-page">
       <section className="contact-hero">
         <div className="contact-container">
-          <h1>Contact Us</h1>
-          <p>
-            We're here to help with any questions about our library services
-          </p>
+          <h1>Liên hệ</h1>
+          <p>Chúng tôi luôn sẵn sàng hỗ trợ bạn về mượn sách và hoạt động thư viện</p>
         </div>
       </section>
 
@@ -46,38 +38,26 @@ const ContactUs = () => {
           <div className="contact-info-grid">
             <div className="contact-info-card">
               <FiMapPin className="contact-icon" size={28} />
-              <h3>Visit Us</h3>
-              <p>
-                123 College Avenue
-                <br />
-                Academic City, AC 12345
-              </p>
+              <h3>Cs. Đại La</h3>
+              <p>Phố Đại La, Hai Bà Trưng, Hà Nội</p>
+            </div>
+            <div className="contact-info-card">
+              <FiMapPin className="contact-icon" size={28} />
+              <h3>Cs. Cầu Giấy</h3>
+              <p>Cầu Giấy, Hà Nội</p>
             </div>
             <div className="contact-info-card">
               <FiMail className="contact-icon" size={28} />
-              <h3>Email Us</h3>
+              <h3>Email</h3>
               <p>
-                library@college.edu
-                <br />
-                support@college.edu
-              </p>
-            </div>
-            <div className="contact-info-card">
-              <FiPhone className="contact-icon" size={28} />
-              <h3>Call Us</h3>
-              <p>
-                (123) 456-7890
-                <br />
-                Mon-Fri, 8:00 AM - 5:00 PM
+                <a href="mailto:thuviendfb@gmail.com">thuviendfb@gmail.com</a>
               </p>
             </div>
             <div className="contact-info-card">
               <FiClock className="contact-icon" size={28} />
-              <h3>Hours</h3>
+              <h3>Giờ mở cửa</h3>
               <p>
-                Mon-Fri: 8:00 AM - 10:00 PM
-                <br />
-                Sat-Sun: 10:00 AM - 6:00 PM
+                Thứ 2 – Chủ nhật: 9:00 – 21:00
               </p>
             </div>
           </div>
@@ -88,27 +68,26 @@ const ContactUs = () => {
         <div className="contact-container">
           <div className="contact-form-wrapper">
             <div className="contact-form-text">
-              <h2>Send Us a Message</h2>
+              <h2>Gửi tin nhắn</h2>
               <p>
-                Have questions about our resources, services, or facilities?
-                Fill out the form below and our team will get back to you as
-                soon as possible.
+                Có câu hỏi về mượn sách, hiến sách hoặc hợp tác? Điền form bên dưới hoặc nhắn
+                fanpage Facebook D Free Book.
               </p>
             </div>
             <form onSubmit={handleSubmit(onSubmit)} className="contact-form">
               <div className="form-group">
-                <label htmlFor="name">Full Name</label>
+                <label htmlFor="name">Họ và tên</label>
                 <input
                   {...register("name", { required: true })}
                   type="text"
                   id="name"
-                  placeholder="Enter your full name"
+                  placeholder="Nhập họ tên"
                 />
-                {errors.name && <span className="error">Name is required</span>}
+                {errors.name && <span className="error">Vui lòng nhập họ tên</span>}
               </div>
 
               <div className="form-group">
-                <label htmlFor="email">Email Address</label>
+                <label htmlFor="email">Email</label>
                 <input
                   {...register("email", {
                     required: true,
@@ -116,47 +95,44 @@ const ContactUs = () => {
                   })}
                   type="email"
                   id="email"
-                  placeholder="Enter your email address"
+                  placeholder="email@example.com"
                 />
                 {errors.email && (
-                  <span className="error">Valid email is required</span>
+                  <span className="error">Email không hợp lệ</span>
                 )}
               </div>
 
               <div className="form-group">
-                <label htmlFor="subject">Subject</label>
-                <select
-                  {...register("subject", { required: true })}
-                  id="subject"
-                >
-                  <option value="">Select a subject</option>
-                  <option value="general">General Inquiry</option>
-                  <option value="resources">Resource Questions</option>
-                  <option value="membership">Membership</option>
-                  <option value="events">Event Information</option>
-                  <option value="feedback">Feedback/Suggestions</option>
-                  <option value="other">Other</option>
+                <label htmlFor="subject">Chủ đề</label>
+                <select {...register("subject", { required: true })} id="subject">
+                  <option value="">Chọn chủ đề</option>
+                  <option value="general">Câu hỏi chung</option>
+                  <option value="borrow">Mượn / trả sách</option>
+                  <option value="donate">Hiến sách</option>
+                  <option value="volunteer">Tình nguyện</option>
+                  <option value="feedback">Góp ý</option>
+                  <option value="other">Khác</option>
                 </select>
                 {errors.subject && (
-                  <span className="error">Subject is required</span>
+                  <span className="error">Vui lòng chọn chủ đề</span>
                 )}
               </div>
 
               <div className="form-group">
-                <label htmlFor="message">Message</label>
+                <label htmlFor="message">Nội dung</label>
                 <textarea
                   {...register("message", { required: true })}
                   id="message"
                   rows="6"
-                  placeholder="Enter your message here..."
+                  placeholder="Nhập nội dung tin nhắn..."
                 ></textarea>
                 {errors.message && (
-                  <span className="error">Message is required</span>
+                  <span className="error">Vui lòng nhập nội dung</span>
                 )}
               </div>
 
               <button type="submit" className="contact-submit-btn">
-                <FiSend className="btn-icon" /> Send Message
+                <FiSend className="btn-icon" /> Gửi tin nhắn
               </button>
             </form>
           </div>

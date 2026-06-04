@@ -1,72 +1,121 @@
-import React from "react";
-import {useForm} from "react-hook-form";
+import React, { useEffect } from "react";
+import GoogleIcon from "../../assets/google.svg";
+import { useForm } from "react-hook-form";
+import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Server_URL } from "../../utils/config";
 import { showErrorToast, showSuccessToast } from "../../utils/toasthelper";
+import "./login.css";
 
+export default function Register() {
+  const { register, handleSubmit, reset, formState: { errors } } = useForm();
+  const navigate = useNavigate();
 
-export default function Register(){
-    const { register, handleSubmit, reset, formState: { errors } } = useForm();
+  const onSubmit = async (data) => {
+    try {
+      const formData = { ...data, role: "user" };
+      await axios.post(`${Server_URL}users/register`, formData);
 
+      const loginResponse = await axios.post(`${Server_URL}users/login`, {
+        email: data.email,
+        password: data.password,
+      });
 
-    const onSubmit =async (data) => {
-      try{
-        const formData = { ...data, role: "user" };
-      const response = await axios.post(`${Server_URL}users/register`, formData);
+      localStorage.setItem("authToken", loginResponse.data.token);
+      localStorage.setItem("role", loginResponse.data.user.role);
 
-      console.log("Response:", response.data);
-      showSuccessToast("Registration Successful!");
+      showSuccessToast("Đăng ký thành công!");
       reset();
+      navigate("/user");
+      try { window.dispatchEvent(new Event('cart:auth-changed')); } catch (e) {}
+    } catch {
+      showErrorToast("Đăng ký thất bại. Email có thể đã được sử dụng.");
+    }
+  };
 
+  // Callback đăng ký bằng Google cho trang đăng ký (dùng lại endpoint google-login)
+  const handleCredentialResponse = async (response) => {
+    try {
+      const idToken = response.credential;
+      const res = await axios.post(`${Server_URL}users/google-login`, { idToken });
+      localStorage.setItem("authToken", res.data.token);
+      localStorage.setItem("role", res.data.user.role);
+      showSuccessToast("Đăng nhập bằng Google thành công!");
+      // optional: redirect to home
+      window.location.href = "/";
+    } catch (err) {
+      showErrorToast("Đăng nhập bằng Google thất bại");
+    }
+  };
 
-      }catch(error){
-        console.error("Error:", error.response?.data || error.message);
-      showErrorToast("Registration Failed!");
-      }
-      
-    };
-    return(
-        <div className="container mt-4">
-        <h2 className="text-center">User Registration</h2>
-        <form onSubmit={handleSubmit(onSubmit)} className="p-4 border rounded shadow">
-  
-      
-          <div className="mb-3">
-            <label className="form-label">Name</label>
-            <input type="text" className="form-control" {...register("name", { required: "Name is required" })} />
-            {errors.name && <p className="text-danger">{errors.name.message}</p>}
+  useEffect(() => {
+    if (window.google && import.meta.env.VITE_GOOGLE_CLIENT_ID) {
+      window.google.accounts.id.initialize({
+        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+        callback: handleCredentialResponse,
+      });
+      window.google.accounts.id.renderButton(
+        document.getElementById('googleSignInDiv'),
+        { theme: 'outline', size: 'large' }
+      );
+    }
+  }, []);
+
+  const handleGoogleClick = () => {
+    if (window.google) {
+      window.google.accounts.id.prompt();
+    } else {
+      showErrorToast("Đăng nhập bằng Google không khả dụng");
+    }
+  };
+
+  return (
+    <div className="login-container">
+      <div className="login-box" style={{ maxWidth: "480px" }}>
+        <h2 className="login-title">Đăng ký</h2>
+        <p className="login-subtitle">Tham gia cộng đồng độc giả D Free Book</p>
+        <form onSubmit={handleSubmit(onSubmit)} className="login-form">
+          <div className="form-group">
+            <label>Họ và tên</label>
+            <input type="text" className="form-input" {...register("name", { required: "Vui lòng nhập họ tên" })} />
+            {errors.name && <span className="error-text">{errors.name.message}</span>}
           </div>
-  
-          <div className="mb-3">
-            <label className="form-label">Email</label>
-            <input type="email" className="form-control" {...register("email", { required: "Email is required" })} />
-            {errors.email && <p className="text-danger">{errors.email.message}</p>}
+
+          <div className="form-group">
+            <label>Email</label>
+            <input type="email" className="form-input" {...register("email", { required: "Vui lòng nhập email" })} />
+            {errors.email && <span className="error-text">{errors.email.message}</span>}
           </div>
-  
-       
-          <div className="mb-3">
-            <label className="form-label">Password</label>
-            <input type="password" className="form-control" {...register("password", { required: "Password is required" })} />
-            {errors.password && <p className="text-danger">{errors.password.message}</p>}
+
+          <div className="form-group">
+            <label>Mật khẩu</label>
+            <input type="password" className="form-input" {...register("password", { required: "Vui lòng nhập mật khẩu" })} />
+            {errors.password && <span className="error-text">{errors.password.message}</span>}
           </div>
-  
-     
-          <div className="mb-3">
-            <label className="form-label">Stream</label>
-            <input type="text" className="form-control" {...register("stream", { required: "Stream is required" })} />
-            {errors.stream && <p className="text-danger">{errors.stream.message}</p>}
+
+          <div className="form-group">
+            <label>Ngành / lĩnh vực</label>
+            <input type="text" className="form-input" {...register("stream", { required: "Vui lòng nhập thông tin" })} />
+            {errors.stream && <span className="error-text">{errors.stream.message}</span>}
           </div>
-  
-       
-          <div className="mb-3">
-            <label className="form-label">Year</label>
-            <input type="number" className="form-control" {...register("year", { required: "Year is required" })} />
-            {errors.year && <p className="text-danger">{errors.year.message}</p>}
+
+          <div className="form-group">
+            <label>Năm</label>
+            <input type="number" className="form-input" {...register("year", { required: "Vui lòng nhập năm" })} />
+            {errors.year && <span className="error-text">{errors.year.message}</span>}
           </div>
-  
-    
-          <button type="submit" className="btn btn-primary w-100">Register</button>
+
+          <button type="submit" className="btn-submit">Đăng ký</button>
+
+          <div style={{ marginTop: 12, textAlign: 'center' }}>
+            <div id="googleSignInDiv" style={{ marginTop: 8 }}></div>
+          </div>
+
+          <p className="login-register-link">
+            Đã có tài khoản? <Link to="/login">Đăng nhập</Link>
+          </p>
         </form>
       </div>
-    )
+    </div>
+  );
 }
