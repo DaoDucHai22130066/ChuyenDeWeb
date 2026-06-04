@@ -1,7 +1,7 @@
 const nodemailer = require("nodemailer");
 const bcrypt = require("bcryptjs");
-const JWT_SECRET = process.env.JWT_SECRET || "12345@abcd12";
 const jwt = require("jsonwebtoken");
+const JWT_SECRET = process.env.JWT_SECRET || "12345@abcd12";
 const userController = {};
 
 const { OAuth2Client } = require("google-auth-library");
@@ -25,12 +25,12 @@ userController.userRegistration = async (req, res) => {
     const { name, email, password, stream, year, role } = req.body;
 
     if (!name || !email || !password) {
-      return res.status(400).json({ message: "Name, email and password are required" });
+      return res.status(400).json({ message: "Tên, email và mật khẩu là bắt buộc" });
     }
 
     const existingUser = await query("SELECT id FROM users WHERE email = ? LIMIT 1", [email]);
     if (existingUser.length > 0) {
-      return res.status(400).json({ message: "Email already exists" });
+      return res.status(400).json({ message: "Email đã tồn tại" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -40,10 +40,10 @@ userController.userRegistration = async (req, res) => {
       [name, email, hashedPassword, stream || null, year || null, role || "user"]
     );
 
-    res.status(201).json({ message: "User registered successfully" });
+    res.status(201).json({ message: "Đăng ký tài khoản thành công" });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Internal Server Error" });
+    res.status(500).json({ message: "Lỗi máy chủ" });
   }
 };
 
@@ -52,28 +52,41 @@ userController.login = async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required" });
+      return res.status(400).json({ message: "Email và mật khẩu là bắt buộc" });
     }
 
     const rows = await query("SELECT * FROM users WHERE email = ? LIMIT 1", [email]);
     const user = rows[0];
 
     if (!user) {
-      return res.status(400).json({ message: "Invalid email or password" });
+      return res.status(400).json({ message: "Email hoặc mật khẩu không hợp lệ" });
     }
 
     if (!user.password) {
-      return res.status(400).json({ message: "Use Google login for this account" });
+      return res.status(400).json({ message: "Vui lòng đăng nhập bằng Google cho tài khoản này" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: "Invalid email or password" });
+      return res.status(400).json({ message: "Email hoặc mật khẩu không hợp lệ" });
     }
 
     const token = jwt.sign(buildUserPayload(user), JWT_SECRET, { expiresIn: "24h" });
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
+      path: '/',
+    };
+    try {
+      res.cookie('authToken', token, cookieOptions);
+    } catch (e) {
+      // ignore cookie set issues
+    }
+
     res.json({
-      message: "Login successful",
+      message: "Đăng nhập thành công",
       token,
       user: {
         name: user.name,
@@ -82,7 +95,7 @@ userController.login = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: "Lỗi máy chủ", error: error.message });
   }
 };
 
@@ -96,9 +109,9 @@ userController.getUsers = async (req, res) => {
 
     const user = rows.map((row) => mapUserRow(row));
     const totalUser = user.length;
-    res.status(200).json({ error: false, message: "users fetched successfully", user, totalUser });
+    res.status(200).json({ error: false, message: "Lấy danh sách người dùng thành công", user, totalUser });
   } catch (error) {
-    res.status(500).json({ error: false, message: "internal server error", error: error.message });
+    res.status(500).json({ error: false, message: "Lỗi máy chủ", error: error.message });
   }
 };
 
@@ -115,13 +128,13 @@ userController.profile = async (req, res) => {
 
     const user = rows[0];
     if (!user) {
-      return res.status(404).json({ error: true, message: "no such user" });
+      return res.status(404).json({ error: true, message: "Không tìm thấy người dùng" });
     }
 
-    res.json({ error: false, message: "user fetched successfully", user: mapUserRow(user) });
+    res.json({ error: false, message: "Lấy thông tin người dùng thành công", user: mapUserRow(user) });
   } catch (error) {
     console.error("Profile Fetch Error:", error);
-    res.status(500).json({ error: true, message: "Internal Server error" });
+    res.status(500).json({ error: true, message: "Lỗi máy chủ" });
   }
 };
 
@@ -129,7 +142,7 @@ userController.addContact = async (req, res) => {
   const { name, email, subject, message } = req.body;
 
   if (!name || !email || !subject || !message) {
-    return res.status(400).json({ error: "All fields are required" });
+    return res.status(400).json({ error: "Tất cả các trường là bắt buộc" });
   }
 
   try {
@@ -142,10 +155,10 @@ userController.addContact = async (req, res) => {
     // Send email to admin
     await sendContactNotification({ name, email, subject, message });
 
-    res.status(200).json({ success: true, message: "Your message has been sent! We will get back to you soon." });
+    res.status(200).json({ success: true, message: "Tin nhắn của bạn đã được gửi! Chúng tôi sẽ liên hệ lại sớm." });
   } catch (error) {
     console.error("Error saving contact:", error.message);
-    res.status(500).json({ error: "Server error while saving message" });
+    res.status(500).json({ error: "Lỗi máy chủ khi lưu tin nhắn" });
   }
 };
 
@@ -155,7 +168,7 @@ userController.forgotPassword = async (req, res) => {
   const { email } = req.body;
   try {
     const rows = await query("SELECT id FROM users WHERE email = ? LIMIT 1", [email]);
-    if (rows.length === 0) return res.status(400).json({ message: "User not found" });
+    if (rows.length === 0) return res.status(400).json({ message: "Không tìm thấy người dùng" });
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -168,10 +181,10 @@ userController.forgotPassword = async (req, res) => {
 
     await sendOtpMail(email, otp);
 
-    res.json({ message: "OTP sent to your email" });
+    res.json({ message: "OTP đã được gửi tới email của bạn" });
   } catch (error) {
     console.error("Forgot password error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Lỗi máy chủ" });
   }
 };
 
@@ -182,15 +195,15 @@ userController.verifyOTP = async (req, res) => {
     const record = rows[0];
 
     if (!record || record.otp !== otp) {
-      return res.status(400).json({ message: "Invalid OTP" });
+      return res.status(400).json({ message: "OTP không hợp lệ" });
     }
 
     const otpAge = (new Date() - new Date(record.created_at)) / (1000 * 60);
-    if (otpAge > 10) return res.status(400).json({ message: "OTP expired" });
+    if (otpAge > 10) return res.status(400).json({ message: "OTP đã hết hạn" });
 
-    res.json({ message: "OTP verified" });
+    res.json({ message: "Xác thực OTP thành công" });
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Lỗi máy chủ" });
   }
 };
 
@@ -201,16 +214,16 @@ userController.resetPassword = async (req, res) => {
     await query("UPDATE users SET password = ? WHERE email = ?", [hashedPassword, email]);
     await query("DELETE FROM otps WHERE email = ?", [email]);
 
-    res.json({ message: "Password reset successful" });
+    res.json({ message: "Đặt lại mật khẩu thành công" });
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Lỗi máy chủ" });
   }
 };
 
 userController.googleLogin = async (req, res) => {
   try {
     const { idToken } = req.body;
-    if (!idToken) return res.status(400).json({ message: "Missing idToken" });
+    if (!idToken) return res.status(400).json({ message: "Thiếu idToken" });
 
     const ticket = await googleClient.verifyIdToken({
       idToken,
@@ -235,14 +248,23 @@ userController.googleLogin = async (req, res) => {
 
     const tokenPayload = buildUserPayload(user);
     const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: "24h" });
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000,
+      path: '/',
+    };
+    try { res.cookie('authToken', token, cookieOptions); } catch (e) {}
+
     res.json({
-      message: "Login successful",
+      message: "Đăng nhập thành công",
       token,
       user: { name: user.name, email: user.email, role: user.role },
     });
   } catch (error) {
     console.error("Google login error:", error);
-    res.status(500).json({ message: "Google login failed", error: error.message });
+    res.status(500).json({ message: "Đăng nhập Google thất bại", error: error.message });
   }
 };
 

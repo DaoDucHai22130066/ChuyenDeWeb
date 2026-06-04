@@ -20,7 +20,7 @@ const AdminLogin = () => {
   const onSubmit = async (data) => {
         try {
           const url =Server_URL + 'admin/login';
-          const response = await axios.post(url, data);
+          const response = await axios.post(url, data, { withCredentials: true });
           console.log("Phản hồi đăng nhập:", response.data);
           showSuccessToast("Đăng nhập thành công!");
           localStorage.setItem("authToken", response.data.token);
