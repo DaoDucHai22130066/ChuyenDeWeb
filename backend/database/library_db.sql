@@ -60,7 +60,6 @@ CREATE TABLE books (
   total_copies     INT NOT NULL,
   added_by         INT UNSIGNED NOT NULL,
   cover_image      TEXT NULL,
-  cloudinary_id    VARCHAR(255) NULL,
   price            DECIMAL(10,2) NULL,
   branch           ENUM('dai-la','cau-giay') NOT NULL DEFAULT 'dai-la',
   borrow_count     INT NOT NULL DEFAULT 0,
