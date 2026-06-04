@@ -16,7 +16,7 @@ const wishlist = require("./routes/wishlist.js")
 const reviews = require("./routes/reviews.js")
 
 const allowedOrigins = [
-  "http://localhost:5173",
+  process.env.FRONTEND_URL || "http://localhost:5173",
   "https://library-management-app-karan.vercel.app",
 ];
 
@@ -32,12 +32,16 @@ app.use(cors({
   credentials: true,
 }));
 
+// expose cookies parsing (optional): read auth token from cookie header
+// Note: do not enable cookie-parser unless you set secure cookie settings in production
+// We read cookies manually in middleware to avoid extra dependency.
+
 app.use(helmet());
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // Limit each IP to 100 requests per `window`
-  message: { error: true, message: "Too many requests from this IP, please try again after 15 minutes" },
+  message: { error: true, message: "Quá nhiều yêu cầu từ IP này, vui lòng thử lại sau 15 phút" },
   standardHeaders: true, 
   legacyHeaders: false, 
 });
@@ -53,13 +57,13 @@ app.use("/wishlist", wishlist);
 app.use("/reviews", reviews);
 
 app.get("/", (req, res) => {
-    res.send("API is running...");
+    res.send("API đang chạy...");
   });
   
 app.use((err, req, res, next) => {
   console.error("Global Error Handler:", err.stack || err);
   const status = err.statusCode || 500;
-  const message = err.message || "Internal Server Error";
+  const message = err.message || "Lỗi máy chủ nội bộ";
   res.status(status).json({
     error: true,
     message,

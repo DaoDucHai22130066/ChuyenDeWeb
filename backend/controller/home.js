@@ -8,7 +8,7 @@ homeController.getHomeData = async (req, res) => {
     if (cachedData) {
       return res.status(200).json({
         error: false,
-        message: "Homepage data fetched from cache",
+        message: "Dữ liệu trang chủ được lấy từ bộ nhớ đệm",
         ...cachedData,
       });
     }
@@ -94,13 +94,13 @@ homeController.getHomeData = async (req, res) => {
 
     res.status(200).json({
       error: false,
-      message: "Homepage data fetched successfully",
+      message: "Lấy dữ liệu trang chủ thành công",
       ...responseData,
     });
   } catch (error) {
     res.status(500).json({
       error: true,
-      message: "Internal Server Error",
+      message: "Lỗi máy chủ",
       details: error.message,
     });
   }

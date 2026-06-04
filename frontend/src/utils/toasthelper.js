@@ -2,7 +2,7 @@
 import { toast } from 'react-toastify';
 
 export const showSuccessToast = (message) => {
-  toast.success(message || 'Data Submitted Successfully', {
+  toast.success(message || 'Gửi dữ liệu thành công', {
     position: "top-right",
     autoClose: 1000,
     hideProgressBar: false,
@@ -15,7 +15,7 @@ export const showSuccessToast = (message) => {
 };
 
 export const showErrorToast = (message) => {
-  toast.error(message || 'An error occurred', {
+  toast.error(message || 'Đã xảy ra lỗi', {
     position: "top-right",
     autoClose: 1000,
     hideProgressBar: false,

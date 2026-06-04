@@ -13,7 +13,7 @@ export default function Login() {
 
   const onSubmit = async (data) => {
     try {
-      const response = await axios.post(`${Server_URL}users/login`, data);
+      const response = await axios.post(`${Server_URL}users/login`, data, { withCredentials: true });
       const { role } = response.data.user;
 
       localStorage.setItem("authToken", response.data.token);
@@ -38,7 +38,7 @@ export default function Login() {
   const handleCredentialResponse = async (response) => {
     try {
       const idToken = response.credential;
-      const res = await axios.post(`${Server_URL}users/google-login`, { idToken });
+      const res = await axios.post(`${Server_URL}users/google-login`, { idToken }, { withCredentials: true });
       const { role } = res.data.user;
       localStorage.setItem("authToken", res.data.token);
       localStorage.setItem("role", role);

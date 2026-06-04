@@ -18,7 +18,7 @@ cartController.getCart = async (req, res) => {
     res.json({ error: false, cart: items });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: true, message: "Failed to load cart" });
+    res.status(500).json({ error: true, message: "Tải giỏ hàng thất bại" });
   }
 };
 
@@ -26,7 +26,7 @@ cartController.saveCart = async (req, res) => {
   try {
     const userId = req.userInfo.id;
     const { bookIds } = req.body; // expect array of book ids
-    if (!Array.isArray(bookIds)) return res.status(400).json({ error: true, message: 'bookIds must be an array' });
+    if (!Array.isArray(bookIds)) return res.status(400).json({ error: true, message: 'bookIds phải là một mảng' });
 
     await withTransaction(async (connection) => {
       const [existing] = await connection.query("SELECT id FROM carts WHERE user_id = ? LIMIT 1", [userId]);
@@ -46,10 +46,10 @@ cartController.saveCart = async (req, res) => {
       }
     });
 
-    res.json({ error: false, message: 'Cart saved' });
+    res.json({ error: false, message: 'Lưu giỏ hàng thành công' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: true, message: 'Failed to save cart' });
+    res.status(500).json({ error: true, message: 'Lưu giỏ hàng thất bại' });
   }
 };
 
@@ -64,10 +64,10 @@ cartController.clearCart = async (req, res) => {
         await connection.query("DELETE FROM carts WHERE id = ?", [cartId]);
       }
     });
-    res.json({ error: false, message: 'Cart cleared' });
+    res.json({ error: false, message: 'Đã xóa giỏ hàng' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: true, message: 'Failed to clear cart' });
+    res.status(500).json({ error: true, message: 'Xóa giỏ hàng thất bại' });
   }
 };
 

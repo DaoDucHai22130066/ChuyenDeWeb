@@ -121,12 +121,12 @@ booksController.addNewBook = async (req, res) => {
     const { id } = req.userInfo;
 
     if (!title || !author || !isbn || !description || !totalCopies) {
-      return res.status(400).json({ error: true, message: "Missing required book fields" });
+      return res.status(400).json({ error: true, message: "Thiếu trường thông tin sách bắt buộc" });
     }
 
     const existingBookRows = await query("SELECT id FROM books WHERE isbn = ? LIMIT 1", [isbn]);
     if (existingBookRows.length > 0) {
-      return res.status(400).json({ error: true, message: "Book with this ISBN already exists" });
+      return res.status(400).json({ error: true, message: "Sách với ISBN này đã tồn tại" });
     }
 
     const categoryInput = categoryId || category;
@@ -135,7 +135,7 @@ booksController.addNewBook = async (req, res) => {
     });
 
     if (!categoryRow) {
-      return res.status(400).json({ error: true, message: "Category is required" });
+      return res.status(400).json({ error: true, message: "Cần chọn thể loại" });
     }
 
     const coverImageUrl = coverImage || "";
@@ -195,10 +195,10 @@ booksController.addNewBook = async (req, res) => {
       [insertResult.insertId]
     );
 
-    res.status(201).json({ error: false, message: "Book added successfully", book: mapBookRow(bookRows[0]) });
+    res.status(201).json({ error: false, message: "Thêm sách thành công", book: mapBookRow(bookRows[0]) });
   } catch (error) {
     console.log(error);
-    res.status(500).json({ error: true, message: "Internal Server Error", error: error.message });
+    res.status(500).json({ error: true, message: "Lỗi máy chủ", error: error.message });
   }
 };
 
@@ -233,13 +233,13 @@ booksController.getAllBooks = async (req, res) => {
     );
 
     if (!rows || rows.length === 0) {
-      return res.json({ error: true, message: "No Books Found" });
+      return res.json({ error: true, message: "Không tìm thấy sách" });
     }
 
     const books = rows.map(mapBookRow);
     const totalBooks = books.length;
 
-    res.status(200).json({ error: false, message: "Books fetched Successfully", books, totalBooks });
+    res.status(200).json({ error: false, message: "Lấy danh sách sách thành công", books, totalBooks });
   } catch (error) {
     res.status(500).json({
       error: true,
@@ -280,7 +280,7 @@ booksController.getLatestBooks = async (req, res) => {
     );
 
     if (!rows || rows.length === 0) {
-      return res.json({ error: true, message: "No Books Found" });
+      return res.json({ error: true, message: "Không tìm thấy sách" });
     }
 
     const books = rows.map(mapBookRow);
@@ -298,7 +298,7 @@ booksController.getLatestBooks = async (req, res) => {
 
     res.status(200).json({
       error: false,
-      message: "Books fetched Successfully",
+      message: "Lấy danh sách sách thành công",
       books,
       totalBooks,
       totalCategories,
@@ -307,7 +307,7 @@ booksController.getLatestBooks = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       error: true,
-      message: "Internal Server Error",
+      message: "Lỗi máy chủ",
       details: error.message,
     });
   }
@@ -348,12 +348,12 @@ booksController.getParticularBook = async (req, res) => {
 
     const book = rows[0];
     if (!book) {
-      return res.status(404).json({ error: true, message: "Book not found" });
+      return res.status(404).json({ error: true, message: "Không tìm thấy sách" });
     }
 
     res.status(200).json(mapBookRow(book));
   } catch (error) {
-    res.status(500).json({ error: true, message: "Internal Server Error", details: error.message });
+    res.status(500).json({ error: true, message: "Lỗi máy chủ", details: error.message });
   }
 };
 
@@ -364,7 +364,7 @@ booksController.deleteBook = async (req, res) => {
     const book = rows[0];
 
     if (!book) {
-      return res.status(404).json({ error: true, message: "Book not found" });
+      return res.status(404).json({ error: true, message: "Không tìm thấy sách" });
     }
 
     await withTransaction(async (connection) => {
@@ -373,9 +373,9 @@ booksController.deleteBook = async (req, res) => {
     });
 
     clearCache("homeData");
-    res.status(200).json({ error: false, message: "Book deleted successfully" });
+    res.status(200).json({ error: false, message: "Xóa sách thành công" });
   } catch (error) {
-    res.status(500).json({ error: true, message: "Internal Server Error", details: error.message });
+    res.status(500).json({ error: true, message: "Lỗi máy chủ", details: error.message });
   }
 };
 
@@ -391,7 +391,7 @@ booksController.updateBook = async (req, res) => {
     const currentBook = rows[0];
 
     if (!currentBook) {
-      return res.status(404).json({ error: true, message: "Book not found" });
+      return res.status(404).json({ error: true, message: "Không tìm thấy sách" });
     }
 
     const categoryRow = category !== undefined && category !== null && String(category).trim() !== ""
@@ -433,10 +433,10 @@ booksController.updateBook = async (req, res) => {
 
 
     clearCache("homeData");
-    res.status(200).json({ error: false, message: "Book updated successfully" });
+    res.status(200).json({ error: false, message: "Cập nhật sách thành công" });
   } catch (error) {
     console.log(error);
-    res.status(500).json({ error: true, message: "Internal Server Error", details: error.message });
+    res.status(500).json({ error: true, message: "Lỗi máy chủ", details: error.message });
   }
 };
 

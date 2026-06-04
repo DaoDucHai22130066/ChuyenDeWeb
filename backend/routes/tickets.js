@@ -3,8 +3,9 @@ const router = express.Router();
 const { ticketController } = require("../controller/tickets");
 const { userAuth } = require("../middlewares/userAuth");
 const { checkRole } = require("../middlewares/checkRole");
+const { ticketLimiter } = require("../middlewares/rateLimiters");
 
-router.post("/", userAuth, checkRole("user"), ticketController.createTicket);
+router.post("/", userAuth, checkRole("user"), ticketLimiter, ticketController.createTicket);
 router.get("/me", userAuth, checkRole("user"), ticketController.getMyTickets);
 router.get("/vnpay/return", ticketController.vnpayReturn);
 router.get("/vnpay/ipn", ticketController.vnpayIpn);

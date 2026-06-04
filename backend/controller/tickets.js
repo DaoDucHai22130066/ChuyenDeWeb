@@ -219,7 +219,7 @@ ticketController.createTicket = async (req, res) => {
     } = req.body;
 
     if (!Array.isArray(books) || books.length === 0) {
-      return res.status(400).json({ error: true, message: "Books list is required" });
+      return res.status(400).json({ error: true, message: "Danh sách sách là bắt buộc" });
     }
 
     const uniqueBookIds = [...new Set(books.map((bookId) => Number(bookId)))].filter((bookId) => Number.isInteger(bookId));
@@ -243,16 +243,16 @@ ticketController.createTicket = async (req, res) => {
     if (normalizedPaymentMethod === "vnpay" && (!vnpayConfig.tmnCode || !vnpayConfig.secretKey)) {
       return res.status(500).json({
         error: true,
-        message: "VNPAY configuration is missing",
+        message: "Thiếu cấu hình VNPAY",
       });
     }
 
     if (normalizedReceiveMethod === "delivery" && (!shippingAddress || !String(shippingAddress).trim())) {
-      return res.status(400).json({ error: true, message: "Shipping address is required" });
+      return res.status(400).json({ error: true, message: "Địa chỉ giao hàng là bắt buộc" });
     }
 
     if (normalizedReceiveMethod === "delivery" && (!shippingPhone || !String(shippingPhone).trim())) {
-      return res.status(400).json({ error: true, message: "Shipping phone is required" });
+      return res.status(400).json({ error: true, message: "Số điện thoại giao hàng là bắt buộc" });
     }
 
     const placeholders = uniqueBookIds.map(() => "?").join(",");
@@ -266,7 +266,7 @@ ticketController.createTicket = async (req, res) => {
       const missingIds = uniqueBookIds.filter((bookId) => !existingIds.has(bookId));
       return res.status(404).json({
         error: true,
-        message: `Books not found: ${missingIds.join(", ")}`,
+        message: `Không tìm thấy sách: ${missingIds.join(", ")}`,
       });
     }
 
@@ -344,7 +344,7 @@ ticketController.createTicket = async (req, res) => {
       const transactions = await getTransactionsByTicket(ticketId);
       const paymentRef = transactions.find((item) => item.vnpayTxnRef)?.vnpayTxnRef;
       if (!paymentRef) {
-        return res.status(500).json({ error: true, message: "Unable to create payment reference" });
+        return res.status(500).json({ error: true, message: "Không thể tạo tham chiếu thanh toán" });
       }
 
       paymentUrl = createVnpayPaymentUrl({
@@ -362,7 +362,7 @@ ticketController.createTicket = async (req, res) => {
 
     res.status(201).json({
       error: false,
-      message: "Borrow ticket created successfully",
+      message: "Tạo phiếu mượn thành công",
       ticket,
       amounts: {
         depositAmount,
@@ -374,7 +374,7 @@ ticketController.createTicket = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       error: true,
-      message: "Internal Server Error",
+      message: "Lỗi máy chủ",
       details: error.message,
     });
   }
@@ -456,7 +456,7 @@ ticketController.updateTicketStatus = async (req, res) => {
 
       if (nextAction === "confirm_cash") {
         if (currentDepositStatus !== "pending") {
-          throw new Error("Only pending payments can be confirmed");
+          throw new Error("Chỉ các khoản thanh toán đang chờ mới có thể được xác nhận");
         }
 
         const normalizedPaymentMethod = normalizePaymentMethod(paymentMethod || "cash");
@@ -497,7 +497,7 @@ ticketController.updateTicketStatus = async (req, res) => {
 
         const unavailableBooks = ticket.books.filter((book) => (book.availableCopies || 0) < 1);
         if (unavailableBooks.length > 0) {
-          const error = new Error(`Some books are unavailable: ${unavailableBooks.map((book) => book.title).join(", ")}`);
+          const error = new Error(`Một số sách không có sẵn: ${unavailableBooks.map((book) => book.title).join(", ")}`);
           error.statusCode = 400;
           throw error;
         }
@@ -511,7 +511,7 @@ ticketController.updateTicketStatus = async (req, res) => {
             [book._id]
           );
           if (result.affectedRows === 0) {
-            const error = new Error(`Book "${book.title}" is no longer available`);
+            const error = new Error(`Sách "${book.title}" hiện không còn sẵn`);
             error.statusCode = 400;
             throw error;
           }
@@ -529,7 +529,7 @@ ticketController.updateTicketStatus = async (req, res) => {
       if (nextAction === "deliver_and_confirm_cash") {
         // Deliver + collect cash in one admin action
         if (!['approved', 'dispatched'].includes(currentStatus)) {
-          throw new Error("Only approved or dispatched tickets can be delivered and collected");
+          throw new Error("Chỉ các phiếu đã được phê duyệt hoặc đang gửi mới có thể giao và thu tiền");
         }
 
         const normalizedPaymentMethod = normalizePaymentMethod(paymentMethod || 'cash');
@@ -579,7 +579,7 @@ ticketController.updateTicketStatus = async (req, res) => {
 
       if (nextAction === "dispatch") {
         if (currentShippingStatus !== "pending") {
-          throw new Error("Only pending shipping tickets can be dispatched");
+          throw new Error("Chỉ các phiếu có giao hàng đang chờ mới có thể được gửi đi");
         }
 
         await connection.query(
@@ -592,7 +592,7 @@ ticketController.updateTicketStatus = async (req, res) => {
 
       if (nextAction === "deliver") {
         if (!['approved', 'dispatched'].includes(currentStatus)) {
-          throw new Error("Only approved or dispatched tickets can be delivered");
+          throw new Error("Chỉ các phiếu đã được phê duyệt hoặc đang gửi mới có thể được giao");
         }
 
         const nextShippingStatus = currentShippingStatus === "none" ? "none" : "delivered";
@@ -638,7 +638,7 @@ ticketController.updateTicketStatus = async (req, res) => {
 
       if (nextAction === "settle_deposit") {
         if (currentDepositStatus !== "held") {
-          throw new Error("Only held deposits can be settled");
+          throw new Error("Chỉ các khoản đặt cọc đang giữ mới có thể được xử lý");
         }
 
         const [depositRows] = await connection.query(
@@ -754,7 +754,7 @@ ticketController.updateTicketStatus = async (req, res) => {
 
       if (nextAction === "cancel") {
         if (!['pending', 'awaiting_payment', 'paid'].includes(currentStatus)) {
-          throw new Error("Only pending or paid tickets can be cancelled");
+          throw new Error("Chỉ các phiếu đang chờ hoặc đã thanh toán mới có thể bị hủy");
         }
 
         const [pendingTransactions] = await connection.query(
@@ -808,7 +808,7 @@ ticketController.updateTicketStatus = async (req, res) => {
     });
 
     if (!updatedTicket) {
-      return res.status(404).json({ error: true, message: "Ticket not found" });
+      return res.status(404).json({ error: true, message: "Không tìm thấy phiếu" });
     }
 
     if (triggerDepositMail && updatedTicket.userId?.email) {
@@ -822,12 +822,12 @@ ticketController.updateTicketStatus = async (req, res) => {
     clearCache("homeData");
     res.status(200).json({
       error: false,
-      message: "Ticket status updated successfully",
+      message: "Cập nhật trạng thái phiếu thành công",
       ticket: updatedTicket,
     });
   } catch (error) {
     console.error("updateTicketStatus error:", error);
-    const message = error.statusCode === 400 ? error.message : "Internal Server Error";
+    const message = error.statusCode === 400 ? error.message : "Lỗi máy chủ";
     res.status(error.statusCode || 500).json({
       error: true,
       message,
@@ -842,13 +842,13 @@ ticketController.getTicketTransactions = async (req, res) => {
     const transactions = await getTransactionsByTicket(id);
     res.status(200).json({
       error: false,
-      message: "Transactions fetched successfully",
+      message: "Lấy danh sách giao dịch thành công",
       transactions,
     });
   } catch (error) {
     res.status(500).json({
       error: true,
-      message: "Internal Server Error",
+      message: "Lỗi máy chủ",
       details: error.message,
     });
   }
@@ -859,13 +859,13 @@ ticketController.vnpayReturn = async (req, res) => {
     const params = req.query;
     const secretKey = process.env.VNPAY_HASH_SECRET;
     if (!secretKey) {
-      return res.status(500).json({ error: true, message: "VNPAY configuration is missing" });
+      return res.status(500).json({ error: true, message: "Thiếu cấu hình VNPAY" });
     }
 
     const verification = verifyVnpaySignature(params, secretKey);
 
     if (!verification.isValid) {
-      return res.status(400).json({ error: true, message: "Invalid VNPAY signature" });
+      return res.status(400).json({ error: true, message: "Chữ ký VNPAY không hợp lệ" });
     }
 
     const isSuccess = params.vnp_ResponseCode === "00" && params.vnp_TransactionStatus === "00";
@@ -921,8 +921,8 @@ ticketController.vnpayReturn = async (req, res) => {
     }
     
     res.redirect(`${frontendUrl}/payment-result?status=${isSuccess ? 'success' : 'failed'}&method=vnpay&ticketId=${ticketId}&amount=${amount}`);
-  } catch (error) {
-    res.status(500).json({ error: true, message: "Internal Server Error", details: error.message });
+    } catch (error) {
+    res.status(500).json({ error: true, message: "Lỗi máy chủ", details: error.message });
   }
 };
 
@@ -931,12 +931,12 @@ ticketController.vnpayIpn = async (req, res) => {
     const params = req.query;
     const secretKey = process.env.VNPAY_HASH_SECRET;
     if (!secretKey) {
-      return res.status(200).json({ RspCode: "99", Message: "Missing config" });
+      return res.status(200).json({ RspCode: "99", Message: "Thiếu cấu hình" });
     }
 
     const verification = verifyVnpaySignature(params, secretKey);
     if (!verification.isValid) {
-      return res.status(200).json({ RspCode: "97", Message: "Invalid signature" });
+      return res.status(200).json({ RspCode: "97", Message: "Chữ ký không hợp lệ" });
     }
 
     const vnpTxnRef = params.vnp_TxnRef;
@@ -948,7 +948,7 @@ ticketController.vnpayIpn = async (req, res) => {
     );
 
     if (!transactionRows.length) {
-      return res.status(200).json({ RspCode: "01", Message: "Order not found" });
+      return res.status(200).json({ RspCode: "01", Message: "Không tìm thấy đơn hàng" });
     }
 
     const ticketId = transactionRows[0].ticket_id;
@@ -981,9 +981,9 @@ ticketController.vnpayIpn = async (req, res) => {
       sendDepositSuccessMail(ticketInfoForMail).catch(console.error);
     }
 
-    return res.status(200).json({ RspCode: "00", Message: "Success" });
+    return res.status(200).json({ RspCode: "00", Message: "Thành công" });
   } catch (error) {
-    return res.status(200).json({ RspCode: "99", Message: "Unknown error" });
+    return res.status(200).json({ RspCode: "99", Message: "Lỗi không xác định" });
   }
 };
 

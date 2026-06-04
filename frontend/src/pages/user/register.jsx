@@ -19,7 +19,7 @@ export default function Register() {
       const loginResponse = await axios.post(`${Server_URL}users/login`, {
         email: data.email,
         password: data.password,
-      });
+      }, { withCredentials: true });
 
       localStorage.setItem("authToken", loginResponse.data.token);
       localStorage.setItem("role", loginResponse.data.user.role);
@@ -37,7 +37,7 @@ export default function Register() {
   const handleCredentialResponse = async (response) => {
     try {
       const idToken = response.credential;
-      const res = await axios.post(`${Server_URL}users/google-login`, { idToken });
+      const res = await axios.post(`${Server_URL}users/google-login`, { idToken }, { withCredentials: true });
       localStorage.setItem("authToken", res.data.token);
       localStorage.setItem("role", res.data.user.role);
       showSuccessToast("Đăng nhập bằng Google thành công!");
