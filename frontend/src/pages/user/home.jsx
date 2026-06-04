@@ -11,10 +11,7 @@ export default function Home() {
   const [stats, setStats] = useState({
     totalBooks: 0,
     availableBooks: 0,
-    students: 0,
-    totalCategories: 0,
-    totalActiveStudents: 0
-    
+    students: 0
   });
   const [loading, setLoading] = useState(true);
 
@@ -22,11 +19,11 @@ export default function Home() {
     try {
       setLoading(true);
       const { data } = await axios.get(Server_URL + "home");
-      if (data && !data.error && data.stats) {
-  setStats(data.stats);
-  setCategories(data.categories || []);
-  setNewArrivals(data.newArrivals || []);
-}
+      if (!data.error) {
+        setStats(data.stats);
+        setCategories(data.categories);
+        setNewArrivals(data.newArrivals);
+      }
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -74,7 +71,7 @@ export default function Home() {
                 <FiBook size={32} />
               </div>
               <div>
-                <h3 className="text-3xl font-bold text-gray-900">{(stats?.totalCategories) || 0}+</h3>
+                <h3 className="text-3xl font-bold text-gray-900">{stats.totalCategories}+</h3>
                 <p className="text-gray-500 font-medium">Danh mục sách</p>
               </div>
             </div>
@@ -83,7 +80,7 @@ export default function Home() {
                 <FiBook size={32} />
               </div>
               <div>
-                <h3 className="text-3xl font-bold text-gray-900">{(stats?.totalBooks) || 0}+</h3>
+                <h3 className="text-3xl font-bold text-gray-900">{stats.totalBooks}+</h3>
                 <p className="text-gray-500 font-medium">Cuốn sách</p>
               </div>
             </div>
@@ -92,7 +89,7 @@ export default function Home() {
                 <FiUser size={32} />
               </div>
               <div>
-                <h3 className="text-3xl font-bold text-gray-900">{(stats?.totalActiveStudents) || 0}</h3>
+                <h3 className="text-3xl font-bold text-gray-900">{stats.totalActiveStudents}</h3>
                 <p className="text-gray-500 font-medium">Bạn đọc tích cực</p>
               </div>
             </div>

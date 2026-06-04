@@ -1,0 +1,85 @@
+.activities-page {
+  min-height: 70vh;
+  background: var(--dfb-bg-gradient);
+}
+
+.activities-hero {
+  position: relative;
+  padding: 5rem 1rem 6rem;
+  text-align: center;
+  color: white;
+  background:
+    linear-gradient(135deg, rgba(28,62,143,0.94), rgba(45,108,176,0.82), rgba(249,115,22,0.48)),
+    url('/assets/library.avif') center/cover no-repeat;
+  overflow: hidden;
+}
+
+.activities-hero::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 100px;
+  background: linear-gradient(180deg, transparent, var(--dfb-bg));
+}
+
+.activities-hero .container-dfb {
+  position: relative;
+  z-index: 1;
+}
+
+.activities-hero h1 {
+  font-size: clamp(2.2rem, 4vw, 4rem);
+  font-weight: 900;
+  letter-spacing: -0.055em;
+  margin-bottom: 0.65rem;
+}
+
+.activities-hero p {
+  max-width: 650px;
+  margin: 0 auto;
+  color: rgba(255,255,255,0.9);
+}
+
+.activities-list {
+  padding: 0 1rem 5rem;
+  margin-top: -3rem;
+  position: relative;
+  z-index: 2;
+}
+
+.activities-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.3rem;
+}
+
+.activity-card {
+  padding: 1.7rem;
+  border-radius: 28px;
+  background: rgba(255,255,255,0.94);
+}
+
+.activity-icon {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  background: linear-gradient(135deg, var(--dfb-primary-soft), var(--dfb-accent-soft));
+  color: var(--dfb-primary);
+  font-size: 1.7rem;
+  margin-bottom: 1rem;
+}
+
+.activity-card h2 {
+  color: var(--dfb-primary-dark);
+  font-size: 1.25rem;
+  font-weight: 850;
+  margin-bottom: 0.75rem;
+}
+
+.activity-card p {
+  color: var(--dfb-text-muted);
+  line-height: 1.75;
+  margin-bottom: 1.25rem;
+}
