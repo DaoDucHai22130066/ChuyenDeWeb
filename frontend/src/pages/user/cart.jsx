@@ -14,7 +14,7 @@ export default function CartPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sendingBookId, setSendingBookId] = useState(null);
   const [acceptedPolicy, setAcceptedPolicy] = useState(false);
-  const [receiveMethod, setReceiveMethod] = useState("pickup");
+  const [receiveMethod, setReceiveMethod] = useState("delivery");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [shippingAddress, setShippingAddress] = useState("");
   const [shippingPhone, setShippingPhone] = useState("");
@@ -162,16 +162,6 @@ export default function CartPage() {
                 <input
                   type="radio"
                   name="receiveMethod"
-                  value="pickup"
-                  checked={receiveMethod === "pickup"}
-                  onChange={() => setReceiveMethod("pickup")}
-                />
-                Nhận tại quầy thư viện
-              </label>
-              <label className="cart-option">
-                <input
-                  type="radio"
-                  name="receiveMethod"
                   value="delivery"
                   checked={receiveMethod === "delivery"}
                   onChange={() => setReceiveMethod("delivery")}
@@ -209,7 +199,7 @@ export default function CartPage() {
                   checked={paymentMethod === "cash"}
                   onChange={() => setPaymentMethod("cash")}
                 />
-                Tiền mặt tại quầy
+                Tiền mặt khi nhận sách
               </label>
               <label className="cart-option">
                 <input

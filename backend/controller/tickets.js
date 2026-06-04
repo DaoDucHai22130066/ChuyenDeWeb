@@ -20,13 +20,14 @@ const DEFAULT_SHIPPING_FEE = Number(process.env.DEFAULT_SHIPPING_FEE || 15000);
 const DEFAULT_BORROW_DAYS = Number(process.env.DEFAULT_BORROW_DAYS || 14);
 
 const VALID_PAYMENT_METHODS = new Set(["cash", "vnpay"]);
-const VALID_RECEIVE_METHODS = new Set(["pickup", "delivery"]);
+const VALID_RECEIVE_METHODS = new Set(["delivery"]);
 const VALID_TICKET_ACTIONS = new Set([
   "confirm_cash",
   "approve",
   "pickup",
   "dispatch",
   "deliver",
+  "deliver_and_confirm_cash",
   "return",
   "settle_deposit",
   "settle_outstanding_fine",
@@ -58,10 +59,10 @@ function normalizePaymentMethod(method) {
 
 function normalizeReceiveMethod(method) {
   if (!method) {
-    return "pickup";
+    return "delivery";
   }
   const normalized = String(method).toLowerCase();
-  return VALID_RECEIVE_METHODS.has(normalized) ? normalized : "pickup";
+  return VALID_RECEIVE_METHODS.has(normalized) ? normalized : "delivery";
 }
 
 function formatPaymentRef(ticketId) {
@@ -487,9 +488,9 @@ ticketController.updateTicketStatus = async (req, res) => {
           throw err;
         }
 
-        // Guard: bắt buộc tiền cọc phải được giữ
-        if (currentDepositStatus !== "held") {
-          const err = new Error("Chỉ được phê duyệt khi tiền cọc đã được xác nhận (held)");
+        // For online payments (VNPAY) require deposit to be held; for cash allow approval without prior collection
+        if (ticket.paymentMethod === "vnpay" && currentDepositStatus !== "held") {
+          const err = new Error("Chỉ được phê duyệt khi tiền cọc đã được xác nhận (held) khi thanh toán online");
           err.statusCode = 400;
           throw err;
         }
@@ -523,6 +524,37 @@ ticketController.updateTicketStatus = async (req, res) => {
           [getDueDate(), req.userInfo.id, id]
         );
         triggerApproveMail = true;
+      }
+
+      if (nextAction === "deliver_and_confirm_cash") {
+        // Deliver + collect cash in one admin action
+        if (!['approved', 'dispatched'].includes(currentStatus)) {
+          throw new Error("Only approved or dispatched tickets can be delivered and collected");
+        }
+
+        const normalizedPaymentMethod = normalizePaymentMethod(paymentMethod || 'cash');
+
+        // Complete any pending transactions for this payment method (deposit + shipping)
+        const [pendingTransactions] = await connection.query(
+          `SELECT id FROM transactions
+           WHERE ticket_id = ? AND status = 'pending' AND method = ?
+           ORDER BY id ASC`,
+          [id, normalizedPaymentMethod]
+        );
+
+        for (const transaction of pendingTransactions) {
+          await updateTransactionStatus(connection, transaction.id, 'completed');
+        }
+
+        const nextShippingStatus = currentShippingStatus === 'none' ? 'none' : 'delivered';
+        await connection.query(
+          `UPDATE borrow_tickets
+           SET status = 'delivered', shipping_status = ?, deposit_status = 'held'
+           WHERE id = ?`,
+          [nextShippingStatus, id]
+        );
+
+        triggerDepositMail = true;
       }
 
       if (nextAction === "pickup") {
@@ -959,11 +991,13 @@ ticketController.renewTicket = async (req, res) => {
   try {
     const ticketId = req.params.id;
     const userId = req.userInfo.id;
+    const userRole = req.userInfo.role;
 
     const ticket = await fetchSingleTicket(null, ticketId);
     if (!ticket) return res.status(404).json({ error: true, message: "Không tìm thấy phiếu" });
 
-    if (ticket.user_id !== userId) {
+    // Allow admin or the ticket owner to renew
+    if (userRole !== "admin" && Number(ticket.userId?._id) !== Number(userId)) {
       return res.status(403).json({ error: true, message: "Không có quyền" });
     }
 
@@ -971,22 +1005,22 @@ ticketController.renewTicket = async (req, res) => {
       return res.status(400).json({ error: true, message: "Trạng thái phiếu không hợp lệ để gia hạn" });
     }
 
-    if (ticket.return_date) {
+    if (ticket.returnDate) {
       return res.status(400).json({ error: true, message: "Phiếu đã được trả" });
     }
 
-    if (!ticket.due_date) {
+    if (!ticket.dueDate) {
        return res.status(400).json({ error: true, message: "Phiếu chưa có hạn trả để gia hạn" });
     }
 
     const now = new Date();
-    const dueDate = new Date(ticket.due_date);
+    const dueDate = new Date(ticket.dueDate);
     if (dueDate < now) {
       return res.status(400).json({ error: true, message: "Phiếu đã quá hạn, không thể gia hạn" });
     }
 
     const MAX_RENEW_COUNT = 1;
-    if (ticket.renew_count >= MAX_RENEW_COUNT) {
+    if ((ticket.renewCount || 0) >= MAX_RENEW_COUNT) {
       return res.status(400).json({ error: true, message: "Đã vượt quá số lần gia hạn cho phép" });
     }
 
@@ -1006,8 +1040,8 @@ ticketController.renewTicket = async (req, res) => {
       );
     });
 
-    ticket.due_date = newDueDate;
-    ticket.renew_count += 1;
+    ticket.dueDate = newDueDate;
+    ticket.renewCount = (ticket.renewCount || 0) + 1;
     sendRenewalSuccessMail(ticket, oldDueDate, newDueDate).catch(console.error);
 
     res.status(200).json({

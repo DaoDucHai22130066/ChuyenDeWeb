@@ -78,6 +78,7 @@ const ACTION_SUCCESS_VI = {
   pickup: "Đã xác nhận độc giả nhận sách tại quầy.",
   dispatch: "Đã chuyển phiếu sang trạng thái đang giao.",
   deliver: "Đã xác nhận giao xong.",
+  deliver_and_confirm_cash: "Đã xác nhận giao & đã thu tiền.",
   return: "Đã xác nhận độc giả trả sách.",
   settle_deposit: "Đã quyết toán tiền cọc.",
   settle_outstanding_fine: "Đã xác nhận thanh toán phí phạt còn lại.",
@@ -111,8 +112,10 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const getTransactionTypeLabel = (value) => TRANSACTION_TYPE_VI[value] || "Giao dịch";
   const getTransactionStatusLabel = (value) => TRANSACTION_STATUS_VI[value] || "Chưa cập nhật";
 
+  // Cash should be collected when delivering, not at pending/approval stage
   const canConfirmCash = (ticket) =>
-    ticket.status === "pending" &&
+    ticket.status === "dispatched" &&
+    ticket.shippingStatus === "dispatched" &&
     ticket.depositStatus === "pending" &&
     ticket.paymentMethod === "cash";
 
@@ -124,7 +127,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
 
   const canApproveTicket = (ticket) =>
     ["pending", "paid"].includes(ticket.status) &&
-    ticket.depositStatus === "held";
+    (ticket.paymentMethod === "vnpay" ? ticket.depositStatus === "held" : true);
 
   // Nhận tại quầy: sau approved, shippingStatus = none
   const canPickup = (ticket) =>
@@ -559,15 +562,6 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                         </div>
 
                         <div className="ticket-actions">
-                          {/* Tiền mặt: admin thu */}
-                          {canConfirmCash(ticket) && (
-                            <button
-                              className="btn btn-sm btn-success"
-                              onClick={() => handleTicketAction(ticket._id, "confirm_cash", "cash")}
-                            >
-                              <FiCheck /> Thu tiền mặt
-                            </button>
-                          )}
 
                           {/* VNPay: chỉ badge, không cho tự duyệt */}
                           {isWaitingVnpay(ticket) && (
@@ -616,12 +610,21 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
 
                           {/* Xác nhận đã giao (giao tận nơi) */}
                           {canDeliver(ticket) && (
-                            <button
-                              className="btn btn-sm btn-warning"
-                              onClick={() => handleTicketAction(ticket._id, "deliver")}
-                            >
-                              <FiCheckCircle /> Xác nhận đã giao
-                            </button>
+                            ticket.paymentMethod === "cash" ? (
+                              <button
+                                className="btn btn-sm btn-warning"
+                                onClick={() => handleTicketAction(ticket._id, "deliver_and_confirm_cash", "cash")}
+                              >
+                                <FiCheckCircle /> Xác nhận đã giao & đã thu tiền
+                              </button>
+                            ) : (
+                              <button
+                                className="btn btn-sm btn-warning"
+                                onClick={() => handleTicketAction(ticket._id, "deliver")}
+                              >
+                                <FiCheckCircle /> Xác nhận đã giao
+                              </button>
+                            )
                           )}
 
                           {/* Trả sách: chỉ sau delivered */}
