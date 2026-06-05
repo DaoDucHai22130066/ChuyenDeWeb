@@ -40,6 +40,7 @@ router.post("/contact", userController.addContact);
 
 router.post("/forgot-password", otpLimiter, [body("email").isEmail()], runValidation, userController.forgotPassword);
 router.post("/verify-otp", [body("email").isEmail(), body("otp").notEmpty()], runValidation, userController.verifyOTP);
-router.post("/reset-password", [body("email").isEmail(), body("newPassword").isLength({ min: 6 })], runValidation, userController.resetPassword);
+router.post("/reset-password", [body("email").isEmail(), body("newPassword").isLength({ min: 6 }), body('resetToken').notEmpty()], runValidation, userController.resetPassword);
+router.post("/logout", userController.logout);
 
 module.exports = router;

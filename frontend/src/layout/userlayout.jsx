@@ -5,7 +5,7 @@ import Navbar from "../components/navbar";
 import Footer from "../components/footer";
 import { ToastContainer } from 'react-toastify';
 
-export default function userLayout() {
+export default function UserLayout() {
   const location = useLocation();
 
   useEffect(() => {

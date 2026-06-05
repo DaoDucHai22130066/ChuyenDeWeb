@@ -3,7 +3,7 @@ import { Routes, Route, useNavigate, useLocation, Navigate } from "react-router-
 import { AnimatePresence } from 'framer-motion';
 import { jwtDecode } from "jwt-decode";
 import './App.css';
-import Userlayout from "./layout/userlayout";
+import UserLayout from "./layout/userlayout";
 import AdminLayout from "./layout/adminlayout";
 import Preloader from "./components/Preloader";
 
@@ -55,7 +55,7 @@ function App() {
         <Routes location={location} key={location.pathname}>
           <Route path="/admin-login" element={<Navigate to="/login" replace />} />
 
-          <Route path="/" element={<Userlayout />}>
+          <Route path="/" element={<UserLayout />}>
             <Route index element={<Home />} />
             <Route path="books" element={<Books />} />
             <Route path="bookdetails/:id" element={<BookDetails />} />
@@ -84,7 +84,7 @@ function App() {
             <Route path="viewbook" element={<ViewBooks />} />
           </Route>
 
-          <Route path="/user" element={<Userlayout />}>
+          <Route path="/user" element={<UserLayout />}>
             <Route index element={<ProfilePage />} />
           </Route>
 

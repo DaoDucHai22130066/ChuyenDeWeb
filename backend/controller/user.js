@@ -2,6 +2,7 @@ const nodemailer = require("nodemailer");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const JWT_SECRET = process.env.JWT_SECRET || "12345@abcd12";
+const crypto = require("crypto");
 const userController = {};
 
 const { OAuth2Client } = require("google-auth-library");
@@ -22,7 +23,7 @@ function buildUserPayload(userRow) {
 
 userController.userRegistration = async (req, res) => {
   try {
-    const { name, email, password, stream, year, role } = req.body;
+    const { name, email, password, stream, year } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ message: "Tên, email và mật khẩu là bắt buộc" });
@@ -37,7 +38,7 @@ userController.userRegistration = async (req, res) => {
     await query(
       `INSERT INTO users (name, email, password, stream, year, role)
        VALUES (?, ?, ?, ?, ?, ?)` ,
-      [name, email, hashedPassword, stream || null, year || null, role || "user"]
+      [name, email, hashedPassword, stream || null, year || null, 'user']
     );
 
     res.status(201).json({ message: "Đăng ký tài khoản thành công" });
@@ -111,7 +112,7 @@ userController.getUsers = async (req, res) => {
     const totalUser = user.length;
     res.status(200).json({ error: false, message: "Lấy danh sách người dùng thành công", user, totalUser });
   } catch (error) {
-    res.status(500).json({ error: false, message: "Lỗi máy chủ", error: error.message });
+    res.status(500).json({ error: true, message: "Lỗi máy chủ", details: error.message });
   }
 };
 
@@ -201,15 +202,29 @@ userController.verifyOTP = async (req, res) => {
     const otpAge = (new Date() - new Date(record.created_at)) / (1000 * 60);
     if (otpAge > 10) return res.status(400).json({ message: "OTP đã hết hạn" });
 
-    res.json({ message: "Xác thực OTP thành công" });
+    // Generate a reset token valid for 15 minutes and store it
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    await query("UPDATE otps SET reset_token = ?, expires_at = DATE_ADD(NOW(), INTERVAL 15 MINUTE) WHERE email = ?", [resetToken, email]);
+
+    res.json({ message: "Xác thực OTP thành công", resetToken });
   } catch (err) {
     res.status(500).json({ message: "Lỗi máy chủ" });
   }
 };
 
 userController.resetPassword = async (req, res) => {
-  const { email, newPassword } = req.body;
+  const { email, newPassword, resetToken } = req.body;
+  if (!resetToken) return res.status(400).json({ message: 'Thiếu reset token' });
   try {
+    const rows = await query("SELECT reset_token, expires_at FROM otps WHERE email = ? LIMIT 1", [email]);
+    const record = rows[0];
+    if (!record || !record.reset_token || record.reset_token !== resetToken) {
+      return res.status(400).json({ message: 'Reset token không hợp lệ' });
+    }
+    if (record.expires_at && new Date(record.expires_at) < new Date()) {
+      return res.status(400).json({ message: 'Reset token đã hết hạn' });
+    }
+
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await query("UPDATE users SET password = ? WHERE email = ?", [hashedPassword, email]);
     await query("DELETE FROM otps WHERE email = ?", [email]);
@@ -217,6 +232,15 @@ userController.resetPassword = async (req, res) => {
     res.json({ message: "Đặt lại mật khẩu thành công" });
   } catch (err) {
     res.status(500).json({ message: "Lỗi máy chủ" });
+  }
+};
+
+userController.logout = async (req, res) => {
+  try {
+    res.clearCookie('authToken', { path: '/' });
+    res.json({ message: 'Đã đăng xuất' });
+  } catch (err) {
+    res.status(500).json({ message: 'Lỗi máy chủ' });
   }
 };
 

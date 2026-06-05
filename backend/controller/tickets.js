@@ -22,9 +22,7 @@ const DEFAULT_BORROW_DAYS = Number(process.env.DEFAULT_BORROW_DAYS || 14);
 const VALID_PAYMENT_METHODS = new Set(["cash", "vnpay"]);
 const VALID_RECEIVE_METHODS = new Set(["delivery"]);
 const VALID_TICKET_ACTIONS = new Set([
-  "confirm_cash",
   "approve",
-  "pickup",
   "dispatch",
   "deliver",
   "deliver_and_confirm_cash",
@@ -275,6 +273,8 @@ ticketController.createTicket = async (req, res) => {
     const totalAmount = depositAmount + shippingFee;
 
     const ticketId = await withTransaction(async (connection) => {
+      const initialStatus = normalizedPaymentMethod === 'vnpay' && totalAmount > 0 ? 'awaiting_payment' : 'pending';
+      const shippingStatus = 'pending';
       const [ticketResult] = await connection.query(
         `INSERT INTO borrow_tickets (
            user_id,
@@ -288,13 +288,14 @@ ticketController.createTicket = async (req, res) => {
            shipping_phone,
            fine_amount
          )
-         VALUES (?, 'pending', ?, 'pending', ?, ?, ?, ?, ?, 0)`,
+         VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, 0)`,
         [
           userId,
+          initialStatus,
           depositAmount,
           normalizedPaymentMethod,
           shippingFee,
-          normalizedReceiveMethod === "delivery" ? "pending" : "none",
+          shippingStatus,
           normalizedReceiveMethod === "delivery" ? String(shippingAddress).trim() : null,
           normalizedReceiveMethod === "delivery" ? String(shippingPhone).trim() : null,
         ]
@@ -454,32 +455,6 @@ ticketController.updateTicketStatus = async (req, res) => {
       const currentDepositStatus = normalizeEnumValue(rawTicketRows[0]?.deposit_status || ticket.depositStatus);
       const currentShippingStatus = normalizeEnumValue(rawTicketRows[0]?.shipping_status || ticket.shippingStatus);
 
-      if (nextAction === "confirm_cash") {
-        if (currentDepositStatus !== "pending") {
-          throw new Error("Chỉ các khoản thanh toán đang chờ mới có thể được xác nhận");
-        }
-
-        const normalizedPaymentMethod = normalizePaymentMethod(paymentMethod || "cash");
-        const [pendingTransactions] = await connection.query(
-          `SELECT id FROM transactions
-           WHERE ticket_id = ? AND status = 'pending' AND method = ?
-           ORDER BY id ASC`,
-          [id, normalizedPaymentMethod]
-        );
-
-        for (const transaction of pendingTransactions) {
-          await updateTransactionStatus(connection, transaction.id, "completed");
-        }
-
-        await connection.query(
-          `UPDATE borrow_tickets
-           SET deposit_status = 'held', updated_at = NOW()
-           WHERE id = ?`,
-          [id]
-        );
-        triggerDepositMail = true;
-      }
-
       if (nextAction === "approve") {
         // Guard: chỉ duyệt khi trạng thái hợp lệ
         if (!["pending", "paid"].includes(currentStatus)) {
@@ -546,40 +521,27 @@ ticketController.updateTicketStatus = async (req, res) => {
           await updateTransactionStatus(connection, transaction.id, 'completed');
         }
 
-        const nextShippingStatus = currentShippingStatus === 'none' ? 'none' : 'delivered';
         await connection.query(
           `UPDATE borrow_tickets
-           SET status = 'delivered', shipping_status = ?, deposit_status = 'held'
+           SET status = 'delivered', shipping_status = 'delivered', deposit_status = 'held'
            WHERE id = ?`,
-          [nextShippingStatus, id]
+          [id]
         );
 
         triggerDepositMail = true;
       }
 
-      if (nextAction === "pickup") {
-        // Nhận tại quầy: chỉ áp dụng khi shipping_status = 'none'
-        if (currentStatus !== "approved") {
-          const err = new Error("Chỉ xác nhận nhận tại quầy khi phiếu đã được phê duyệt");
-          err.statusCode = 400;
-          throw err;
-        }
-        if (currentShippingStatus !== "none") {
-          const err = new Error("Action 'pickup' chỉ áp dụng cho phiếu nhận tại quầy");
-          err.statusCode = 400;
-          throw err;
-        }
-        await connection.query(
-          `UPDATE borrow_tickets
-           SET status = 'delivered', shipping_status = 'none', updated_at = NOW()
-           WHERE id = ?`,
-          [id]
-        );
-      }
-
       if (nextAction === "dispatch") {
+        if (currentStatus !== "approved") {
+          const err = new Error("Chỉ phiếu đã được phê duyệt mới có thể bắt đầu giao hàng");
+          err.statusCode = 400;
+          throw err;
+        }
+
         if (currentShippingStatus !== "pending") {
-          throw new Error("Chỉ các phiếu có giao hàng đang chờ mới có thể được gửi đi");
+          const err = new Error("Chỉ phiếu có trạng thái giao hàng đang chờ mới có thể được gửi đi");
+          err.statusCode = 400;
+          throw err;
         }
 
         await connection.query(
@@ -595,12 +557,11 @@ ticketController.updateTicketStatus = async (req, res) => {
           throw new Error("Chỉ các phiếu đã được phê duyệt hoặc đang gửi mới có thể được giao");
         }
 
-        const nextShippingStatus = currentShippingStatus === "none" ? "none" : "delivered";
         await connection.query(
           `UPDATE borrow_tickets
-           SET status = 'delivered', shipping_status = ?
+           SET status = 'delivered', shipping_status = 'delivered'
            WHERE id = ?`,
-          [nextShippingStatus, id]
+          [id]
         );
       }
 
@@ -611,8 +572,8 @@ ticketController.updateTicketStatus = async (req, res) => {
           throw err;
         }
 
-        // Nếu giao tận nơi: phải delivered trước mới được return
-        if (currentShippingStatus !== "none" && currentStatus !== "delivered") {
+        // Với luồng giao hàng: phải delivered trước khi return
+        if (currentShippingStatus !== "delivered" && currentStatus !== "delivered") {
           const err = new Error("Phải xác nhận đã giao hàng trước khi trả sách");
           err.statusCode = 400;
           throw err;
@@ -753,8 +714,18 @@ ticketController.updateTicketStatus = async (req, res) => {
       }
 
       if (nextAction === "cancel") {
-        if (!['pending', 'awaiting_payment', 'paid'].includes(currentStatus)) {
-          throw new Error("Chỉ các phiếu đang chờ hoặc đã thanh toán mới có thể bị hủy");
+        if (!['pending', 'awaiting_payment', 'paid', 'approved', 'dispatched'].includes(currentStatus)) {
+          throw new Error("Chỉ các phiếu đang chờ, đã thanh toán hoặc đã được phê duyệt mới có thể bị hủy");
+        }
+
+        // Nếu đã trừ kho (approved/dispatched) thì hoàn lại số lượng
+        if (['approved', 'dispatched'].includes(currentStatus)) {
+          for (const book of ticket.books) {
+            await connection.query(
+              `UPDATE books SET available_copies = available_copies + 1 WHERE id = ?`,
+              [book._id]
+            );
+          }
         }
 
         const [pendingTransactions] = await connection.query(
@@ -899,7 +870,7 @@ ticketController.vnpayReturn = async (req, res) => {
             if (isSuccess) {
               const [updateResult] = await connection.query(
                 `UPDATE borrow_tickets
-                 SET deposit_status = 'held', status = 'pending', updated_at = NOW()
+                 SET deposit_status = 'held', status = 'paid', updated_at = NOW()
                  WHERE id = ? AND deposit_status = 'pending'`,
                 [dbTicketId]
               );
@@ -965,7 +936,7 @@ ticketController.vnpayIpn = async (req, res) => {
       if (isSuccess) {
         const [updateResult] = await connection.query(
           `UPDATE borrow_tickets
-           SET deposit_status = 'held', status = 'pending', updated_at = NOW()
+           SET deposit_status = 'held', status = 'paid', updated_at = NOW()
            WHERE id = ? AND deposit_status = 'pending'`,
           [ticketId]
         );

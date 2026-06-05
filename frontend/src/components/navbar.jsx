@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { motion } from 'framer-motion';
 import { useCart } from "../context/CartContext";
+import axios from "axios";
+import { Server_URL } from "../utils/config";
 import "./navbar.css";
 
 export default function Navbar() {
@@ -12,20 +14,17 @@ export default function Navbar() {
   const location = useLocation();
 
   const handleLogout = () => {
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("role");
-    // clear server-side cart for this session (optional)
-    try {
-      const token = localStorage.getItem("authToken");
-      if (token) {
-        // token is still present in some flows; prefer explicit remove
+    (async () => {
+      try {
+        await axios.post(`${Server_URL}users/logout`);
+      } catch (e) {
+        // ignore network errors on logout
       }
-    } catch (e) { }
-    // clear client cart UI now; server cart remains for reload on next login
-    try {
-      clearCart();
-    } catch (e) { }
-    navigate("/login");
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("role");
+      try { clearCart(); } catch (e) {}
+      navigate("/login");
+    })();
   };
 
   const isActive = (path) => location.pathname === path;
