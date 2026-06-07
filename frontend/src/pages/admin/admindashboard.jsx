@@ -220,6 +220,48 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
     }
   };
 
+  // Thêm state để quản lý nội dung ô input của từng đánh giá
+const [replyInputs, setReplyInputs] = useState({});
+
+// Hàm bắt sự kiện khi Admin gõ chữ
+const handleReplyChange = (reviewId, value) => {
+    setReplyInputs(prev => ({ ...prev, [reviewId]: value }));
+};
+
+// Hàm gửi phản hồi lên Backend
+const handleSendReply = async (reviewId) => {
+    const admin_reply = replyInputs[reviewId];
+    if (!admin_reply || admin_reply.trim() === '') {
+        alert("Vui lòng nhập nội dung phản hồi!"); 
+        return;
+    }
+
+    try {
+        // Lấy đúng tên token trong project của bạn là "authToken"
+        const userToken = localStorage.getItem("authToken"); 
+
+        const res = await axios.put(`${Server_URL}admin/reviews/${reviewId}/reply`, 
+            { admin_reply }, 
+            { headers: { Authorization: `Bearer ${userToken}` } } 
+        );
+
+        if (res.data.success) {
+            alert("Đã gửi phản hồi thành công!");
+            
+            // Cập nhật giao diện ngay lập tức
+            setReviews(reviews.map(review => 
+                review.id === reviewId ? { ...review, admin_reply: admin_reply } : review
+            ));
+            
+            // Xóa rỗng ô nhập liệu
+            setReplyInputs(prev => ({ ...prev, [reviewId]: '' }));
+        }
+    } catch (error) {
+        console.error("Lỗi khi phản hồi:", error);
+        alert("Có lỗi xảy ra khi gửi phản hồi.");
+    }
+};
+
   const fetchTicketTransactions = async (ticketId) => {
     try {
       const result = await axios.get(`${Server_URL}tickets/${ticketId}/transactions`, {
@@ -777,9 +819,41 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                               {'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}
                             </span>
                           </td>
-                          <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {/* <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {review.comment || <em style={{ color: '#cbd5e1' }}>Không có</em>}
-                          </td>
+                          </td> */}
+                          <td style={{ maxWidth: '300px' }}> 
+  {/* Lưu ý: Tôi đã bỏ thuộc tính whiteSpace: 'nowrap' để khung phản hồi không bị che khuất */}
+  <div style={{ marginBottom: '8px', wordWrap: 'break-word', whiteSpace: 'normal' }}>
+    {review.comment || <em style={{ color: '#cbd5e1' }}>Không có</em>}
+  </div>
+  
+  {/* --- ĐOẠN CODE BƯỚC 1.2 ĐƯỢC CHÈN VÀO ĐÂY --- */}
+  <div className="review-reply-section" style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed #e2e8f0' }}>
+      {review.admin_reply ? (
+          <div style={{ backgroundColor: '#eef2f5', padding: '8px', borderRadius: '5px', borderLeft: '4px solid #4CAF50', fontSize: '0.85rem', whiteSpace: 'normal' }}>
+              <strong style={{ color: '#2e7d32', display: 'block', marginBottom: '2px' }}>Đã phản hồi: </strong>
+              <span>{review.admin_reply}</span>
+          </div>
+      ) : (
+          <div style={{ display: 'flex', gap: '5px', flexDirection: 'column' }}>
+              <textarea 
+                  placeholder="Nhập câu trả lời..."
+                  value={replyInputs[review.id] || ""}
+                  onChange={(e) => handleReplyChange(review.id, e.target.value)}
+                  style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #ccc', minHeight: '50px', fontSize: '0.85rem' }}
+              />
+              <button 
+                  onClick={() => handleSendReply(review.id)}
+                  style={{ padding: '5px 12px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', alignSelf: 'flex-start', fontSize: '0.8rem' }}
+              >
+                  Gửi phản hồi
+              </button>
+          </div>
+      )}
+  </div>
+  {/* --- KẾT THÚC ĐOẠN BƯỚC 1.2 --- */}
+</td>
                           <td style={{ whiteSpace: 'nowrap' }}>
                             {new Date(review.created_at).toLocaleDateString('vi-VN')}
                           </td>

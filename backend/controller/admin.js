@@ -98,5 +98,26 @@ adminController.deleteReview = async (req, res, next) => {
         next(error);
     }
 };
+// Thêm vào controller/admin.js
+adminController.replyReview = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { admin_reply } = req.body;
+        
+        // Kiểm tra xem admin có nhập nội dung không
+        if (!admin_reply || admin_reply.trim() === '') {
+            return res.status(400).json({ error: true, message: "Nội dung phản hồi không được để trống" });
+        }
 
+        const result = await query("UPDATE book_reviews SET admin_reply = ? WHERE id = ?", [admin_reply, id]);
+        
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: true, message: "Không tìm thấy đánh giá" });
+        }
+        
+        res.status(200).json({ success: true, message: "Đã phản hồi đánh giá thành công", admin_reply });
+    } catch (error) {
+        next(error);
+    }
+};
 module.exports = { adminController };

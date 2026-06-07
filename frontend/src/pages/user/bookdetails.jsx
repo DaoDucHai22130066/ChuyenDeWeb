@@ -271,8 +271,30 @@ function BookDetails() {
                       <span className="bdr-empty-stars">{'★'.repeat(5 - r.rating)}</span>
                     </div>
                   </div>
+                  
+                  {/* Hiển thị bình luận của người dùng (Đã sửa lại biến thành r.comment) */}
                   {r.comment && (
-                    <p className="bdr-comment">{r.comment}</p>
+                    <p className="bdr-comment user-comment">{r.comment}</p>
+                  )}
+
+                  {/* THÊM ĐOẠN ADMIN PHẢN HỒI VÀO ĐÂY (Đã sửa review thành r) */}
+                  {r.admin_reply && (
+                      <div className="admin-reply-box" style={{ 
+                          marginTop: '12px', 
+                          padding: '12px', 
+                          backgroundColor: '#f8f9fa', 
+                          borderRadius: '6px', 
+                          borderLeft: '3px solid #ff9800' 
+                      }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '5px' }}>
+                              <span style={{ fontWeight: 'bold', color: '#ff9800' }}>
+                                  <i className="fas fa-user-shield"></i> Quản trị viên phản hồi:
+                              </span>
+                          </div>
+                          <p style={{ margin: 0, color: '#495057', fontSize: '0.95rem' }}>
+                              {r.admin_reply}
+                          </p>
+                      </div>
                   )}
                 </div>
               ))}
