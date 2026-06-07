@@ -30,8 +30,12 @@ function ResetPassword() {
 
   const onSubmit = async (data) => {
     try {
+<<<<<<< HEAD
       const payload = { ...data, resetToken: location.state?.resetToken };
       await axios.post(`${Server_URL}users/reset-password`, payload);
+=======
+      await axios.post(`${Server_URL}users/reset-password`, data);
+>>>>>>> hai
       showSuccessToast("Đổi mật khẩu thành công. Vui lòng đăng nhập lại.");
       navigate("/login");
     } catch {

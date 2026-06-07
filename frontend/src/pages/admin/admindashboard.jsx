@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import { useEffect, useMemo, useState } from "react";
+=======
+import React, { useEffect, useMemo, useState } from "react";
+>>>>>>> hai
 import { motion } from "framer-motion";
 import axios from "axios";
 import "../../styles/components.css";
@@ -14,8 +18,16 @@ import {
   FiCheck, 
   FiRefreshCw, 
   FiX, 
+<<<<<<< HEAD
   FiClock, 
   FiCheckCircle, 
+=======
+  FiInfo, 
+  FiClock, 
+  FiFileText, 
+  FiCheckCircle, 
+  FiXCircle,
+>>>>>>> hai
   FiDollarSign,
   FiEye,
   FiChevronDown,
@@ -43,6 +55,10 @@ const DEPOSIT_STATUS_VI = {
 };
 
 const SHIPPING_STATUS_VI = {
+<<<<<<< HEAD
+=======
+  none: "Nhận tại quầy",
+>>>>>>> hai
   pending: "Chờ giao hàng",
   dispatched: "Đang giao",
   delivered: "Đã giao",
@@ -69,7 +85,13 @@ const TRANSACTION_STATUS_VI = {
 };
 
 const ACTION_SUCCESS_VI = {
+<<<<<<< HEAD
   approve: "Đã phê duyệt phiếu mượn.",
+=======
+  confirm_cash: "Đã xác nhận thanh toán.",
+  approve: "Đã phê duyệt phiếu mượn.",
+  pickup: "Đã xác nhận độc giả nhận sách tại quầy.",
+>>>>>>> hai
   dispatch: "Đã chuyển phiếu sang trạng thái đang giao.",
   deliver: "Đã xác nhận giao xong.",
   deliver_and_confirm_cash: "Đã xác nhận giao & đã thu tiền.",
@@ -79,7 +101,10 @@ const ACTION_SUCCESS_VI = {
   cancel: "Đã hủy phiếu mượn.",
 };
 
+<<<<<<< HEAD
 // eslint-disable-next-line react/prop-types
+=======
+>>>>>>> hai
 const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const [selectedSection, setSelectedSection] = useState(initialSection);
   const [users, setUsers] = useState([]);
@@ -107,6 +132,16 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const getTransactionTypeLabel = (value) => TRANSACTION_TYPE_VI[value] || "Giao dịch";
   const getTransactionStatusLabel = (value) => TRANSACTION_STATUS_VI[value] || "Chưa cập nhật";
 
+<<<<<<< HEAD
+=======
+  // Cash should be collected when delivering, not at pending/approval stage
+  const canConfirmCash = (ticket) =>
+    ticket.status === "dispatched" &&
+    ticket.shippingStatus === "dispatched" &&
+    ticket.depositStatus === "pending" &&
+    ticket.paymentMethod === "cash";
+
+>>>>>>> hai
   // VNPay: chỉ show badge, không cho admin tự duyệt
   const isWaitingVnpay = (ticket) =>
     ticket.depositStatus === "pending" &&
@@ -117,6 +152,13 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
     ["pending", "paid"].includes(ticket.status) &&
     (ticket.paymentMethod === "vnpay" ? ticket.depositStatus === "held" : true);
 
+<<<<<<< HEAD
+=======
+  // Nhận tại quầy: sau approved, shippingStatus = none
+  const canPickup = (ticket) =>
+    ticket.status === "approved" && ticket.shippingStatus === "none";
+
+>>>>>>> hai
   // Giao tận nơi: bắt đầu giao
   const canDispatch = (ticket) =>
     ticket.status === "approved" && ticket.shippingStatus === "pending";
@@ -125,7 +167,11 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const canDeliver = (ticket) =>
     ticket.status === "dispatched" && ticket.shippingStatus === "dispatched";
 
+<<<<<<< HEAD
   // Trả sách: chỉ sau khi đã giao hàng thành công
+=======
+  // Trả sách: chỉ sau khi delivered (cả quầy lẫn giao hàng)
+>>>>>>> hai
   const canReturn = (ticket) =>
     ticket.status === "delivered";
 
@@ -136,7 +182,11 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
     ticket.depositStatus === "forfeited" && ticket.status !== "closed";
 
   const canCancel = (ticket) =>
+<<<<<<< HEAD
     ["pending", "awaiting_payment", "paid", "approved", "dispatched"].includes(ticket.status);
+=======
+    ["pending", "awaiting_payment"].includes(ticket.status);
+>>>>>>> hai
 
   const fetchUsers = async () => {
     try {
@@ -234,7 +284,11 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
       showSuccessToast(ACTION_SUCCESS_VI[action] || "Đã cập nhật trạng thái phiếu mượn.");
       fetchTickets();
       fetchBooks();
+<<<<<<< HEAD
     } catch {
+=======
+    } catch (error) {
+>>>>>>> hai
       showErrorToast("Không cập nhật được phiếu mượn. Vui lòng thử lại!");
     }
   };
@@ -255,7 +309,10 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
     fetchBooks();
     fetchTickets();
     fetchReviews();
+<<<<<<< HEAD
   // eslint-disable-next-line react-hooks/exhaustive-deps
+=======
+>>>>>>> hai
   }, []);
 
   useEffect(() => {
@@ -410,7 +467,11 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                   { key: "awaiting_payment", label: "Chờ thanh toán" },
                   { key: "approved",         label: "Đã duyệt" },
                   { key: "dispatched",       label: "Đang giao" },
+<<<<<<< HEAD
                   { key: "delivered",        label: "Đã giao" },
+=======
+                  { key: "delivered",        label: "Đã giao / Nhận" },
+>>>>>>> hai
                   { key: "returned",         label: "Đã trả" },
                   { key: "closed",           label: "Hoàn tất" },
                   { key: "cancelled",        label: "Đã hủy" },
@@ -470,7 +531,11 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                             { key: "awaiting",  label: "Chờ TT",   done: !["pending","awaiting_payment"].includes(ticket.status) || ticket.depositStatus === "held" },
                             { key: "pending",   label: "Chờ duyệt", done: !["pending","awaiting_payment"].includes(ticket.status) },
                             { key: "approved",  label: "Đã duyệt",  done: ["dispatched","delivered","returned","closed"].includes(ticket.status) },
+<<<<<<< HEAD
                             { key: "delivered", label: "Đã giao",  done: ["delivered","returned","closed"].includes(ticket.status) },
+=======
+                            { key: "delivered", label: "Nhận sách",  done: ["delivered","returned","closed"].includes(ticket.status) },
+>>>>>>> hai
                             { key: "returned",  label: "Trả sách",   done: ["returned","closed"].includes(ticket.status) },
                             { key: "closed",    label: "Hoàn tất",   done: ticket.status === "closed" },
                           ].map((step, idx, arr) => (
@@ -573,6 +638,19 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
                             </button>
                           )}
 
+<<<<<<< HEAD
+=======
+                          {/* Nhận tại quầy */}
+                          {canPickup(ticket) && (
+                            <button
+                              className="btn btn-sm btn-primary"
+                              onClick={() => handleTicketAction(ticket._id, "pickup")}
+                            >
+                              <FiCheckCircle /> Đã nhận tại quầy
+                            </button>
+                          )}
+
+>>>>>>> hai
                           {/* Bắt đầu giao hàng (giao tận nơi) */}
                           {canDispatch(ticket) && (
                             <button

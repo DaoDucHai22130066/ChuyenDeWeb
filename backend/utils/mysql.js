@@ -73,7 +73,10 @@ async function createSchema(connection) {
       total_copies INT NOT NULL,
       added_by INT UNSIGNED NOT NULL,
       cover_image TEXT NULL,
+<<<<<<< HEAD
       cloudinary_id VARCHAR(255) NULL,
+=======
+>>>>>>> hai
       price DECIMAL(10,2) NULL,
       branch ENUM('dai-la', 'cau-giay') NOT NULL DEFAULT 'dai-la',
       borrow_count INT NOT NULL DEFAULT 0,
@@ -86,7 +89,14 @@ async function createSchema(connection) {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
 
+<<<<<<< HEAD
   // cloudinary_id column is intentionally supported for seeded data
+=======
+  const [bookColumns] = await connection.query("SHOW COLUMNS FROM books LIKE 'cloudinary_id'");
+  if (bookColumns.length > 0) {
+    await connection.query("ALTER TABLE books DROP COLUMN cloudinary_id");
+  }
+>>>>>>> hai
 
   await connection.query(`
     CREATE TABLE IF NOT EXISTS borrow_tickets (
@@ -110,7 +120,11 @@ async function createSchema(connection) {
       deposit_status ENUM('none', 'pending', 'held', 'refunded', 'forfeited') NOT NULL DEFAULT 'none',
       payment_method ENUM('cash', 'vnpay') NOT NULL DEFAULT 'cash',
       shipping_fee DECIMAL(10,2) NOT NULL DEFAULT 0,
+<<<<<<< HEAD
       shipping_status ENUM('pending', 'dispatched', 'delivered', 'returned') NOT NULL DEFAULT 'pending',
+=======
+      shipping_status ENUM('none', 'pending', 'dispatched', 'delivered', 'returned') NOT NULL DEFAULT 'none',
+>>>>>>> hai
       shipping_address VARCHAR(255) NULL,
       shipping_phone VARCHAR(20) NULL,
       fine_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
@@ -190,7 +204,11 @@ async function createSchema(connection) {
     await addColumnIfMissing(connection, "borrow_tickets", "deposit_status", "deposit_status ENUM('none', 'pending', 'held', 'refunded', 'forfeited') NOT NULL DEFAULT 'none'");
     await addColumnIfMissing(connection, "borrow_tickets", "payment_method", "payment_method ENUM('cash', 'vnpay') NOT NULL DEFAULT 'cash'");
     await addColumnIfMissing(connection, "borrow_tickets", "shipping_fee", "shipping_fee DECIMAL(10,2) NOT NULL DEFAULT 0");
+<<<<<<< HEAD
     await addColumnIfMissing(connection, "borrow_tickets", "shipping_status", "shipping_status ENUM('pending', 'dispatched', 'delivered', 'returned') NOT NULL DEFAULT 'pending'");
+=======
+    await addColumnIfMissing(connection, "borrow_tickets", "shipping_status", "shipping_status ENUM('none', 'pending', 'dispatched', 'delivered', 'returned') NOT NULL DEFAULT 'none'");
+>>>>>>> hai
     await addColumnIfMissing(connection, "borrow_tickets", "shipping_address", "shipping_address VARCHAR(255) NULL");
     await addColumnIfMissing(connection, "borrow_tickets", "shipping_phone", "shipping_phone VARCHAR(20) NULL");
     await addColumnIfMissing(connection, "borrow_tickets", "fine_amount", "fine_amount DECIMAL(10,2) NOT NULL DEFAULT 0");
@@ -276,8 +294,11 @@ async function createSchema(connection) {
       id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
       email VARCHAR(255) NOT NULL UNIQUE,
       otp VARCHAR(16) NOT NULL,
+<<<<<<< HEAD
       reset_token VARCHAR(128) NULL,
       expires_at DATETIME NULL,
+=======
+>>>>>>> hai
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
@@ -438,7 +459,10 @@ function mapBookRow(row) {
       }
       : null,
     coverImage: row.cover_image,
+<<<<<<< HEAD
     cloudinaryId: row.cloudinary_id || null,
+=======
+>>>>>>> hai
     price: row.price === null || row.price === undefined ? null : Number(row.price),
     branch: row.branch,
     borrowCount: row.borrow_count,

@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { checkRole } = require("../middlewares/checkRole");
 const { userAuth } = require("../middlewares/userAuth");
+<<<<<<< HEAD
 const { userController } = require("../controller/user");
 const { body, validationResult } = require("express-validator");
 const { loginLimiter, otpLimiter, registerLimiter } = require("../middlewares/rateLimiters");
@@ -32,10 +33,22 @@ router.post(
 );
 
 router.post("/google-login", loginLimiter, userController.googleLogin);
+=======
+
+const { userController } = require("../controller/user")
+router.get("/", userController.getUsers)
+
+router.post("/register", userController.userRegistration);
+
+router.post("/login", userController.login)
+
+router.post("/google-login", userController.googleLogin);
+>>>>>>> hai
 
 router.get("/profile", userAuth, checkRole("user"), userController.profile);
 router.put("/profile", userAuth, checkRole("user"), userController.updateProfile);
 
+<<<<<<< HEAD
 router.post("/contact", userController.addContact);
 
 router.post("/forgot-password", otpLimiter, [body("email").isEmail()], runValidation, userController.forgotPassword);
@@ -44,3 +57,15 @@ router.post("/reset-password", [body("email").isEmail(), body("newPassword").isL
 router.post("/logout", userController.logout);
 
 module.exports = router;
+=======
+router.post("/contact", userController.addContact)
+
+router.post("/forgot-password", userController.forgotPassword);
+router.post("/verify-otp", userController.verifyOTP);
+router.post("/reset-password", userController.resetPassword);
+
+
+
+
+module.exports = router;
+>>>>>>> hai

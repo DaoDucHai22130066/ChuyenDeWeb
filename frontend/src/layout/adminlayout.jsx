@@ -6,7 +6,11 @@ import AdminFooter from "../components/AdminFooter";
 import { ToastContainer } from 'react-toastify';
 import "../pages/admin/admin-shared.css";
 
+<<<<<<< HEAD
 export default function AdminLayout() {
+=======
+export default function adminLayout() {
+>>>>>>> hai
   const [render,setRender] = useState(false);
   const token = localStorage.getItem("authToken")
   const role = localStorage.getItem("role");
@@ -19,7 +23,11 @@ export default function AdminLayout() {
     else{
       navigate("/login")
     }    
+<<<<<<< HEAD
   }, [navigate, role, token])
+=======
+  },[])
+>>>>>>> hai
 
 
   const location = useLocation();
