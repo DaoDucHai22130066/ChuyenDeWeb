@@ -14,21 +14,13 @@ categoriesController.getAllCategories = async (req, res) => {
 
     res.status(200).json({
       error: false,
-<<<<<<< HEAD
-      message: "Lấy danh sách thể loại thành công",
-=======
       message: "Categories fetched successfully",
->>>>>>> hai
       categories,
     });
   } catch (error) {
     res.status(500).json({
       error: true,
-<<<<<<< HEAD
-      message: "Lỗi máy chủ",
-=======
       message: "Internal Server Error",
->>>>>>> hai
       details: error.message,
     });
   }

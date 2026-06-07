@@ -60,10 +60,6 @@ CREATE TABLE books (
   total_copies     INT NOT NULL,
   added_by         INT UNSIGNED NOT NULL,
   cover_image      TEXT NULL,
-<<<<<<< HEAD
-  cloudinary_id    VARCHAR(255) NULL,
-=======
->>>>>>> hai
   price            DECIMAL(10,2) NULL,
   branch           ENUM('dai-la','cau-giay') NOT NULL DEFAULT 'dai-la',
   borrow_count     INT NOT NULL DEFAULT 0,
@@ -89,11 +85,7 @@ CREATE TABLE borrow_tickets (
   deposit_status  ENUM('none','pending','held','refunded','forfeited') NOT NULL DEFAULT 'none',
   payment_method  ENUM('cash','vnpay') NOT NULL DEFAULT 'cash',
   shipping_fee    DECIMAL(10,2) NOT NULL DEFAULT 0,
-<<<<<<< HEAD
-  shipping_status ENUM('pending','dispatched','delivered','returned') NOT NULL DEFAULT 'pending',
-=======
   shipping_status ENUM('none','pending','dispatched','delivered','returned') NOT NULL DEFAULT 'none',
->>>>>>> hai
   shipping_address VARCHAR(255) NULL,
   shipping_phone  VARCHAR(20) NULL,
   fine_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
@@ -179,11 +171,6 @@ CREATE TABLE otps (
   id         INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   email      VARCHAR(255) NOT NULL UNIQUE,
   otp        VARCHAR(16)  NOT NULL,
-<<<<<<< HEAD
-  reset_token VARCHAR(128) NULL,
-  expires_at DATETIME NULL,
-=======
->>>>>>> hai
   created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

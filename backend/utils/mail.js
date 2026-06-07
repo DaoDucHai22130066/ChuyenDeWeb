@@ -25,11 +25,7 @@ const generateOtpEmailTemplate = (otp) => {
       <div style="text-align: center; margin-top: 35px; padding-top: 20px; border-top: 1px solid #eaeaea; color: #999; font-size: 12px; line-height: 1.5;">
         <p style="margin: 5px 0;">Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.</p>
         <p style="margin: 5px 0;">Đây là email tự động, vui lòng không trả lời qua email này.</p>
-<<<<<<< HEAD
-        <p style="margin: 5px 0;">&copy; ${new Date().getFullYear()} Hệ thống Thư Viện Số. Bảo lưu mọi quyền.</p>
-=======
         <p style="margin: 5px 0;">&copy; ${new Date().getFullYear()} Hệ thống Thư Viện Số. All rights reserved.</p>
->>>>>>> hai
       </div>
     </div>
   `;
@@ -43,15 +39,9 @@ const sendOtpMail = async (email, otp) => {
       subject: "[Thư Viện] Mã xác thực đặt lại mật khẩu",
       html: generateOtpEmailTemplate(otp),
     });
-<<<<<<< HEAD
-    console.log(`Đã gửi email OTP đến ${email}`);
-  } catch (error) {
-    console.error("Lỗi khi gửi email OTP:", error);
-=======
     console.log(`Sent OTP email to ${email}`);
   } catch (error) {
     console.error("Error sending OTP mail:", error);
->>>>>>> hai
   }
 };
 
@@ -131,11 +121,7 @@ const generateEmailTemplate = (title, content, ticket) => {
           ` : ''}
           <tr>
             <td><strong>Phương thức nhận:</strong></td>
-<<<<<<< HEAD
-            <td><span style="color: #1976d2; font-weight: bold;">Giao tận nơi</span></td>
-=======
             <td>${ticket.shippingAddress ? '<span style="color: #1976d2; font-weight: bold;">Giao tận nơi</span>' : '<span style="color: #388e3c; font-weight: bold;">Nhận tại quầy</span>'}</td>
->>>>>>> hai
           </tr>
           ${ticket.shippingAddress ? `
           <tr>
@@ -153,13 +139,8 @@ const generateEmailTemplate = (title, content, ticket) => {
       </div>
       <div style="text-align: center; margin-top: 35px; padding-top: 20px; border-top: 1px solid #eaeaea; color: #999; font-size: 12px; line-height: 1.5;">
         <p style="margin: 5px 0;">Đây là email tự động, vui lòng không trả lời qua email này.</p>
-<<<<<<< HEAD
-        <p style="margin: 5px 0;">Nếu cần hỗ trợ, vui lòng liên hệ quản trị viên qua trang web.</p>
-        <p style="margin: 5px 0;">&copy; ${new Date().getFullYear()} Hệ thống Thư Viện Số. Bảo lưu mọi quyền.</p>
-=======
         <p style="margin: 5px 0;">Nếu cần hỗ trợ, vui lòng liên hệ admin qua website.</p>
         <p style="margin: 5px 0;">&copy; ${new Date().getFullYear()} Hệ thống Thư Viện Số. All rights reserved.</p>
->>>>>>> hai
       </div>
     </div>
   `;
@@ -186,15 +167,9 @@ const sendDepositSuccessMail = async (ticket) => {
       subject: `[Thư Viện] Đặt cọc thành công - Phiếu mượn #${ticket._id}`,
       html: generateEmailTemplate(title, content, ticket),
     });
-<<<<<<< HEAD
-    console.log(`Đã gửi email xác nhận đặt cọc đến ${email} cho phiếu ${ticket._id}`);
-  } catch (error) {
-    console.error("Lỗi khi gửi email xác nhận đặt cọc:", error);
-=======
     console.log(`Sent deposit success email to ${email} for ticket ${ticket._id}`);
   } catch (error) {
     console.error("Error sending deposit success mail:", error);
->>>>>>> hai
   }
 };
 
@@ -208,13 +183,9 @@ const sendApprovalSuccessMail = async (ticket) => {
     const content = `
       <p>Chào <strong>${ticket.userId.name}</strong>,</p>
       <p>Phiếu mượn sách của bạn đã được quản trị viên <strong>phê duyệt thành công</strong>.</p>
-<<<<<<< HEAD
-      <p>Thư viện đang chuẩn bị sách và sẽ sớm giao đến địa chỉ của bạn. Vui lòng chú ý điện thoại để nhận hàng.</p>
-=======
       ${ticket.shippingAddress 
         ? '<p>Thư viện đang chuẩn bị sách và sẽ sớm giao đến địa chỉ của bạn. Bạn vui lòng chú ý điện thoại nhé!</p>'
         : '<p>Bạn có thể sắp xếp thời gian đến thư viện để nhận sách bất cứ lúc nào trong giờ làm việc.</p>'}
->>>>>>> hai
       <p><strong>Lưu ý quan trọng:</strong> Hạn trả sách dự kiến là ngày <strong>${dueDate}</strong>. Bạn vui lòng trả sách đúng hạn để tránh bị trừ tiền cọc nhé.</p>
       <p>Chúc bạn có những giờ phút đọc sách thật thú vị và bổ ích!</p>
     `;
@@ -225,15 +196,9 @@ const sendApprovalSuccessMail = async (ticket) => {
       subject: `[Thư Viện] Phiếu mượn đã được duyệt - Phiếu mượn #${ticket._id}`,
       html: generateEmailTemplate(title, content, ticket),
     });
-<<<<<<< HEAD
-    console.log(`Đã gửi email thông báo phê duyệt đến ${email} cho phiếu ${ticket._id}`);
-  } catch (error) {
-    console.error("Lỗi khi gửi email thông báo phê duyệt:", error);
-=======
     console.log(`Sent approval email to ${email} for ticket ${ticket._id}`);
   } catch (error) {
     console.error("Error sending approval mail:", error);
->>>>>>> hai
   }
 };
 
@@ -291,20 +256,12 @@ const sendContactNotification = async (contactInfo) => {
         </div>
 
         <div style="text-align: center; margin-top: 35px; padding-top: 20px; border-top: 1px solid #eaeaea;">
-<<<<<<< HEAD
-          <a href="mailto:${email}" style="display: inline-block; background-color: #4CAF50; color: #fff; text-decoration: none; padding: 10px 25px; border-radius: 4px; font-weight: bold; font-size: 14px;">Trả lời email này</a>
-=======
           <a href="mailto:${email}" style="display: inline-block; background-color: #4CAF50; color: #fff; text-decoration: none; padding: 10px 25px; border-radius: 4px; font-weight: bold; font-size: 14px;">Trả lời Email này</a>
->>>>>>> hai
         </div>
 
         <div style="text-align: center; margin-top: 25px; color: #999; font-size: 12px; line-height: 1.5;">
           <p style="margin: 5px 0;">Đây là email tự động từ hệ thống Thư Viện Số.</p>
-<<<<<<< HEAD
-          <p style="margin: 5px 0;">&copy; ${new Date().getFullYear()} Hệ thống Thư Viện Số. Bảo lưu mọi quyền.</p>
-=======
           <p style="margin: 5px 0;">&copy; ${new Date().getFullYear()} Hệ thống Thư Viện Số. All rights reserved.</p>
->>>>>>> hai
         </div>
       </div>
     `;
@@ -316,15 +273,9 @@ const sendContactNotification = async (contactInfo) => {
       subject: `[Liên hệ mới] Chủ đề: ${displaySubject}`,
       html: htmlContent,
     });
-<<<<<<< HEAD
-    console.log(`Đã gửi email thông báo liên hệ đến ${adminEmail}`);
-  } catch (error) {
-    console.error("Lỗi khi gửi email thông báo liên hệ:", error);
-=======
     console.log(`Sent contact notification to ${adminEmail}`);
   } catch (error) {
     console.error("Error sending contact notification:", error);
->>>>>>> hai
   }
 };
 
@@ -352,15 +303,9 @@ const sendRenewalSuccessMail = async (ticket, oldDueDate, newDueDate) => {
       subject: `[Thư Viện] Gia hạn sách thành công - Phiếu #${ticket._id}`,
       html: generateEmailTemplate(title, content, ticket),
     });
-<<<<<<< HEAD
-    console.log(`Đã gửi email thông báo gia hạn đến ${email} cho phiếu ${ticket._id}`);
-  } catch (error) {
-    console.error("Lỗi khi gửi email thông báo gia hạn:", error);
-=======
     console.log(`Sent renewal success email to ${email} for ticket ${ticket._id}`);
   } catch (error) {
     console.error("Error sending renewal success mail:", error);
->>>>>>> hai
   }
 };
 

@@ -5,14 +5,8 @@ const {adminController} = require("../controller/admin")
 
 const { userAuth } = require("../middlewares/userAuth");
 const { checkRole } = require("../middlewares/checkRole");
-<<<<<<< HEAD
-const { loginLimiter } = require("../middlewares/rateLimiters");
-
-router.post("/login", loginLimiter, adminController.login)
-=======
 
 router.post("/login",adminController.login)
->>>>>>> hai
 router.get("/reviews", userAuth, checkRole("admin"), adminController.getAllReviews)
 router.put("/reviews/:id/status", userAuth, checkRole("admin"), adminController.updateReviewStatus)
 router.delete("/reviews/:id", userAuth, checkRole("admin"), adminController.deleteReview)

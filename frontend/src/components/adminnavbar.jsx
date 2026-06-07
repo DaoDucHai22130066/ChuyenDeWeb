@@ -1,11 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useCart } from "../context/CartContext";
-<<<<<<< HEAD
-import axios from "axios";
-import { Server_URL } from "../utils/config";
-=======
->>>>>>> hai
 import "./adminnavbar.css";
 
 export default function AdminNavbar() {
@@ -17,24 +12,12 @@ export default function AdminNavbar() {
   const location = useLocation();
 
   const handleLogout = () => {
-<<<<<<< HEAD
-    (async () => {
-      try {
-        await axios.post(`${Server_URL}users/logout`);
-      } catch (e) {}
-      localStorage.removeItem("authToken");
-      localStorage.removeItem("role");
-      try { clearCart(); } catch (e) {}
-      navigate("/login");
-    })();
-=======
     localStorage.removeItem("authToken");
     localStorage.removeItem("role");
     try {
       clearCart();
     } catch (e) {}
     navigate("/login");
->>>>>>> hai
   };
 
   const isActive = (path) => {

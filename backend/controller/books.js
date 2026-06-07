@@ -121,20 +121,12 @@ booksController.addNewBook = async (req, res) => {
     const { id } = req.userInfo;
 
     if (!title || !author || !isbn || !description || !totalCopies) {
-<<<<<<< HEAD
-      return res.status(400).json({ error: true, message: "Thiếu trường thông tin sách bắt buộc" });
-=======
       return res.status(400).json({ error: true, message: "Missing required book fields" });
->>>>>>> hai
     }
 
     const existingBookRows = await query("SELECT id FROM books WHERE isbn = ? LIMIT 1", [isbn]);
     if (existingBookRows.length > 0) {
-<<<<<<< HEAD
-      return res.status(400).json({ error: true, message: "Sách với ISBN này đã tồn tại" });
-=======
       return res.status(400).json({ error: true, message: "Book with this ISBN already exists" });
->>>>>>> hai
     }
 
     const categoryInput = categoryId || category;
@@ -143,11 +135,7 @@ booksController.addNewBook = async (req, res) => {
     });
 
     if (!categoryRow) {
-<<<<<<< HEAD
-      return res.status(400).json({ error: true, message: "Cần chọn thể loại" });
-=======
       return res.status(400).json({ error: true, message: "Category is required" });
->>>>>>> hai
     }
 
     const coverImageUrl = coverImage || "";
@@ -207,17 +195,10 @@ booksController.addNewBook = async (req, res) => {
       [insertResult.insertId]
     );
 
-<<<<<<< HEAD
-    res.status(201).json({ error: false, message: "Thêm sách thành công", book: mapBookRow(bookRows[0]) });
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ error: true, message: "Lỗi máy chủ", error: error.message });
-=======
     res.status(201).json({ error: false, message: "Book added successfully", book: mapBookRow(bookRows[0]) });
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: true, message: "Internal Server Error", error: error.message });
->>>>>>> hai
   }
 };
 
@@ -252,21 +233,13 @@ booksController.getAllBooks = async (req, res) => {
     );
 
     if (!rows || rows.length === 0) {
-<<<<<<< HEAD
-      return res.json({ error: true, message: "Không tìm thấy sách" });
-=======
       return res.json({ error: true, message: "No Books Found" });
->>>>>>> hai
     }
 
     const books = rows.map(mapBookRow);
     const totalBooks = books.length;
 
-<<<<<<< HEAD
-    res.status(200).json({ error: false, message: "Lấy danh sách sách thành công", books, totalBooks });
-=======
     res.status(200).json({ error: false, message: "Books fetched Successfully", books, totalBooks });
->>>>>>> hai
   } catch (error) {
     res.status(500).json({
       error: true,
@@ -307,11 +280,7 @@ booksController.getLatestBooks = async (req, res) => {
     );
 
     if (!rows || rows.length === 0) {
-<<<<<<< HEAD
-      return res.json({ error: true, message: "Không tìm thấy sách" });
-=======
       return res.json({ error: true, message: "No Books Found" });
->>>>>>> hai
     }
 
     const books = rows.map(mapBookRow);
@@ -329,11 +298,7 @@ booksController.getLatestBooks = async (req, res) => {
 
     res.status(200).json({
       error: false,
-<<<<<<< HEAD
-      message: "Lấy danh sách sách thành công",
-=======
       message: "Books fetched Successfully",
->>>>>>> hai
       books,
       totalBooks,
       totalCategories,
@@ -342,11 +307,7 @@ booksController.getLatestBooks = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       error: true,
-<<<<<<< HEAD
-      message: "Lỗi máy chủ",
-=======
       message: "Internal Server Error",
->>>>>>> hai
       details: error.message,
     });
   }
@@ -387,20 +348,12 @@ booksController.getParticularBook = async (req, res) => {
 
     const book = rows[0];
     if (!book) {
-<<<<<<< HEAD
-      return res.status(404).json({ error: true, message: "Không tìm thấy sách" });
-=======
       return res.status(404).json({ error: true, message: "Book not found" });
->>>>>>> hai
     }
 
     res.status(200).json(mapBookRow(book));
   } catch (error) {
-<<<<<<< HEAD
-    res.status(500).json({ error: true, message: "Lỗi máy chủ", details: error.message });
-=======
     res.status(500).json({ error: true, message: "Internal Server Error", details: error.message });
->>>>>>> hai
   }
 };
 
@@ -411,11 +364,7 @@ booksController.deleteBook = async (req, res) => {
     const book = rows[0];
 
     if (!book) {
-<<<<<<< HEAD
-      return res.status(404).json({ error: true, message: "Không tìm thấy sách" });
-=======
       return res.status(404).json({ error: true, message: "Book not found" });
->>>>>>> hai
     }
 
     await withTransaction(async (connection) => {
@@ -424,15 +373,9 @@ booksController.deleteBook = async (req, res) => {
     });
 
     clearCache("homeData");
-<<<<<<< HEAD
-    res.status(200).json({ error: false, message: "Xóa sách thành công" });
-  } catch (error) {
-    res.status(500).json({ error: true, message: "Lỗi máy chủ", details: error.message });
-=======
     res.status(200).json({ error: false, message: "Book deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: true, message: "Internal Server Error", details: error.message });
->>>>>>> hai
   }
 };
 
@@ -448,11 +391,7 @@ booksController.updateBook = async (req, res) => {
     const currentBook = rows[0];
 
     if (!currentBook) {
-<<<<<<< HEAD
-      return res.status(404).json({ error: true, message: "Không tìm thấy sách" });
-=======
       return res.status(404).json({ error: true, message: "Book not found" });
->>>>>>> hai
     }
 
     const categoryRow = category !== undefined && category !== null && String(category).trim() !== ""
@@ -494,17 +433,10 @@ booksController.updateBook = async (req, res) => {
 
 
     clearCache("homeData");
-<<<<<<< HEAD
-    res.status(200).json({ error: false, message: "Cập nhật sách thành công" });
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ error: true, message: "Lỗi máy chủ", details: error.message });
-=======
     res.status(200).json({ error: false, message: "Book updated successfully" });
   } catch (error) {
     console.log(error);
     res.status(500).json({ error: true, message: "Internal Server Error", details: error.message });
->>>>>>> hai
   }
 };
 

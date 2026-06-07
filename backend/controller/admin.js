@@ -10,28 +10,13 @@ adminController.login = async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-<<<<<<< HEAD
-      return res.status(400).json({ message: "Email và mật khẩu là bắt buộc" });
-=======
       return res.status(400).json({ message: "Email and password are required" });
->>>>>>> hai
     }
 
     const rows = await query("SELECT * FROM users WHERE email = ? LIMIT 1", [email]);
     const user = rows[0];
 
     if (!user) {
-<<<<<<< HEAD
-      return res.status(400).json({ message: "Email hoặc mật khẩu không hợp lệ" });
-    }
-
-    if (user.role !== "admin") {
-      return res.status(403).json({ message: "Truy cập bị từ chối. Chỉ dành cho quản trị viên." });
-    }
-
-    if (!user.password) {
-      return res.status(400).json({ message: "Email hoặc mật khẩu không hợp lệ" });
-=======
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
@@ -41,7 +26,6 @@ adminController.login = async (req, res) => {
 
     if (!user.password) {
       return res.status(400).json({ message: "Invalid email or password" });
->>>>>>> hai
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -57,23 +41,9 @@ adminController.login = async (req, res) => {
     };
 
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "24h" });
-<<<<<<< HEAD
-    const cookieOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 24 * 60 * 60 * 1000,
-      path: '/',
-    };
-    try { res.cookie('authToken', token, cookieOptions); } catch (e) {}
-    res.json({ message: "Đăng nhập thành công", token, user: { name: user.name, email: user.email, role: user.role } });
-  } catch (error) {
-    res.status(500).json({ message: "Lỗi máy chủ", error: error.message });
-=======
     res.json({ message: "Login successful", token, user: { name: user.name, email: user.email, role: user.role } });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
->>>>>>> hai
   }
 };
 
