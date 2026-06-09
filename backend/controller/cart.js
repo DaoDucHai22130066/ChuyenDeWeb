@@ -6,7 +6,7 @@ cartController.getCart = async (req, res) => {
   try {
     const userId = req.userInfo.id;
     const rows = await query(
-      `SELECT c.id AS cart_id, b.id AS book_id, b.title, b.author, b.cover_image, b.available_copies
+      `SELECT c.id AS cart_id, b.id AS book_id, b.title, b.author, b.cover_image, b.available_copies, b.price
        FROM carts c
        JOIN cart_items ci ON ci.cart_id = c.id
        JOIN books b ON b.id = ci.book_id
@@ -14,7 +14,14 @@ cartController.getCart = async (req, res) => {
       [userId]
     );
 
-    const items = rows.map((r) => ({ _id: r.book_id, title: r.title, author: r.author, coverImage: r.cover_image, availableCopies: r.available_copies }));
+    const items = rows.map((r) => ({
+      _id: r.book_id,
+      title: r.title,
+      author: r.author,
+      coverImage: r.cover_image,
+      availableCopies: r.available_copies,
+      price: r.price === null || r.price === undefined ? null : Number(r.price),
+    }));
     res.json({ error: false, cart: items });
   } catch (err) {
     console.error(err);

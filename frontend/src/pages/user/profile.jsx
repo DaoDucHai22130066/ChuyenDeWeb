@@ -15,10 +15,8 @@ import {
   FiX,
   FiCalendar,
   FiBook,
-  FiActivity,
-  FiStar
+  FiActivity
 } from "react-icons/fi";
-import { FaStar, FaRegStar } from "react-icons/fa";
 import { FaGraduationCap } from "react-icons/fa";
 
 const STATUS_VI = {

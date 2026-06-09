@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Server_URL } from "../../utils/config";
 import axios from "axios";
 import "./allcategories.css";

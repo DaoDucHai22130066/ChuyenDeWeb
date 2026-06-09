@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import "./adminnavbar.css";
@@ -7,7 +7,7 @@ export default function AdminNavbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const token = localStorage.getItem("authToken");
   const role = localStorage.getItem("role");
-  const { clearCart } = useCart();
+  const { clearLocalCart } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -15,8 +15,11 @@ export default function AdminNavbar() {
     localStorage.removeItem("authToken");
     localStorage.removeItem("role");
     try {
-      clearCart();
-    } catch (e) {}
+      clearLocalCart();
+      window.dispatchEvent(new Event('cart:auth-changed'));
+    } catch {
+      // Cart cleanup is best-effort during logout.
+    }
     navigate("/login");
   };
 

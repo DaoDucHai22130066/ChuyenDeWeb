@@ -12,6 +12,7 @@ import "./UpdatePassword.css";
 function ResetPassword() {
   const location = useLocation();
   const email = location.state?.email || "";
+  const resetToken = location.state?.resetToken || "";
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const {
@@ -30,11 +31,15 @@ function ResetPassword() {
 
   const onSubmit = async (data) => {
     try {
-      await axios.post(`${Server_URL}users/reset-password`, data);
+      await axios.post(`${Server_URL}users/reset-password`, {
+        email: data.email,
+        newPassword: data.newPassword,
+        resetToken,
+      });
       showSuccessToast("Đổi mật khẩu thành công. Vui lòng đăng nhập lại.");
       navigate("/login");
-    } catch {
-      showErrorToast("Không thể đổi mật khẩu. Vui lòng kiểm tra thông tin và thử lại.");
+    } catch (error) {
+      showErrorToast(error.response?.data?.message || "Không thể đổi mật khẩu. Vui lòng xác thực OTP lại.");
     }
   };
 

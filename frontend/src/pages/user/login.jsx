@@ -1,11 +1,18 @@
-import React, { useEffect } from "react";
-import GoogleIcon from "../../assets/google.svg";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import "./login.css";
 import { Server_URL } from "../../utils/config";
 import { showErrorToast, showSuccessToast } from "../../utils/toasthelper";
+
+const notifyCartAuthChanged = () => {
+  try {
+    window.dispatchEvent(new Event('cart:auth-changed'));
+  } catch {
+    // Auth sync event is best-effort.
+  }
+};
 
 export default function Login() {
   const { register, handleSubmit, formState: { errors } } = useForm();
@@ -18,15 +25,13 @@ export default function Login() {
 
       localStorage.setItem("authToken", response.data.token);
       localStorage.setItem("role", role);
+      notifyCartAuthChanged();
 
       if (role === "admin") {
         navigate("/admin");
       } else {
         navigate("/");
       }
-
-      // notify cart context to sync
-      try { window.dispatchEvent(new Event('cart:auth-changed')); } catch (e) {}
 
       showSuccessToast("Đăng nhập thành công!");
     } catch {
@@ -42,9 +47,10 @@ export default function Login() {
       const { role } = res.data.user;
       localStorage.setItem("authToken", res.data.token);
       localStorage.setItem("role", role);
+      notifyCartAuthChanged();
       if (role === "admin") navigate("/admin"); else navigate("/");
       showSuccessToast("Đăng nhập bằng Google thành công!");
-    } catch (err) {
+    } catch {
       showErrorToast("Đăng nhập bằng Google thất bại");
     }
   };
@@ -61,15 +67,6 @@ export default function Login() {
       );
     }
   }, []);
-
-  const handleGoogleClick = () => {
-    if (window.google) {
-      // Show one-tap / prompt to select account
-      window.google.accounts.id.prompt();
-    } else {
-      showErrorToast("Đăng nhập bằng Google không khả dụng");
-    }
-  };
 
   return (
     <div className="login-container">

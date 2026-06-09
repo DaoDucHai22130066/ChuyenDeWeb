@@ -15,7 +15,6 @@ const { sendDepositSuccessMail, sendApprovalSuccessMail, sendRenewalSuccessMail 
 
 const ticketController = {};
 
-const DEFAULT_DEPOSIT_PER_BOOK = Number(process.env.DEFAULT_DEPOSIT_PER_BOOK || 50000);
 const DEFAULT_SHIPPING_FEE = Number(process.env.DEFAULT_SHIPPING_FEE || 15000);
 const DEFAULT_BORROW_DAYS = Number(process.env.DEFAULT_BORROW_DAYS || 14);
 
@@ -24,7 +23,6 @@ const VALID_RECEIVE_METHODS = new Set(["delivery"]);
 const VALID_TICKET_ACTIONS = new Set([
   "confirm_cash",
   "approve",
-  "pickup",
   "dispatch",
   "deliver",
   "deliver_and_confirm_cash",
@@ -71,8 +69,8 @@ function formatPaymentRef(ticketId) {
 
 function calculateDepositAmount(bookRows) {
   return bookRows.reduce((total, book) => {
-    const price = book.price === null || book.price === undefined ? null : Number(book.price);
-    return total + (price && Number.isFinite(price) ? price : DEFAULT_DEPOSIT_PER_BOOK);
+    const price = Number(book.price);
+    return total + (Number.isFinite(price) && price > 0 ? price : 0);
   }, 0);
 }
 
@@ -225,10 +223,6 @@ ticketController.createTicket = async (req, res) => {
     const uniqueBookIds = [...new Set(books.map((bookId) => Number(bookId)))].filter((bookId) => Number.isInteger(bookId));
     if (uniqueBookIds.length === 0) {
       return res.status(400).json({ error: true, message: "Danh sách sách không hợp lệ." });
-    }
-
-    if (uniqueBookIds.length > 1) {
-      return res.status(400).json({ error: true, message: "Mỗi phiếu mượn chỉ được phép chứa tối đa 1 cuốn sách. Vui lòng gửi yêu cầu từng cuốn một." });
     }
 
     const normalizedPaymentMethod = normalizePaymentMethod(paymentMethod);
@@ -546,35 +540,14 @@ ticketController.updateTicketStatus = async (req, res) => {
           await updateTransactionStatus(connection, transaction.id, 'completed');
         }
 
-        const nextShippingStatus = currentShippingStatus === 'none' ? 'none' : 'delivered';
         await connection.query(
           `UPDATE borrow_tickets
-           SET status = 'delivered', shipping_status = ?, deposit_status = 'held'
-           WHERE id = ?`,
-          [nextShippingStatus, id]
-        );
-
-        triggerDepositMail = true;
-      }
-
-      if (nextAction === "pickup") {
-        // Nhận tại quầy: chỉ áp dụng khi shipping_status = 'none'
-        if (currentStatus !== "approved") {
-          const err = new Error("Chỉ xác nhận nhận tại quầy khi phiếu đã được phê duyệt");
-          err.statusCode = 400;
-          throw err;
-        }
-        if (currentShippingStatus !== "none") {
-          const err = new Error("Action 'pickup' chỉ áp dụng cho phiếu nhận tại quầy");
-          err.statusCode = 400;
-          throw err;
-        }
-        await connection.query(
-          `UPDATE borrow_tickets
-           SET status = 'delivered', shipping_status = 'none', updated_at = NOW()
+           SET status = 'delivered', shipping_status = 'delivered', deposit_status = 'held'
            WHERE id = ?`,
           [id]
         );
+
+        triggerDepositMail = true;
       }
 
       if (nextAction === "dispatch") {
@@ -595,12 +568,11 @@ ticketController.updateTicketStatus = async (req, res) => {
           throw new Error("Only approved or dispatched tickets can be delivered");
         }
 
-        const nextShippingStatus = currentShippingStatus === "none" ? "none" : "delivered";
         await connection.query(
           `UPDATE borrow_tickets
-           SET status = 'delivered', shipping_status = ?
+           SET status = 'delivered', shipping_status = 'delivered'
            WHERE id = ?`,
-          [nextShippingStatus, id]
+          [id]
         );
       }
 
@@ -611,8 +583,7 @@ ticketController.updateTicketStatus = async (req, res) => {
           throw err;
         }
 
-        // Nếu giao tận nơi: phải delivered trước mới được return
-        if (currentShippingStatus !== "none" && currentStatus !== "delivered") {
+        if (currentStatus !== "delivered") {
           const err = new Error("Phải xác nhận đã giao hàng trước khi trả sách");
           err.statusCode = 400;
           throw err;

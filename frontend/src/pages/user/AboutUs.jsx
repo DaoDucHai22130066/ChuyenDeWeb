@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { FiBook, FiUsers, FiHeart, FiMapPin } from 'react-icons/fi';
 import './about.css';

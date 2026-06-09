@@ -26,9 +26,9 @@ function VerifyOTP() {
 
   const onSubmit = async (data) => {
     try {
-      await axios.post(`${Server_URL}users/verify-otp`, data);
+      const response = await axios.post(`${Server_URL}users/verify-otp`, data);
       showSuccessToast("Xác thực mã OTP thành công.");
-      navigate("/resetpass", { state: { email: data.email } });
+      navigate("/resetpass", { state: { email: data.email, resetToken: response.data.resetToken } });
     } catch {
       showErrorToast("Mã OTP không đúng hoặc đã hết hạn. Vui lòng thử lại.");
     }

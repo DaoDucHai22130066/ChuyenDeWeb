@@ -1,4 +1,3 @@
-import React from "react";
 import { useForm } from "react-hook-form";
 import axios from "axios";
 import { FiMail, FiMapPin, FiClock, FiSend } from "react-icons/fi";
@@ -19,7 +18,7 @@ const ContactUs = () => {
       await axios.post(Server_URL + "users/contact", data);
       showSuccessToast("Tin nhắn đã được gửi! Chúng tôi sẽ phản hồi sớm.");
       reset();
-    } catch (error) {
+    } catch {
       showErrorToast("Không gửi được tin nhắn. Vui lòng thử lại sau.");
     }
   };

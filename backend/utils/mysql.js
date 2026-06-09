@@ -3,23 +3,37 @@ const bcrypt = require("bcryptjs");
 const path = require("path");
 require("dotenv").config({
   path: path.resolve(__dirname, "..", ".env"),
-  override: true,
 });
 
 const dbConfig = {
-  host: process.env.MYSQL_HOST || "localhost",
+  host: process.env.MYSQL_HOST || "127.0.0.1",
   port: Number(process.env.MYSQL_PORT || 3306),
   user: process.env.MYSQL_USER || "root",
   password: process.env.MYSQL_PASSWORD || "",
   database: process.env.MYSQL_DATABASE || "library_db",
   waitForConnections: true,
-  connectionLimit: 10,
+  connectionLimit: Number(process.env.MYSQL_CONNECTION_LIMIT || 10),
+  connectTimeout: Number(process.env.MYSQL_CONNECT_TIMEOUT || 10000),
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0,
   namedPlaceholders: false,
   timezone: "+00:00",
 };
 
 let pool;
 let initPromise;
+
+async function columnExists(connection, tableName, columnName) {
+  const [rows] = await connection.query("SHOW COLUMNS FROM ?? LIKE ?", [tableName, columnName]);
+  return rows.length > 0;
+}
+
+async function addColumnIfMissing(connection, tableName, columnName, definition) {
+  const exists = await columnExists(connection, tableName, columnName);
+  if (!exists) {
+    await connection.query(`ALTER TABLE ?? ADD COLUMN ${definition}`, [tableName]);
+  }
+}
 
 async function ensureDatabaseExists() {
   const connection = await mysql.createConnection({
@@ -46,6 +60,7 @@ async function createSchema(connection) {
       stream VARCHAR(255) NULL,
       year INT NULL,
       phone VARCHAR(20) NULL,
+      email_verified TINYINT(1) NOT NULL DEFAULT 1,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
@@ -172,21 +187,10 @@ async function createSchema(connection) {
   await ensureBorrowTicketSchema(connection);
 
 
-  async function columnExists(connection, tableName, columnName) {
-    const [rows] = await connection.query("SHOW COLUMNS FROM ?? LIKE ?", [tableName, columnName]);
-    return rows.length > 0;
-  }
-
-  async function addColumnIfMissing(connection, tableName, columnName, definition) {
-    const exists = await columnExists(connection, tableName, columnName);
-    if (!exists) {
-      await connection.query(`ALTER TABLE ?? ADD COLUMN ${definition}`, [tableName]);
-    }
-  }
-
   async function ensureBorrowTicketSchema(connection) {
     // Add missing columns (won't fail if they exist)
     await addColumnIfMissing(connection, "users", "phone", "phone VARCHAR(20) NULL");
+    await addColumnIfMissing(connection, "users", "email_verified", "email_verified TINYINT(1) NOT NULL DEFAULT 1");
     await addColumnIfMissing(connection, "borrow_tickets", "due_date", "due_date DATETIME NULL DEFAULT NULL");
     await addColumnIfMissing(connection, "borrow_tickets", "deposit_amount", "deposit_amount DECIMAL(10,2) NOT NULL DEFAULT 0");
     await addColumnIfMissing(connection, "borrow_tickets", "deposit_status", "deposit_status ENUM('none', 'pending', 'held', 'refunded', 'forfeited') NOT NULL DEFAULT 'none'");
@@ -278,9 +282,16 @@ async function createSchema(connection) {
       id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
       email VARCHAR(255) NOT NULL UNIQUE,
       otp VARCHAR(16) NOT NULL,
+      reset_token VARCHAR(128) NULL,
+      verified_at DATETIME NULL,
+      reset_token_expires DATETIME NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
+
+  await addColumnIfMissing(connection, "otps", "reset_token", "reset_token VARCHAR(128) NULL");
+  await addColumnIfMissing(connection, "otps", "verified_at", "verified_at DATETIME NULL");
+  await addColumnIfMissing(connection, "otps", "reset_token_expires", "reset_token_expires DATETIME NULL");
 
   await connection.query(`
     CREATE TABLE IF NOT EXISTS wishlists (
@@ -302,6 +313,7 @@ async function createSchema(connection) {
       ticket_id INT UNSIGNED NOT NULL,
       rating TINYINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
       comment TEXT,
+      admin_reply TEXT NULL,
       status ENUM('visible', 'hidden') DEFAULT 'visible',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -311,6 +323,8 @@ async function createSchema(connection) {
       CONSTRAINT fk_book_reviews_ticket FOREIGN KEY (ticket_id) REFERENCES borrow_tickets(id) ON DELETE CASCADE ON UPDATE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
+
+  await addColumnIfMissing(connection, "book_reviews", "admin_reply", "admin_reply TEXT NULL AFTER comment");
 }
 
 async function seedAdminUser(connection) {
@@ -393,6 +407,7 @@ function mapUserRow(row, includePassword = false) {
     stream: row.stream,
     year: row.year,
     phone: row.phone,
+    emailVerified: row.email_verified === undefined || row.email_verified === null ? true : Boolean(row.email_verified),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

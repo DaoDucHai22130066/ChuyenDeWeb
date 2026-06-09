@@ -8,14 +8,14 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const generateOtpEmailTemplate = (otp) => {
+const generateOtpEmailTemplate = (otp, title = "Mã xác thực (OTP) đặt lại mật khẩu", note = "Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.") => {
   return `
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 12px; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
       <div style="text-align: center; margin-bottom: 25px; border-bottom: 2px solid #f0f0f0; padding-bottom: 15px;">
         <h1 style="color: #2e7d32; margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 1px;">THƯ VIỆN SỐ</h1>
       </div>
       <div style="background-color: #f4fcf5; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid #4CAF50; text-align: center;">
-        <h2 style="color: #2e7d32; margin-top: 0; font-size: 18px;">Mã xác thực (OTP) đặt lại mật khẩu</h2>
+        <h2 style="color: #2e7d32; margin-top: 0; font-size: 18px;">${title}</h2>
         <div style="color: #444; line-height: 1.6; font-size: 15px; margin-top: 15px;">
           <p>Mã OTP của bạn là:</p>
           <div style="font-size: 32px; font-weight: bold; color: #4CAF50; letter-spacing: 5px; margin: 20px 0;">${otp}</div>
@@ -23,7 +23,7 @@ const generateOtpEmailTemplate = (otp) => {
         </div>
       </div>
       <div style="text-align: center; margin-top: 35px; padding-top: 20px; border-top: 1px solid #eaeaea; color: #999; font-size: 12px; line-height: 1.5;">
-        <p style="margin: 5px 0;">Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.</p>
+        <p style="margin: 5px 0;">${note}</p>
         <p style="margin: 5px 0;">Đây là email tự động, vui lòng không trả lời qua email này.</p>
         <p style="margin: 5px 0;">&copy; ${new Date().getFullYear()} Hệ thống Thư Viện Số. All rights reserved.</p>
       </div>
@@ -42,6 +42,24 @@ const sendOtpMail = async (email, otp) => {
     console.log(`Sent OTP email to ${email}`);
   } catch (error) {
     console.error("Error sending OTP mail:", error);
+  }
+};
+
+const sendRegistrationOtpMail = async (email, otp) => {
+  try {
+    await transporter.sendMail({
+      from: `"Thư Viện Số" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: "[Thư Viện] Mã xác nhận đăng ký tài khoản",
+      html: generateOtpEmailTemplate(
+        otp,
+        "Mã xác nhận đăng ký tài khoản",
+        "Nếu bạn không đăng ký tài khoản, vui lòng bỏ qua email này."
+      ),
+    });
+    console.log(`Sent registration OTP email to ${email}`);
+  } catch (error) {
+    console.error("Error sending registration OTP mail:", error);
   }
 };
 
@@ -121,7 +139,7 @@ const generateEmailTemplate = (title, content, ticket) => {
           ` : ''}
           <tr>
             <td><strong>Phương thức nhận:</strong></td>
-            <td>${ticket.shippingAddress ? '<span style="color: #1976d2; font-weight: bold;">Giao tận nơi</span>' : '<span style="color: #388e3c; font-weight: bold;">Nhận tại quầy</span>'}</td>
+            <td><span style="color: #1976d2; font-weight: bold;">Giao tận nơi</span></td>
           </tr>
           ${ticket.shippingAddress ? `
           <tr>
@@ -309,4 +327,4 @@ const sendRenewalSuccessMail = async (ticket, oldDueDate, newDueDate) => {
   }
 };
 
-module.exports = { transporter, sendDepositSuccessMail, sendApprovalSuccessMail, sendOtpMail, sendContactNotification, sendRenewalSuccessMail };
+module.exports = { transporter, sendDepositSuccessMail, sendApprovalSuccessMail, sendOtpMail, sendRegistrationOtpMail, sendContactNotification, sendRenewalSuccessMail };
