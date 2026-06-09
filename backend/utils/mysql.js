@@ -426,6 +426,7 @@ function mapCategoryRow(row) {
   return {
     _id: row.id,
     name: row.name,
+    bookCount: row.book_count === undefined || row.book_count === null ? 0 : Number(row.book_count),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

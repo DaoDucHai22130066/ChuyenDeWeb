@@ -25,7 +25,9 @@ import {
   FiLock,
   FiUnlock,
   FiSearch,
-  FiFilter
+  FiFilter,
+  FiTag,
+  FiPlus
 } from "react-icons/fi";
 
 const STATUS_VI = {
@@ -124,6 +126,12 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const [userForm, setUserForm] = useState(emptyUserForm);
   const [isUserSaving, setIsUserSaving] = useState(false);
   const [books, setBooks] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [categorySearch, setCategorySearch] = useState("");
+  const [categoryName, setCategoryName] = useState("");
+  const [editingCategoryId, setEditingCategoryId] = useState(null);
+  const [editingCategoryName, setEditingCategoryName] = useState("");
+  const [isCategorySaving, setIsCategorySaving] = useState(false);
   const [tickets, setTickets] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [ticketFilter, setTicketFilter] = useState("all");
@@ -156,6 +164,13 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
       return matchesSearch && matchesRole && matchesStatus;
     });
   }, [users, userSearch, userRoleFilter, userStatusFilter]);
+  const filteredCategories = useMemo(() => {
+    const searchTerm = categorySearch.trim().toLowerCase();
+
+    return categories.filter((category) =>
+      !searchTerm || category.name?.toLowerCase().includes(searchTerm)
+    );
+  }, [categories, categorySearch]);
   const totalBooks = books.length;
   const totalTickets = tickets.length;
   const pendingTickets = tickets.filter((ticket) => ticket.status === "pending" || ticket.status === "awaiting_payment").length;
@@ -314,6 +329,113 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
     }
   };
 
+  const sortCategoriesByName = (items) =>
+    [...items].sort((a, b) => (a.name || "").localeCompare(b.name || "", "vi"));
+
+  const fetchCategories = async () => {
+    try {
+      const result = await axios.get(`${Server_URL}categories`);
+      setCategories(sortCategoriesByName(result.data.categories || []));
+    } catch (error) {
+      console.error("Lỗi tải danh mục:", error);
+    }
+  };
+
+  const replaceCategoryInList = (updatedCategory) => {
+    setCategories((prev) =>
+      sortCategoriesByName(prev.map((category) =>
+        category._id === updatedCategory._id ? updatedCategory : category
+      ))
+    );
+  };
+
+  const handleCreateCategory = async (event) => {
+    event.preventDefault();
+    const name = categoryName.trim();
+
+    if (!name) {
+      showErrorToast("Vui lòng nhập tên danh mục");
+      return;
+    }
+
+    try {
+      setIsCategorySaving(true);
+      const response = await axios.post(
+        `${Server_URL}categories`,
+        { name },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setCategories((prev) => sortCategoriesByName([...prev, response.data.category]));
+      setCategoryName("");
+      showSuccessToast("Đã thêm danh mục");
+    } catch (error) {
+      showErrorToast(getAxiosErrorMessage(error, "Không thể thêm danh mục"));
+    } finally {
+      setIsCategorySaving(false);
+    }
+  };
+
+  const startEditCategory = (category) => {
+    setEditingCategoryId(category._id);
+    setEditingCategoryName(category.name || "");
+  };
+
+  const cancelEditCategory = () => {
+    setEditingCategoryId(null);
+    setEditingCategoryName("");
+  };
+
+  const handleUpdateCategory = async (category) => {
+    const name = editingCategoryName.trim();
+
+    if (!name) {
+      showErrorToast("Vui lòng nhập tên danh mục");
+      return;
+    }
+
+    try {
+      setIsCategorySaving(true);
+      const response = await axios.put(
+        `${Server_URL}categories/${category._id}`,
+        { name },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      replaceCategoryInList(response.data.category);
+      cancelEditCategory();
+      fetchBooks();
+      showSuccessToast("Đã cập nhật danh mục");
+    } catch (error) {
+      showErrorToast(getAxiosErrorMessage(error, "Không thể cập nhật danh mục"));
+    } finally {
+      setIsCategorySaving(false);
+    }
+  };
+
+  const handleDeleteCategory = async (category) => {
+    const bookCount = Number(category.bookCount || 0);
+    const detail = bookCount > 0
+      ? ` ${bookCount} sách thuộc danh mục này sẽ chuyển sang "Chưa phân loại".`
+      : "";
+
+    if (!window.confirm(`Xóa danh mục "${category.name}"?${detail}`)) {
+      return;
+    }
+
+    try {
+      await axios.delete(`${Server_URL}categories/${category._id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCategories((prev) => prev.filter((item) => item._id !== category._id));
+      if (editingCategoryId === category._id) {
+        cancelEditCategory();
+      }
+      fetchBooks();
+      showSuccessToast("Đã xóa danh mục");
+    } catch (error) {
+      showErrorToast(getAxiosErrorMessage(error, "Không thể xóa danh mục"));
+    }
+  };
+
   const fetchBooks = async () => {
     try {
       const result = await axios.get(`${Server_URL}books`);
@@ -461,6 +583,7 @@ const handleSendReply = async (reviewId) => {
 
   useEffect(() => {
     fetchUsers();
+    fetchCategories();
     fetchBooks();
     fetchTickets();
     fetchReviews();
@@ -514,6 +637,14 @@ const handleSendReply = async (reviewId) => {
                 onClick={() => setSelectedSection("books")}
               >
                 <FiBook /> Kho sách
+              </button>
+            </li>
+            <li className="admin-nav-item">
+              <button
+                className={`admin-nav-btn ${selectedSection === "categories" ? "active" : ""}`}
+                onClick={() => setSelectedSection("categories")}
+              >
+                <FiTag /> Danh mục
               </button>
             </li>
             <li className="admin-nav-item">
@@ -1099,6 +1230,153 @@ const handleSendReply = async (reviewId) => {
                   </form>
                 </div>
               )}
+            </>
+          )}
+
+          {selectedSection === "categories" && (
+            <>
+              <h2 className="admin-section-title">Quản lý danh mục</h2>
+
+              <div className="category-management-grid">
+                <form className="category-form-card" onSubmit={handleCreateCategory}>
+                  <div className="category-form-icon">
+                    <FiTag />
+                  </div>
+                  <div className="category-form-body">
+                    <label htmlFor="categoryName">Tên danh mục mới</label>
+                    <div className="category-input-row">
+                      <input
+                        id="categoryName"
+                        value={categoryName}
+                        onChange={(event) => setCategoryName(event.target.value)}
+                        placeholder="Ví dụ: Khoa học dữ liệu"
+                        maxLength="255"
+                      />
+                      <button type="submit" className="btn btn-success" disabled={isCategorySaving}>
+                        <FiPlus /> Thêm
+                      </button>
+                    </div>
+                  </div>
+                </form>
+
+                <div className="category-summary-card">
+                  <span>Tổng danh mục</span>
+                  <strong>{categories.length}</strong>
+                  <small>{categories.reduce((total, category) => total + Number(category.bookCount || 0), 0)} sách đã phân loại</small>
+                </div>
+              </div>
+
+              <div className="user-management-toolbar category-toolbar">
+                <div className="user-search-box">
+                  <FiSearch />
+                  <input
+                    type="search"
+                    value={categorySearch}
+                    onChange={(event) => setCategorySearch(event.target.value)}
+                    placeholder="Tìm danh mục..."
+                  />
+                </div>
+                <div className="user-result-count">
+                  {filteredCategories.length}/{categories.length} danh mục
+                </div>
+              </div>
+
+              <div className="admin-table-container">
+                <table className="admin-table category-management-table">
+                  <thead>
+                    <tr>
+                      <th>STT</th>
+                      <th>Tên danh mục</th>
+                      <th>Số sách</th>
+                      <th>Ngày tạo</th>
+                      <th>Cập nhật</th>
+                      <th>Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredCategories.length > 0 ? (
+                      filteredCategories.map((category, index) => {
+                        const isEditing = editingCategoryId === category._id;
+
+                        return (
+                          <tr key={category._id || index}>
+                            <td>{index + 1}</td>
+                            <td>
+                              {isEditing ? (
+                                <input
+                                  className="category-inline-input"
+                                  value={editingCategoryName}
+                                  onChange={(event) => setEditingCategoryName(event.target.value)}
+                                  autoFocus
+                                  maxLength="255"
+                                />
+                              ) : (
+                                <div className="admin-category-cell">
+                                  <FiTag />
+                                  <strong>{category.name}</strong>
+                                </div>
+                              )}
+                            </td>
+                            <td>
+                              <span className="status-badge returned">
+                                {Number(category.bookCount || 0)} cuốn
+                              </span>
+                            </td>
+                            <td>{category.createdAt ? new Date(category.createdAt).toLocaleDateString("vi-VN") : "—"}</td>
+                            <td>{category.updatedAt ? new Date(category.updatedAt).toLocaleDateString("vi-VN") : "—"}</td>
+                            <td>
+                              <div className="admin-user-actions">
+                                {isEditing ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-success"
+                                      onClick={() => handleUpdateCategory(category)}
+                                      disabled={isCategorySaving}
+                                    >
+                                      <FiCheck /> Lưu
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-outline-danger"
+                                      onClick={cancelEditCategory}
+                                    >
+                                      <FiX /> Hủy
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-outline-primary"
+                                      onClick={() => startEditCategory(category)}
+                                    >
+                                      <FiEdit2 /> Sửa
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-outline-danger"
+                                      onClick={() => handleDeleteCategory(category)}
+                                    >
+                                      <FiTrash2 /> Xóa
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td className="empty-users-cell" colSpan="6">
+                          Không tìm thấy danh mục phù hợp.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </>
           )}
 
