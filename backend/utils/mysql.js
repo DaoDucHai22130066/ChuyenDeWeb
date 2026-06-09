@@ -61,6 +61,7 @@ async function createSchema(connection) {
       year INT NULL,
       phone VARCHAR(20) NULL,
       email_verified TINYINT(1) NOT NULL DEFAULT 1,
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
@@ -191,6 +192,7 @@ async function createSchema(connection) {
     // Add missing columns (won't fail if they exist)
     await addColumnIfMissing(connection, "users", "phone", "phone VARCHAR(20) NULL");
     await addColumnIfMissing(connection, "users", "email_verified", "email_verified TINYINT(1) NOT NULL DEFAULT 1");
+    await addColumnIfMissing(connection, "users", "is_active", "is_active TINYINT(1) NOT NULL DEFAULT 1 AFTER email_verified");
     await addColumnIfMissing(connection, "borrow_tickets", "due_date", "due_date DATETIME NULL DEFAULT NULL");
     await addColumnIfMissing(connection, "borrow_tickets", "deposit_amount", "deposit_amount DECIMAL(10,2) NOT NULL DEFAULT 0");
     await addColumnIfMissing(connection, "borrow_tickets", "deposit_status", "deposit_status ENUM('none', 'pending', 'held', 'refunded', 'forfeited') NOT NULL DEFAULT 'none'");
@@ -408,6 +410,7 @@ function mapUserRow(row, includePassword = false) {
     year: row.year,
     phone: row.phone,
     emailVerified: row.email_verified === undefined || row.email_verified === null ? true : Boolean(row.email_verified),
+    isActive: row.is_active === undefined || row.is_active === null ? true : Boolean(row.is_active),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

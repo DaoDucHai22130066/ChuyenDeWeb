@@ -19,7 +19,13 @@ import {
   FiDollarSign,
   FiEye,
   FiChevronDown,
-  FiChevronUp
+  FiChevronUp,
+  FiEdit2,
+  FiTrash2,
+  FiLock,
+  FiUnlock,
+  FiSearch,
+  FiFilter
 } from "react-icons/fi";
 
 const STATUS_VI = {
@@ -81,9 +87,42 @@ const ACTION_SUCCESS_VI = {
   cancel: "Đã hủy phiếu mượn.",
 };
 
+const USER_ROLE_LABEL = {
+  admin: "Thủ thư",
+  user: "Độc giả",
+};
+
+const USER_STATUS_FILTERS = [
+  { value: "all", label: "Tất cả trạng thái" },
+  { value: "active", label: "Đang hoạt động" },
+  { value: "locked", label: "Đã khóa" },
+  { value: "unverified", label: "Chưa xác thực email" },
+];
+
+const USER_ROLE_FILTERS = [
+  { value: "all", label: "Tất cả vai trò" },
+  { value: "user", label: "Độc giả" },
+  { value: "admin", label: "Thủ thư" },
+];
+
+const emptyUserForm = {
+  name: "",
+  email: "",
+  role: "user",
+  stream: "",
+  year: "",
+  phone: "",
+};
+
 const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const [selectedSection, setSelectedSection] = useState(initialSection);
   const [users, setUsers] = useState([]);
+  const [userSearch, setUserSearch] = useState("");
+  const [userRoleFilter, setUserRoleFilter] = useState("all");
+  const [userStatusFilter, setUserStatusFilter] = useState("all");
+  const [editingUser, setEditingUser] = useState(null);
+  const [userForm, setUserForm] = useState(emptyUserForm);
+  const [isUserSaving, setIsUserSaving] = useState(false);
   const [books, setBooks] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [reviews, setReviews] = useState([]);
@@ -96,6 +135,27 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const getCategoryLabel = (book) => book.categoryId?.name || book.category || "Chưa phân loại";
 
   const totalUsers = useMemo(() => users.filter((user) => user.role === "user").length, [users]);
+  const filteredUsers = useMemo(() => {
+    const searchTerm = userSearch.trim().toLowerCase();
+
+    return users.filter((user) => {
+      const matchesSearch = !searchTerm || [
+        user.name,
+        user.email,
+        user.stream,
+        user.phone,
+        user.year,
+      ].some((value) => String(value || "").toLowerCase().includes(searchTerm));
+      const matchesRole = userRoleFilter === "all" || user.role === userRoleFilter;
+      const matchesStatus =
+        userStatusFilter === "all" ||
+        (userStatusFilter === "active" && user.isActive !== false) ||
+        (userStatusFilter === "locked" && user.isActive === false) ||
+        (userStatusFilter === "unverified" && !user.emailVerified);
+
+      return matchesSearch && matchesRole && matchesStatus;
+    });
+  }, [users, userSearch, userRoleFilter, userStatusFilter]);
   const totalBooks = books.length;
   const totalTickets = tickets.length;
   const pendingTickets = tickets.filter((ticket) => ticket.status === "pending" || ticket.status === "awaiting_payment").length;
@@ -150,12 +210,107 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
 
   const fetchUsers = async () => {
     try {
-      const result = await axios.get(`${Server_URL}users`, {
+      const result = await axios.get(`${Server_URL}admin/users`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setUsers(result.data.user || []);
+      setUsers(result.data.users || result.data.user || []);
     } catch (error) {
       console.error("Lỗi tải danh sách người dùng:", error);
+    }
+  };
+
+  const getUserRoleLabel = (role) => USER_ROLE_LABEL[role] || "Chưa cập nhật";
+  const getUserStatusLabel = (user) => (user?.isActive === false ? "Đã khóa" : "Đang hoạt động");
+  const getAxiosErrorMessage = (error, fallback) => error?.response?.data?.message || fallback;
+
+  const openUserEditor = (user) => {
+    setEditingUser(user);
+    setUserForm({
+      name: user.name || "",
+      email: user.email || "",
+      role: user.role || "user",
+      stream: user.stream || "",
+      year: user.year || "",
+      phone: user.phone || "",
+    });
+  };
+
+  const closeUserEditor = () => {
+    setEditingUser(null);
+    setUserForm(emptyUserForm);
+    setIsUserSaving(false);
+  };
+
+  const handleUserFormChange = (event) => {
+    const { name, value } = event.target;
+    setUserForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const replaceUserInList = (updatedUser) => {
+    setUsers((prev) => prev.map((user) => (user._id === updatedUser._id ? updatedUser : user)));
+  };
+
+  const handleUpdateUser = async (event) => {
+    event.preventDefault();
+    if (!editingUser) return;
+
+    const payload = {
+      name: userForm.name.trim(),
+      email: userForm.email.trim(),
+      role: userForm.role,
+      stream: userForm.role === "user" ? userForm.stream.trim() || null : null,
+      year: userForm.role === "user" && userForm.year !== "" ? Number(userForm.year) : null,
+      phone: userForm.phone.trim() || null,
+    };
+
+    try {
+      setIsUserSaving(true);
+      const response = await axios.put(`${Server_URL}admin/users/${editingUser._id}`, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      replaceUserInList(response.data.user);
+      showSuccessToast("Đã cập nhật người dùng");
+      closeUserEditor();
+    } catch (error) {
+      showErrorToast(getAxiosErrorMessage(error, "Không thể cập nhật người dùng"));
+      setIsUserSaving(false);
+    }
+  };
+
+  const handleToggleUserStatus = async (user) => {
+    const nextActive = user.isActive === false;
+    const actionLabel = nextActive ? "mở khóa" : "khóa";
+
+    if (!window.confirm(`Bạn có chắc muốn ${actionLabel} tài khoản ${user.email}?`)) {
+      return;
+    }
+
+    try {
+      const response = await axios.patch(
+        `${Server_URL}admin/users/${user._id}/status`,
+        { isActive: nextActive },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      replaceUserInList(response.data.user);
+      showSuccessToast(response.data.message || `Đã ${actionLabel} tài khoản`);
+    } catch (error) {
+      showErrorToast(getAxiosErrorMessage(error, "Không thể cập nhật trạng thái tài khoản"));
+    }
+  };
+
+  const handleDeleteUser = async (user) => {
+    if (!window.confirm(`Xóa người dùng ${user.email}? Thao tác này không thể hoàn tác.`)) {
+      return;
+    }
+
+    try {
+      await axios.delete(`${Server_URL}admin/users/${user._id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setUsers((prev) => prev.filter((item) => item._id !== user._id));
+      showSuccessToast("Đã xóa người dùng");
+    } catch (error) {
+      showErrorToast(getAxiosErrorMessage(error, "Không thể xóa người dùng"));
     }
   };
 
@@ -733,33 +888,217 @@ const handleSendReply = async (reviewId) => {
 
           {selectedSection === "users" && (
             <>
-              <h2 className="admin-section-title">Quản lý Độc giả</h2>
-              <div className="admin-table-container">
-                <table className="admin-table">
+              <h2 className="admin-section-title">Quản lý người dùng</h2>
+
+              <div className="user-management-toolbar">
+                <div className="user-search-box">
+                  <FiSearch />
+                  <input
+                    type="search"
+                    value={userSearch}
+                    onChange={(event) => setUserSearch(event.target.value)}
+                    placeholder="Tìm theo tên, email, ngành, SĐT..."
+                  />
+                </div>
+
+                <div className="user-filter-group">
+                  <FiFilter />
+                  <select
+                    value={userRoleFilter}
+                    onChange={(event) => setUserRoleFilter(event.target.value)}
+                  >
+                    {USER_ROLE_FILTERS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={userStatusFilter}
+                    onChange={(event) => setUserStatusFilter(event.target.value)}
+                  >
+                    {USER_STATUS_FILTERS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="user-result-count">
+                  {filteredUsers.length}/{users.length} người dùng
+                </div>
+              </div>
+
+              <div className="admin-table-container user-table-container">
+                <table className="admin-table user-management-table">
                   <thead>
                     <tr>
                       <th>STT</th>
-                      <th>Họ và tên</th>
-                      <th>Địa chỉ email</th>
+                      <th>Người dùng</th>
                       <th>Vai trò</th>
+                      <th>Ngành</th>
+                      <th>Năm</th>
+                      <th>SĐT</th>
+                      <th>Tài khoản</th>
+                      <th>Ngày tạo</th>
+                      <th>Thao tác</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map((user, index) => (
-                      <tr key={user._id || index}>
-                        <td>{index + 1}</td>
-                        <td>{user.name}</td>
-                        <td>{user.email}</td>
-                        <td>
-                          <span className={`status-badge ${user.role === 'admin' ? 'rejected' : 'approved'}`}>
-                            {user.role === 'admin' ? 'Thủ thư' : 'Độc giả'}
-                          </span>
+                    {filteredUsers.length > 0 ? (
+                      filteredUsers.map((user, index) => (
+                        <tr key={user._id || index}>
+                          <td>{index + 1}</td>
+                          <td>
+                            <div className="admin-user-cell">
+                              <strong>{user.name}</strong>
+                              <span>{user.email}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <span className={`status-badge ${user.role === "admin" ? "approved" : "returned"}`}>
+                              {getUserRoleLabel(user.role)}
+                            </span>
+                          </td>
+                          <td>{user.stream || "—"}</td>
+                          <td>{user.year || "—"}</td>
+                          <td>{user.phone || "—"}</td>
+                          <td>
+                            <div className="admin-user-status-stack">
+                              <span className={`status-badge ${user.isActive === false ? "cancelled" : "closed"}`}>
+                                {getUserStatusLabel(user)}
+                              </span>
+                              {!user.emailVerified && (
+                                <span className="email-warning-badge">Chưa xác thực</span>
+                              )}
+                            </div>
+                          </td>
+                          <td>{user.createdAt ? new Date(user.createdAt).toLocaleDateString("vi-VN") : "—"}</td>
+                          <td>
+                            <div className="admin-user-actions">
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-primary"
+                                onClick={() => openUserEditor(user)}
+                              >
+                                <FiEdit2 /> Sửa
+                              </button>
+                              <button
+                                type="button"
+                                className={`btn btn-sm ${user.isActive === false ? "btn-outline-success" : "btn-outline-danger"}`}
+                                onClick={() => handleToggleUserStatus(user)}
+                              >
+                                {user.isActive === false ? <FiUnlock /> : <FiLock />}
+                                {user.isActive === false ? "Mở" : "Khóa"}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-danger"
+                                onClick={() => handleDeleteUser(user)}
+                              >
+                                <FiTrash2 /> Xóa
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td className="empty-users-cell" colSpan="9">
+                          Không tìm thấy người dùng phù hợp.
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
+
+              {editingUser && (
+                <div className="admin-modal-backdrop" role="dialog" aria-modal="true">
+                  <form className="admin-user-modal" onSubmit={handleUpdateUser}>
+                    <div className="admin-user-modal-header">
+                      <h3>Sửa người dùng</h3>
+                      <button type="button" className="modal-close-btn" onClick={closeUserEditor}>
+                        <FiX />
+                      </button>
+                    </div>
+
+                    <div className="admin-user-form-grid">
+                      <label>
+                        <span>Họ và tên</span>
+                        <input
+                          name="name"
+                          value={userForm.name}
+                          onChange={handleUserFormChange}
+                          required
+                        />
+                      </label>
+
+                      <label>
+                        <span>Email</span>
+                        <input
+                          name="email"
+                          type="email"
+                          value={userForm.email}
+                          onChange={handleUserFormChange}
+                          required
+                        />
+                      </label>
+
+                      <label>
+                        <span>Vai trò</span>
+                        <select name="role" value={userForm.role} onChange={handleUserFormChange}>
+                          <option value="user">Độc giả</option>
+                          <option value="admin">Thủ thư</option>
+                        </select>
+                      </label>
+
+                      <label>
+                        <span>SĐT</span>
+                        <input
+                          name="phone"
+                          value={userForm.phone}
+                          onChange={handleUserFormChange}
+                          placeholder="Chưa cập nhật"
+                        />
+                      </label>
+
+                      <label>
+                        <span>Ngành</span>
+                        <input
+                          name="stream"
+                          value={userForm.stream}
+                          onChange={handleUserFormChange}
+                          disabled={userForm.role === "admin"}
+                        />
+                      </label>
+
+                      <label>
+                        <span>Năm học</span>
+                        <input
+                          name="year"
+                          type="number"
+                          min="1"
+                          max="10"
+                          value={userForm.year}
+                          onChange={handleUserFormChange}
+                          disabled={userForm.role === "admin"}
+                        />
+                      </label>
+                    </div>
+
+                    <div className="admin-user-modal-actions">
+                      <button type="button" className="btn btn-outline-danger" onClick={closeUserEditor}>
+                        Hủy
+                      </button>
+                      <button type="submit" className="btn btn-success" disabled={isUserSaving}>
+                        {isUserSaving ? "Đang lưu..." : "Lưu thay đổi"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
             </>
           )}
 

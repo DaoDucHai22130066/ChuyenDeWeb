@@ -93,6 +93,10 @@ userController.login = async (req, res) => {
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
+    if (Number(user.is_active) === 0) {
+      return res.status(403).json({ message: "Tài khoản đã bị khóa. Vui lòng liên hệ thủ thư." });
+    }
+
     if (!user.password) {
       return res.status(400).json({ message: "Use Google login for this account" });
     }
@@ -124,7 +128,7 @@ userController.login = async (req, res) => {
 userController.getUsers = async (req, res) => {
   try {
     const rows = await query(
-      `SELECT id, name, email, role, stream, year, phone, email_verified, created_at, updated_at
+      `SELECT id, name, email, role, stream, year, phone, email_verified, is_active, created_at, updated_at
        FROM users
        ORDER BY id DESC`
     );
@@ -141,7 +145,7 @@ userController.profile = async (req, res) => {
   try {
     const { id } = req.userInfo;
     const rows = await query(
-      `SELECT id, name, email, role, stream, year, phone, email_verified, created_at, updated_at
+      `SELECT id, name, email, role, stream, year, phone, email_verified, is_active, created_at, updated_at
        FROM users
        WHERE id = ?
        LIMIT 1`,
@@ -386,6 +390,10 @@ userController.googleLogin = async (req, res) => {
       user = rows[0];
     }
 
+    if (Number(user.is_active) === 0) {
+      return res.status(403).json({ message: "Tài khoản đã bị khóa. Vui lòng liên hệ thủ thư." });
+    }
+
     const tokenPayload = buildUserPayload(user);
     const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: "24h" });
     res.json({
@@ -416,7 +424,7 @@ userController.updateProfile = async (req, res) => {
     );
 
     const rows = await query(
-      `SELECT id, name, email, role, stream, year, phone, email_verified, created_at, updated_at
+      `SELECT id, name, email, role, stream, year, phone, email_verified, is_active, created_at, updated_at
        FROM users
        WHERE id = ?
        LIMIT 1`,
