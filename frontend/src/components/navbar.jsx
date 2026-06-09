@@ -7,15 +7,15 @@ import "./navbar.css";
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const token = localStorage.getItem("authToken");
-  const { cartCount, clearCart } = useCart();
+  const { cartCount, clearLocalCart } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
 
   const handleLogout = () => {
     localStorage.removeItem("authToken");
     localStorage.removeItem("role");
-    // clear client cart UI now; server cart remains for reload on next login
-    clearCart();
+    clearLocalCart();
+    window.dispatchEvent(new Event('cart:auth-changed'));
     navigate("/login");
   };
 

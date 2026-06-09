@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { Server_URL } from "../utils/config";
 import { getAuthToken } from "../utils/auth";
@@ -7,10 +7,36 @@ const CART_STORAGE_KEY = "borrowCart";
 
 const CartContext = createContext(null);
 
+const getBookId = (book) => {
+  const rawId = book?._id ?? book?.id ?? book?.bookId;
+  const numericId = Number(rawId);
+  return Number.isInteger(numericId) && numericId > 0 ? numericId : null;
+};
+
+const normalizeCartItem = (book) => {
+  const id = getBookId(book);
+  return id ? { ...book, _id: id } : null;
+};
+
+const mergeCartItems = (primary = [], secondary = []) => {
+  const merged = [];
+  const seen = new Set();
+
+  for (const item of [...primary, ...secondary]) {
+    const normalized = normalizeCartItem(item);
+    if (!normalized || seen.has(normalized._id)) continue;
+    seen.add(normalized._id);
+    merged.push(normalized);
+  }
+
+  return merged;
+};
+
 const readCart = () => {
   try {
     const raw = localStorage.getItem(CART_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? mergeCartItems(parsed) : [];
   } catch {
     return [];
   }
@@ -22,7 +48,7 @@ const fetchServerCart = async () => {
     if (!token) return null;
     const res = await axios.get(`${Server_URL}cart/`, { headers: { Authorization: `Bearer ${token}` } });
     if (!res.data || res.data.error) return [];
-    return res.data.cart || [];
+    return mergeCartItems(res.data.cart || []);
   } catch {
     return null;
   }
@@ -32,7 +58,7 @@ const saveServerCart = async (items) => {
   try {
     const token = getAuthToken();
     if (!token) return;
-    const bookIds = items.map((i) => i._id);
+    const bookIds = [...new Set(items.map(getBookId).filter(Boolean))];
     await axios.post(`${Server_URL}cart/save`, { bookIds }, { headers: { Authorization: `Bearer ${token}` } });
   } catch {
     // ignore network errors silently
@@ -41,32 +67,35 @@ const saveServerCart = async (items) => {
 
 export function CartProvider({ children }) {
   const [cartItems, setCartItems] = useState(() => readCart());
+  const serverSyncReadyRef = useRef(!getAuthToken());
 
   useEffect(() => {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
-    // If user logged in, persist to server
     const token = getAuthToken();
-    if (token) {
+    if (token && serverSyncReadyRef.current) {
       saveServerCart(cartItems);
     }
   }, [cartItems]);
 
-  // On mount, if user logged in, try to load server cart and merge
   useEffect(() => {
     const handler = async () => {
       const token = getAuthToken();
-      if (!token) return;
+      if (!token) {
+        serverSyncReadyRef.current = false;
+        return;
+      }
+
+      serverSyncReadyRef.current = false;
       const serverCart = await fetchServerCart();
-      if (serverCart === null) return;
+      if (serverCart === null) {
+        serverSyncReadyRef.current = true;
+        return;
+      }
 
       setCartItems((local) => {
-        const merged = [...serverCart];
-        for (const item of local) {
-          if (!merged.some((m) => m._id === item._id)) merged.push(item);
-        }
-        saveServerCart(merged);
-        return merged;
+        return mergeCartItems(serverCart, local);
       });
+      serverSyncReadyRef.current = true;
     };
 
     window.addEventListener('cart:auth-changed', handler);
@@ -78,19 +107,26 @@ export function CartProvider({ children }) {
   const value = useMemo(() => {
     const addToCart = (book) => {
       setCartItems((current) => {
-        if (current.some((item) => item._id === book._id)) {
+        const normalized = normalizeCartItem(book);
+        if (!normalized || current.some((item) => item._id === normalized._id)) {
           return current;
         }
 
-        return [...current, book];
+        return [...current, normalized];
       });
     };
 
     const removeFromCart = (bookId) => {
-      setCartItems((current) => current.filter((item) => item._id !== bookId));
+      const normalizedBookId = getBookId({ _id: bookId });
+      setCartItems((current) => current.filter((item) => item._id !== normalizedBookId));
     };
 
     const clearCart = () => setCartItems([]);
+    const clearLocalCart = () => {
+      serverSyncReadyRef.current = false;
+      setCartItems([]);
+      localStorage.removeItem(CART_STORAGE_KEY);
+    };
 
     return {
       cartItems,
@@ -98,7 +134,11 @@ export function CartProvider({ children }) {
       addToCart,
       removeFromCart,
       clearCart,
-      isInCart: (bookId) => cartItems.some((item) => item._id === bookId),
+      clearLocalCart,
+      isInCart: (bookId) => {
+        const normalizedBookId = getBookId({ _id: bookId });
+        return cartItems.some((item) => item._id === normalizedBookId);
+      },
     };
   }, [cartItems]);
 

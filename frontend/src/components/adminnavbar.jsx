@@ -7,7 +7,7 @@ export default function AdminNavbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const token = localStorage.getItem("authToken");
   const role = localStorage.getItem("role");
-  const { clearCart } = useCart();
+  const { clearLocalCart } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -15,7 +15,8 @@ export default function AdminNavbar() {
     localStorage.removeItem("authToken");
     localStorage.removeItem("role");
     try {
-      clearCart();
+      clearLocalCart();
+      window.dispatchEvent(new Event('cart:auth-changed'));
     } catch {
       // Cart cleanup is best-effort during logout.
     }

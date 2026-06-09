@@ -6,6 +6,14 @@ import "./login.css";
 import { Server_URL } from "../../utils/config";
 import { showErrorToast, showSuccessToast } from "../../utils/toasthelper";
 
+const notifyCartAuthChanged = () => {
+  try {
+    window.dispatchEvent(new Event('cart:auth-changed'));
+  } catch {
+    // Auth sync event is best-effort.
+  }
+};
+
 export default function Login() {
   const { register, handleSubmit, formState: { errors } } = useForm();
   const navigate = useNavigate();
@@ -17,18 +25,12 @@ export default function Login() {
 
       localStorage.setItem("authToken", response.data.token);
       localStorage.setItem("role", role);
+      notifyCartAuthChanged();
 
       if (role === "admin") {
         navigate("/admin");
       } else {
         navigate("/");
-      }
-
-      // notify cart context to sync
-      try {
-        window.dispatchEvent(new Event('cart:auth-changed'));
-      } catch {
-        // Auth sync event is best-effort.
       }
 
       showSuccessToast("Đăng nhập thành công!");
@@ -45,6 +47,7 @@ export default function Login() {
       const { role } = res.data.user;
       localStorage.setItem("authToken", res.data.token);
       localStorage.setItem("role", role);
+      notifyCartAuthChanged();
       if (role === "admin") navigate("/admin"); else navigate("/");
       showSuccessToast("Đăng nhập bằng Google thành công!");
     } catch {
