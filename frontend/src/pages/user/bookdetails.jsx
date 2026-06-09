@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { Server_URL } from "../../utils/config";
 import { motion } from "framer-motion";
-import { FaBookOpen, FaTags, FaBarcode, FaInfoCircle } from "react-icons/fa";
+import { FaTags, FaBarcode, FaInfoCircle } from "react-icons/fa";
 import { FiArrowLeft, FiBookOpen, FiCheckCircle, FiClock, FiMapPin, FiShield, FiShoppingBag } from "react-icons/fi";
 import { RiBookmarkLine } from "react-icons/ri";
 import "./bookdetails.css";

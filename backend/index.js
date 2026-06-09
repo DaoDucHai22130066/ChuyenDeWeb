@@ -16,30 +16,39 @@ const wishlist = require("./routes/wishlist.js")
 const reviews = require("./routes/reviews.js")
 
 const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  ...(process.env.ALLOWED_ORIGINS || "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
   "http://localhost:5173",
+  "http://localhost:5174",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:5174",
   "https://library-management-app-karan.vercel.app",
-];
+].filter(Boolean);
 
 app.use(express.json()); // Parse JSON
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+      return callback(null, true);
     }
+    return callback(new Error(`Not allowed by CORS: ${origin}`));
   },
   credentials: true,
+  optionsSuccessStatus: 204,
 }));
 
 app.use(helmet());
 
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per `window`
+  windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
+  max: Number(process.env.RATE_LIMIT_MAX || 1000),
   message: { error: true, message: "Too many requests from this IP, please try again after 15 minutes" },
-  standardHeaders: true, 
-  legacyHeaders: false, 
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.method === "OPTIONS",
 });
 app.use(limiter);
 app.use("/users",users);
@@ -69,8 +78,8 @@ app.use((err, req, res, next) => {
   
   const PORT = process.env.PORT || 5000;
 
-  connectDB().then(() => {
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-    });
+connectDB().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
   });
+});

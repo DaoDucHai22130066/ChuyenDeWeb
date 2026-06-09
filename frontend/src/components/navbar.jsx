@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { motion } from 'framer-motion';
 import { useCart } from "../context/CartContext";
@@ -14,17 +14,8 @@ export default function Navbar() {
   const handleLogout = () => {
     localStorage.removeItem("authToken");
     localStorage.removeItem("role");
-    // clear server-side cart for this session (optional)
-    try {
-      const token = localStorage.getItem("authToken");
-      if (token) {
-        // token is still present in some flows; prefer explicit remove
-      }
-    } catch (e) { }
     // clear client cart UI now; server cart remains for reload on next login
-    try {
-      clearCart();
-    } catch (e) { }
+    clearCart();
     navigate("/login");
   };
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import "./adminnavbar.css";
@@ -16,7 +16,9 @@ export default function AdminNavbar() {
     localStorage.removeItem("role");
     try {
       clearCart();
-    } catch (e) {}
+    } catch {
+      // Cart cleanup is best-effort during logout.
+    }
     navigate("/login");
   };
 

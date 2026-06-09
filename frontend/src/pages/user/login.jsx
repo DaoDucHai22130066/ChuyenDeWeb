@@ -1,5 +1,4 @@
-import React, { useEffect } from "react";
-import GoogleIcon from "../../assets/google.svg";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
@@ -26,7 +25,11 @@ export default function Login() {
       }
 
       // notify cart context to sync
-      try { window.dispatchEvent(new Event('cart:auth-changed')); } catch (e) {}
+      try {
+        window.dispatchEvent(new Event('cart:auth-changed'));
+      } catch {
+        // Auth sync event is best-effort.
+      }
 
       showSuccessToast("Đăng nhập thành công!");
     } catch {
@@ -44,7 +47,7 @@ export default function Login() {
       localStorage.setItem("role", role);
       if (role === "admin") navigate("/admin"); else navigate("/");
       showSuccessToast("Đăng nhập bằng Google thành công!");
-    } catch (err) {
+    } catch {
       showErrorToast("Đăng nhập bằng Google thất bại");
     }
   };
@@ -61,15 +64,6 @@ export default function Login() {
       );
     }
   }, []);
-
-  const handleGoogleClick = () => {
-    if (window.google) {
-      // Show one-tap / prompt to select account
-      window.google.accounts.id.prompt();
-    } else {
-      showErrorToast("Đăng nhập bằng Google không khả dụng");
-    }
-  };
 
   return (
     <div className="login-container">

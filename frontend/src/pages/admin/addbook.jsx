@@ -1,4 +1,3 @@
-import React from "react";
 import { motion } from 'framer-motion';
 import "../../styles/components.css";
 import { useForm } from "react-hook-form";
@@ -58,7 +57,7 @@ const AddBookForm = () => {
         },
       });
 
-      const { error, message } = response.data;
+      const { error } = response.data;
 
       if (error) {
         showErrorToast("Không thêm được sách. Vui lòng kiểm tra lại thông tin!");

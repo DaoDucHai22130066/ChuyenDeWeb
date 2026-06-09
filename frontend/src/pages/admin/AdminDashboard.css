@@ -528,10 +528,47 @@
   text-overflow: ellipsis;
 }
 
+.ticket-book-summary {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.ticket-book-summary strong {
+  color: #0f172a;
+  font-size: 0.84rem;
+  font-weight: 950;
+}
+
+.ticket-book-summary span {
+  max-width: 320px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .ticket-books-list {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
   color: #475569;
   font-size: 0.9rem;
   font-weight: 650;
+}
+
+.ticket-books-count {
+  width: fit-content;
+  padding: 0.18rem 0.52rem;
+  border-radius: 999px;
+  color: #1d4ed8;
+  background: #eff6ff;
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  font-size: 0.74rem;
+  font-weight: 950;
+}
+
+.ticket-books-list > span:last-child {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -611,6 +648,67 @@
 
 .detail-row strong {
   color: #0f172a;
+  font-weight: 950;
+}
+
+.ticket-books-detail {
+  grid-column: 1 / -1;
+}
+
+.ticket-book-lines {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.ticket-book-line {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.72rem 0.8rem;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.ticket-book-line div {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.ticket-book-line div strong {
+  color: #0f172a;
+  font-size: 0.9rem;
+  font-weight: 950;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ticket-book-line div span {
+  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.ticket-book-line > strong {
+  flex: 0 0 auto;
+  color: #0f172a;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.detail-row.total-cost {
+  margin-top: 0.15rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(249, 115, 22, 0.24);
+}
+
+.detail-row.total-cost span:first-child,
+.detail-row.total-cost strong {
+  color: #c2410c;
+  font-size: 0.95rem;
   font-weight: 950;
 }
 
@@ -1121,5 +1219,4 @@
   font-weight: 700;
   box-shadow: 0 4px 10px rgba(34, 197, 94, 0.08);
 }
-
 

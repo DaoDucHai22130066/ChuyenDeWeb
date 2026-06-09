@@ -23,7 +23,7 @@ const fetchServerCart = async () => {
     const res = await axios.get(`${Server_URL}cart/`, { headers: { Authorization: `Bearer ${token}` } });
     if (!res.data || res.data.error) return [];
     return res.data.cart || [];
-  } catch (err) {
+  } catch {
     return null;
   }
 };
@@ -34,7 +34,7 @@ const saveServerCart = async (items) => {
     if (!token) return;
     const bookIds = items.map((i) => i._id);
     await axios.post(`${Server_URL}cart/save`, { bookIds }, { headers: { Authorization: `Bearer ${token}` } });
-  } catch (err) {
+  } catch {
     // ignore network errors silently
   }
 };

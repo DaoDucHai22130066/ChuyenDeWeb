@@ -7,6 +7,8 @@ const { userController } = require("../controller/user")
 router.get("/", userController.getUsers)
 
 router.post("/register", userController.userRegistration);
+router.post("/verify-registration-otp", userController.verifyRegistrationOTP);
+router.post("/resend-registration-otp", userController.resendRegistrationOTP);
 
 router.post("/login", userController.login)
 

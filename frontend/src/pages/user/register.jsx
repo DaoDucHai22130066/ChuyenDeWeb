@@ -1,5 +1,4 @@
-import React, { useEffect } from "react";
-import GoogleIcon from "../../assets/google.svg";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -10,26 +9,69 @@ import "./login.css";
 export default function Register() {
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
   const navigate = useNavigate();
+  const [pendingEmail, setPendingEmail] = useState("");
+  const [pendingPassword, setPendingPassword] = useState("");
+  const [otp, setOtp] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  const loginAfterVerified = async (email, password) => {
+    const loginResponse = await axios.post(`${Server_URL}users/login`, { email, password });
+    localStorage.setItem("authToken", loginResponse.data.token);
+    localStorage.setItem("role", loginResponse.data.user.role);
+    try {
+      window.dispatchEvent(new Event('cart:auth-changed'));
+    } catch {
+      // Auth sync event is best-effort.
+    }
+    navigate("/user");
+  };
 
   const onSubmit = async (data) => {
     try {
       const formData = { ...data, role: "user" };
       await axios.post(`${Server_URL}users/register`, formData);
 
-      const loginResponse = await axios.post(`${Server_URL}users/login`, {
-        email: data.email,
-        password: data.password,
+      setPendingEmail(data.email);
+      setPendingPassword(data.password);
+      showSuccessToast("Đăng ký thành công. Vui lòng kiểm tra email và nhập mã OTP.");
+    } catch (error) {
+      showErrorToast(error.response?.data?.message || "Đăng ký thất bại. Email có thể đã được sử dụng.");
+    }
+  };
+
+  const handleVerifyRegistration = async (event) => {
+    event.preventDefault();
+    if (!pendingEmail || !otp.trim()) {
+      showErrorToast("Vui lòng nhập mã OTP xác nhận email.");
+      return;
+    }
+
+    try {
+      setIsVerifying(true);
+      await axios.post(`${Server_URL}users/verify-registration-otp`, {
+        email: pendingEmail,
+        otp: otp.trim(),
       });
-
-      localStorage.setItem("authToken", loginResponse.data.token);
-      localStorage.setItem("role", loginResponse.data.user.role);
-
-      showSuccessToast("Đăng ký thành công!");
+      showSuccessToast("Xác nhận email thành công!");
+      await loginAfterVerified(pendingEmail, pendingPassword);
       reset();
-      navigate("/user");
-      try { window.dispatchEvent(new Event('cart:auth-changed')); } catch (e) {}
-    } catch {
-      showErrorToast("Đăng ký thất bại. Email có thể đã được sử dụng.");
+      setOtp("");
+      setPendingEmail("");
+      setPendingPassword("");
+    } catch (error) {
+      showErrorToast(error.response?.data?.message || "Mã OTP không đúng hoặc đã hết hạn.");
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const handleResendRegistrationOtp = async () => {
+    if (!pendingEmail) return;
+    try {
+      await axios.post(`${Server_URL}users/resend-registration-otp`, { email: pendingEmail });
+      showSuccessToast("Mã OTP mới đã được gửi đến email của bạn.");
+    } catch (error) {
+      showErrorToast(error.response?.data?.message || "Không gửi lại được mã OTP.");
     }
   };
 
@@ -43,7 +85,7 @@ export default function Register() {
       showSuccessToast("Đăng nhập bằng Google thành công!");
       // optional: redirect to home
       window.location.href = "/";
-    } catch (err) {
+    } catch {
       showErrorToast("Đăng nhập bằng Google thất bại");
     }
   };
@@ -61,19 +103,42 @@ export default function Register() {
     }
   }, []);
 
-  const handleGoogleClick = () => {
-    if (window.google) {
-      window.google.accounts.id.prompt();
-    } else {
-      showErrorToast("Đăng nhập bằng Google không khả dụng");
-    }
-  };
-
   return (
     <div className="login-container">
       <div className="login-box" style={{ maxWidth: "480px" }}>
         <h2 className="login-title">Đăng ký</h2>
         <p className="login-subtitle">Tham gia cộng đồng độc giả D Free Book</p>
+        {pendingEmail ? (
+          <form onSubmit={handleVerifyRegistration} className="login-form">
+            <p className="login-subtitle">Mã OTP đã gửi đến <strong>{pendingEmail}</strong>.</p>
+            <div className="form-group">
+              <label>Mã OTP xác nhận email</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength="6"
+                className="form-input"
+                value={otp}
+                onChange={(event) => setOtp(event.target.value)}
+                placeholder="Nhập 6 chữ số"
+              />
+            </div>
+            <button type="submit" className="btn-submit" disabled={isVerifying}>
+              {isVerifying ? "Đang xác nhận..." : "Xác nhận email"}
+            </button>
+            <button
+              type="button"
+              className="btn-submit"
+              style={{ marginTop: 10, background: "#6c757d" }}
+              onClick={handleResendRegistrationOtp}
+            >
+              Gửi lại mã OTP
+            </button>
+            <p className="login-register-link">
+              Nhập sai email? <button type="button" className="forgot-btn" onClick={() => setPendingEmail("")}>Đăng ký lại</button>
+            </p>
+          </form>
+        ) : (
         <form onSubmit={handleSubmit(onSubmit)} className="login-form">
           <div className="form-group">
             <label>Họ và tên</label>
@@ -115,6 +180,7 @@ export default function Register() {
             Đã có tài khoản? <Link to="/login">Đăng nhập</Link>
           </p>
         </form>
+        )}
       </div>
     </div>
   );

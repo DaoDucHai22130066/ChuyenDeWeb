@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import axios from "axios";
 import "../../styles/components.css";
@@ -14,11 +14,8 @@ import {
   FiCheck, 
   FiRefreshCw, 
   FiX, 
-  FiInfo, 
   FiClock, 
-  FiFileText, 
   FiCheckCircle, 
-  FiXCircle,
   FiDollarSign,
   FiEye,
   FiChevronDown,
@@ -46,7 +43,7 @@ const DEPOSIT_STATUS_VI = {
 };
 
 const SHIPPING_STATUS_VI = {
-  none: "Nhận tại quầy",
+  none: "Chưa giao",
   pending: "Chờ giao hàng",
   dispatched: "Đang giao",
   delivered: "Đã giao",
@@ -75,7 +72,6 @@ const TRANSACTION_STATUS_VI = {
 const ACTION_SUCCESS_VI = {
   confirm_cash: "Đã xác nhận thanh toán.",
   approve: "Đã phê duyệt phiếu mượn.",
-  pickup: "Đã xác nhận độc giả nhận sách tại quầy.",
   dispatch: "Đã chuyển phiếu sang trạng thái đang giao.",
   deliver: "Đã xác nhận giao xong.",
   deliver_and_confirm_cash: "Đã xác nhận giao & đã thu tiền.",
@@ -105,6 +101,14 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const pendingTickets = tickets.filter((ticket) => ticket.status === "pending" || ticket.status === "awaiting_payment").length;
 
   const formatCurrency = (value) => new Intl.NumberFormat("vi-VN").format(value) + " đ";
+  const getBookPrice = (book) => {
+    const price = Number(book?.price);
+    return Number.isFinite(price) && price > 0 ? price : 0;
+  };
+  const getTicketPayableTotal = (ticket) =>
+    Number(ticket?.depositAmount || 0) + Number(ticket?.shippingFee || 0);
+  const getTicketBookTitleList = (ticket) =>
+    ticket.books?.map((book) => book.title).filter(Boolean).join(", ") || "—";
 
   const getStatusLabel = (value) => STATUS_VI[value] || "Chưa cập nhật";
   const getDepositStatusLabel = (value) => DEPOSIT_STATUS_VI[value] || "Chưa cập nhật";
@@ -113,12 +117,6 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const getTransactionStatusLabel = (value) => TRANSACTION_STATUS_VI[value] || "Chưa cập nhật";
 
   // Cash should be collected when delivering, not at pending/approval stage
-  const canConfirmCash = (ticket) =>
-    ticket.status === "dispatched" &&
-    ticket.shippingStatus === "dispatched" &&
-    ticket.depositStatus === "pending" &&
-    ticket.paymentMethod === "cash";
-
   // VNPay: chỉ show badge, không cho admin tự duyệt
   const isWaitingVnpay = (ticket) =>
     ticket.depositStatus === "pending" &&
@@ -128,10 +126,6 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const canApproveTicket = (ticket) =>
     ["pending", "paid"].includes(ticket.status) &&
     (ticket.paymentMethod === "vnpay" ? ticket.depositStatus === "held" : true);
-
-  // Nhận tại quầy: sau approved, shippingStatus = none
-  const canPickup = (ticket) =>
-    ticket.status === "approved" && ticket.shippingStatus === "none";
 
   // Giao tận nơi: bắt đầu giao
   const canDispatch = (ticket) =>
@@ -156,7 +150,9 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
 
   const fetchUsers = async () => {
     try {
-      const result = await axios.get(`${Server_URL}users`);
+      const result = await axios.get(`${Server_URL}users`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setUsers(result.data.user || []);
     } catch (error) {
       console.error("Lỗi tải danh sách người dùng:", error);
@@ -292,7 +288,7 @@ const handleSendReply = async (reviewId) => {
       showSuccessToast(ACTION_SUCCESS_VI[action] || "Đã cập nhật trạng thái phiếu mượn.");
       fetchTickets();
       fetchBooks();
-    } catch (error) {
+    } catch {
       showErrorToast("Không cập nhật được phiếu mượn. Vui lòng thử lại!");
     }
   };
@@ -440,7 +436,12 @@ const handleSendReply = async (reviewId) => {
                     {tickets.slice(0, 5).map((ticket) => (
                       <tr key={ticket._id}>
                         <td>{ticket.userId?.name || ticket.userId?.email || "—"}</td>
-                        <td>{ticket.books.map((book) => book.title).join(", ")}</td>
+                        <td>
+                          <div className="ticket-book-summary">
+                            <strong>{ticket.books?.length || 0} cuốn</strong>
+                            <span>{getTicketBookTitleList(ticket)}</span>
+                          </div>
+                        </td>
                         <td>{ticket.borrowDate ? new Date(ticket.borrowDate).toLocaleDateString("vi-VN") : "—"}</td>
                         <td>
                           <span className={`status-badge ${ticket.status.toLowerCase()}`}>
@@ -467,7 +468,7 @@ const handleSendReply = async (reviewId) => {
                   { key: "awaiting_payment", label: "Chờ thanh toán" },
                   { key: "approved",         label: "Đã duyệt" },
                   { key: "dispatched",       label: "Đang giao" },
-                  { key: "delivered",        label: "Đã giao / Nhận" },
+                  { key: "delivered",        label: "Đã giao" },
                   { key: "returned",         label: "Đã trả" },
                   { key: "closed",           label: "Hoàn tất" },
                   { key: "cancelled",        label: "Đã hủy" },
@@ -504,7 +505,8 @@ const handleSendReply = async (reviewId) => {
                           </div>
                         </div>
                         <div className="ticket-books-list">
-                          {ticket.books.map((book) => book.title).join(", ")}
+                          <span className="ticket-books-count">{ticket.books?.length || 0} cuốn</span>
+                          <span>{getTicketBookTitleList(ticket)}</span>
                         </div>
                         <div className="ticket-dates">
                           <small>Mượn: {ticket.borrowDate ? new Date(ticket.borrowDate).toLocaleDateString("vi-VN") : "—"}</small>
@@ -527,7 +529,7 @@ const handleSendReply = async (reviewId) => {
                             { key: "awaiting",  label: "Chờ TT",   done: !["pending","awaiting_payment"].includes(ticket.status) || ticket.depositStatus === "held" },
                             { key: "pending",   label: "Chờ duyệt", done: !["pending","awaiting_payment"].includes(ticket.status) },
                             { key: "approved",  label: "Đã duyệt",  done: ["dispatched","delivered","returned","closed"].includes(ticket.status) },
-                            { key: "delivered", label: "Nhận sách",  done: ["delivered","returned","closed"].includes(ticket.status) },
+                            { key: "delivered", label: "Đã giao",  done: ["delivered","returned","closed"].includes(ticket.status) },
                             { key: "returned",  label: "Trả sách",   done: ["returned","closed"].includes(ticket.status) },
                             { key: "closed",    label: "Hoàn tất",   done: ticket.status === "closed" },
                           ].map((step, idx, arr) => (
@@ -545,6 +547,24 @@ const handleSendReply = async (reviewId) => {
                         </div>
 
                         <div className="ticket-details-grid">
+                          <div className="detail-section ticket-books-detail">
+                            <h4>Sách trong phiếu ({ticket.books?.length || 0})</h4>
+                            <div className="ticket-book-lines">
+                              {(ticket.books || []).map((book, index) => (
+                                <div
+                                  key={`${book._id || book.id || book.title || "book"}-${index}`}
+                                  className="ticket-book-line"
+                                >
+                                  <div>
+                                    <strong>{book.title || "Sách không tên"}</strong>
+                                    {book.author && <span>{book.author}</span>}
+                                  </div>
+                                  <strong>{formatCurrency(getBookPrice(book))}</strong>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
                           <div className="detail-section">
                             <h4>Chi phí</h4>
                             <div className="detail-row">
@@ -554,6 +574,10 @@ const handleSendReply = async (reviewId) => {
                             <div className="detail-row">
                               <span>Phí giao hàng:</span>
                               <strong>{formatCurrency(ticket.shippingFee || 0)}</strong>
+                            </div>
+                            <div className="detail-row total-cost">
+                              <span>Tổng cọc + ship:</span>
+                              <strong>{formatCurrency(getTicketPayableTotal(ticket))}</strong>
                             </div>
                             <div className="detail-row">
                               <span>Phạt trễ hạn:</span>
@@ -627,16 +651,6 @@ const handleSendReply = async (reviewId) => {
                               onClick={() => handleTicketAction(ticket._id, "approve")}
                             >
                               <FiCheck /> Phê duyệt
-                            </button>
-                          )}
-
-                          {/* Nhận tại quầy */}
-                          {canPickup(ticket) && (
-                            <button
-                              className="btn btn-sm btn-primary"
-                              onClick={() => handleTicketAction(ticket._id, "pickup")}
-                            >
-                              <FiCheckCircle /> Đã nhận tại quầy
                             </button>
                           )}
 
