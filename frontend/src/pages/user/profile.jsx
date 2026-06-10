@@ -35,12 +35,16 @@ const STATUS_VI = {
   cancelled: "Đã hủy",
 };
 
+const normalizeTicketStatus = (status) => String(status || "").trim().toLowerCase();
+const canCancelTicketStatus = (status) => ["pending", "awaiting_payment"].includes(normalizeTicketStatus(status));
+
 function ProfilePage() {
   const [user, setUser] = useState(null);
   const [tickets, setTickets] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({ name: "", stream: "", year: "" });
   const [isSaving, setIsSaving] = useState(false);
+  const [cancelingTicketId, setCancelingTicketId] = useState(null);
 
   // Review modal state
   const [reviewModal, setReviewModal] = useState(null); // { ticket, book }
@@ -158,6 +162,25 @@ function ProfilePage() {
     }
   };
 
+  const handleCancelTicket = async (ticketId) => {
+    if (!window.confirm("Bạn có chắc muốn hủy phiếu mượn này?")) return;
+
+    setCancelingTicketId(ticketId);
+    try {
+      const response = await axios.post(`${Server_URL}tickets/${ticketId}/cancel`, {}, {
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
+      });
+      showSuccessToast("Đã hủy phiếu mượn thành công.");
+      setTickets(tickets.map((ticket) => (
+        ticket._id === ticketId ? { ...ticket, ...response.data.ticket } : ticket
+      )));
+    } catch (err) {
+      showErrorToast(err.response?.data?.message || "Không thể hủy phiếu mượn.");
+    } finally {
+      setCancelingTicketId(null);
+    }
+  };
+
   if (!user) return <div className="loading-container"><div className="spinner"></div><p>Đang tải hồ sơ...</p></div>;
 
   const getInitials = (name) => {
@@ -169,9 +192,9 @@ function ProfilePage() {
 
   // Compute statistics
   const totalTickets = tickets.length;
-  const pendingTickets = tickets.filter(t => ["Pending", "pending", "awaiting_payment"].includes(t.status)).length;
-  const approvedTickets = tickets.filter(t => ["Approved", "approved", "dispatched", "delivered"].includes(t.status)).length;
-  const returnedTickets = tickets.filter(t => ["Returned", "returned", "closed"].includes(t.status)).length;
+  const pendingTickets = tickets.filter(t => ["pending", "awaiting_payment"].includes(normalizeTicketStatus(t.status))).length;
+  const approvedTickets = tickets.filter(t => ["approved", "dispatched", "delivered"].includes(normalizeTicketStatus(t.status))).length;
+  const returnedTickets = tickets.filter(t => ["returned", "closed"].includes(normalizeTicketStatus(t.status))).length;
 
   return (
     <div className="profile-page">
@@ -363,82 +386,99 @@ function ProfilePage() {
                 <p>Bạn chưa thực hiện phiếu mượn sách nào.</p>
               </div>
             ) : (
-              <div className="table-responsive">
-                <table className="tickets-table">
-                  <thead>
-                    <tr>
-                      <th>Mã phiếu</th>
-                      <th>Danh sách sách mượn</th>
-                      <th>Ngày mượn</th>
-                      <th>Hạn trả</th>
-                      <th>Trạng thái</th>
-                      <th>Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tickets.map((ticket) => {
-                      const canRenew = ["approved", "dispatched", "delivered"].includes(ticket.status) &&
-                        !ticket.returnDate &&
-                        ticket.dueDate &&
-                        new Date(ticket.dueDate) >= new Date() &&
-                        (ticket.renewCount || 0) < 1;
-                      return (
-                        <tr key={ticket._id}>
-                          <td className="ticket-id">
-                            #{ticket._id.toString().slice(-6).toUpperCase()}
-                          </td>
-                          <td className="ticket-books">
-                            {ticket.books.map((book) => book.title).join(", ")}
-                          </td>
-                          <td className="ticket-date">
-                            {ticket.borrowDate ? new Date(ticket.borrowDate).toLocaleDateString("vi-VN") : "—"}
-                          </td>
-                          <td className="ticket-date">
-                            {ticket.dueDate ? new Date(ticket.dueDate).toLocaleDateString("vi-VN") : "—"}
-                          </td>
-                          <td>
-                            <span className={`status-badge ${ticket.status.toLowerCase()}`}>
-                              {STATUS_VI[ticket.status] || ticket.status}
-                            </span>
-                          </td>
-                          <td>
-                            <div className="action-cell-flex">
-                              {(ticket.status === 'returned' || ticket.status === 'closed') ? (
-                                <div className="review-action-cell">
-                                  {ticket.books.map((book) => {
-                                    const key = `${ticket._id}-${book._id || book.id}`;
-                                    const alreadyReviewed = reviewedKeys.has(key);
-                                    return (
-                                      <button
-                                        key={key}
-                                        className={`btn-review ${alreadyReviewed ? 'reviewed' : ''}`}
-                                        onClick={() => !alreadyReviewed && openReviewModal(ticket, book)}
-                                        disabled={alreadyReviewed}
-                                        title={alreadyReviewed ? 'Đã đánh giá' : `Đánh giá: ${book.title}`}
-                                      >
-                                        {alreadyReviewed ? '✓ Đã đánh giá' : `⭐ ${book.title.substring(0, 14)}${book.title.length > 14 ? '...' : ''}`}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              ) : canRenew ? (
+              <div className="ticket-card-list">
+                {tickets.map((ticket) => {
+                  const status = normalizeTicketStatus(ticket.status);
+                  const canCancel = canCancelTicketStatus(ticket.status);
+                  const canRenew = ["approved", "dispatched", "delivered"].includes(status) &&
+                    !ticket.returnDate &&
+                    ticket.dueDate &&
+                    new Date(ticket.dueDate) >= new Date() &&
+                    (ticket.renewCount || 0) < 1;
+                  const canReview = ["returned", "closed"].includes(status);
+
+                  return (
+                    <article key={ticket._id} className={`profile-ticket-card ${status}`}>
+                      <div className="profile-ticket-top">
+                        <div>
+                          <span className="ticket-id-label">Mã phiếu</span>
+                          <strong>#{ticket._id.toString().slice(-6).toUpperCase()}</strong>
+                        </div>
+                        <span className={`status-badge ${status}`}>
+                          {STATUS_VI[ticket.status] || STATUS_VI[status] || ticket.status}
+                        </span>
+                      </div>
+
+                      <div className="ticket-date-grid">
+                        <div>
+                          <span>Ngày mượn</span>
+                          <strong>{ticket.borrowDate ? new Date(ticket.borrowDate).toLocaleDateString("vi-VN") : "—"}</strong>
+                        </div>
+                        <div>
+                          <span>Hạn trả</span>
+                          <strong>{ticket.dueDate ? new Date(ticket.dueDate).toLocaleDateString("vi-VN") : "—"}</strong>
+                        </div>
+                        <div>
+                          <span>Số sách</span>
+                          <strong>{ticket.books?.length || 0} cuốn</strong>
+                        </div>
+                      </div>
+
+                      <div className="ticket-book-chips">
+                        {(ticket.books || []).map((book) => (
+                          <span key={book._id || book.id || book.title}>{book.title}</span>
+                        ))}
+                      </div>
+
+                      <div className="profile-ticket-actions">
+                        {canReview && (
+                          <div className="review-action-cell">
+                            {ticket.books.map((book) => {
+                              const key = `${ticket._id}-${book._id || book.id}`;
+                              const alreadyReviewed = reviewedKeys.has(key);
+                              return (
                                 <button
-                                  className="btn-renew"
-                                  onClick={() => handleRenewTicket(ticket._id)}
-                                  title="Gia hạn thêm 7 ngày"
+                                  key={key}
+                                  className={`btn-review ${alreadyReviewed ? 'reviewed' : ''}`}
+                                  onClick={() => !alreadyReviewed && openReviewModal(ticket, book)}
+                                  disabled={alreadyReviewed}
+                                  title={alreadyReviewed ? 'Đã đánh giá' : `Đánh giá: ${book.title}`}
                                 >
-                                  <FiClock /> Gia hạn
+                                  {alreadyReviewed ? '✓ Đã đánh giá' : `⭐ ${book.title.substring(0, 18)}${book.title.length > 18 ? '...' : ''}`}
                                 </button>
-                              ) : (
-                                <span className="no-review-dash">—</span>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {canCancel && (
+                          <button
+                            className="btn-ticket-cancel"
+                            onClick={() => handleCancelTicket(ticket._id)}
+                            disabled={cancelingTicketId === ticket._id}
+                            title="Hủy phiếu đang chờ xử lý"
+                          >
+                            <FiX /> {cancelingTicketId === ticket._id ? "Đang hủy..." : "Hủy phiếu"}
+                          </button>
+                        )}
+
+                        {canRenew && (
+                          <button
+                            className="btn-renew"
+                            onClick={() => handleRenewTicket(ticket._id)}
+                            title="Gia hạn thêm 7 ngày"
+                          >
+                            <FiClock /> Gia hạn
+                          </button>
+                        )}
+
+                        {!canReview && !canCancel && !canRenew && (
+                          <span className="no-review-dash">Không có thao tác</span>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
             )}
           </div>

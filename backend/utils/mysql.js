@@ -61,6 +61,7 @@ async function createSchema(connection) {
       year INT NULL,
       phone VARCHAR(20) NULL,
       email_verified TINYINT(1) NOT NULL DEFAULT 1,
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
@@ -191,6 +192,7 @@ async function createSchema(connection) {
     // Add missing columns (won't fail if they exist)
     await addColumnIfMissing(connection, "users", "phone", "phone VARCHAR(20) NULL");
     await addColumnIfMissing(connection, "users", "email_verified", "email_verified TINYINT(1) NOT NULL DEFAULT 1");
+    await addColumnIfMissing(connection, "users", "is_active", "is_active TINYINT(1) NOT NULL DEFAULT 1 AFTER email_verified");
     await addColumnIfMissing(connection, "borrow_tickets", "due_date", "due_date DATETIME NULL DEFAULT NULL");
     await addColumnIfMissing(connection, "borrow_tickets", "deposit_amount", "deposit_amount DECIMAL(10,2) NOT NULL DEFAULT 0");
     await addColumnIfMissing(connection, "borrow_tickets", "deposit_status", "deposit_status ENUM('none', 'pending', 'held', 'refunded', 'forfeited') NOT NULL DEFAULT 'none'");
@@ -273,9 +275,21 @@ async function createSchema(connection) {
       email VARCHAR(255) NOT NULL,
       subject VARCHAR(255) NOT NULL,
       message TEXT NOT NULL,
-      date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      status ENUM('new', 'in_progress', 'resolved', 'closed') NOT NULL DEFAULT 'new',
+      admin_note TEXT NULL,
+      handled_by INT UNSIGNED NULL,
+      handled_at DATETIME NULL,
+      date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_contacts_status (status)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
+
+  await addColumnIfMissing(connection, "contacts", "status", "status ENUM('new', 'in_progress', 'resolved', 'closed') NOT NULL DEFAULT 'new' AFTER message");
+  await addColumnIfMissing(connection, "contacts", "admin_note", "admin_note TEXT NULL AFTER status");
+  await addColumnIfMissing(connection, "contacts", "handled_by", "handled_by INT UNSIGNED NULL AFTER admin_note");
+  await addColumnIfMissing(connection, "contacts", "handled_at", "handled_at DATETIME NULL AFTER handled_by");
+  await addColumnIfMissing(connection, "contacts", "updated_at", "updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER date");
 
   await connection.query(`
     CREATE TABLE IF NOT EXISTS otps (
@@ -408,6 +422,7 @@ function mapUserRow(row, includePassword = false) {
     year: row.year,
     phone: row.phone,
     emailVerified: row.email_verified === undefined || row.email_verified === null ? true : Boolean(row.email_verified),
+    isActive: row.is_active === undefined || row.is_active === null ? true : Boolean(row.is_active),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -423,8 +438,32 @@ function mapCategoryRow(row) {
   return {
     _id: row.id,
     name: row.name,
+    bookCount: row.book_count === undefined || row.book_count === null ? 0 : Number(row.book_count),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function mapContactRow(row) {
+  return {
+    _id: row.id,
+    name: row.name,
+    email: row.email,
+    subject: row.subject,
+    message: row.message,
+    status: normalizeEnumValue(row.status) || "new",
+    adminNote: row.admin_note,
+    handledBy: row.handled_by
+      ? {
+        _id: row.handled_by,
+        name: row.handler_name,
+        email: row.handler_email,
+        role: row.handler_role,
+      }
+      : null,
+    handledAt: row.handled_at,
+    createdAt: row.date,
+    updatedAt: row.updated_at || row.date,
   };
 }
 
@@ -598,6 +637,7 @@ module.exports = {
   withTransaction,
   mapUserRow,
   mapCategoryRow,
+  mapContactRow,
   mapBookRow,
   mapTicketRow,
   mapTransactionRow,

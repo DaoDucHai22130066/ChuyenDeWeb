@@ -7,6 +7,13 @@ const { userAuth } = require("../middlewares/userAuth");
 const { checkRole } = require("../middlewares/checkRole");
 
 router.post("/login",adminController.login)
+router.get("/users", userAuth, checkRole("admin"), adminController.getUsers)
+router.put("/users/:id", userAuth, checkRole("admin"), adminController.updateUser)
+router.patch("/users/:id/status", userAuth, checkRole("admin"), adminController.updateUserStatus)
+router.delete("/users/:id", userAuth, checkRole("admin"), adminController.deleteUser)
+router.get("/contacts", userAuth, checkRole("admin"), adminController.getContacts)
+router.put("/contacts/:id", userAuth, checkRole("admin"), adminController.updateContact)
+router.delete("/contacts/:id", userAuth, checkRole("admin"), adminController.deleteContact)
 router.get("/reviews", userAuth, checkRole("admin"), adminController.getAllReviews)
 router.put("/reviews/:id/status", userAuth, checkRole("admin"), adminController.updateReviewStatus)
 router.delete("/reviews/:id", userAuth, checkRole("admin"), adminController.deleteReview)

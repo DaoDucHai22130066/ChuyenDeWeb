@@ -19,7 +19,16 @@ import {
   FiDollarSign,
   FiEye,
   FiChevronDown,
-  FiChevronUp
+  FiChevronUp,
+  FiEdit2,
+  FiTrash2,
+  FiLock,
+  FiUnlock,
+  FiSearch,
+  FiFilter,
+  FiTag,
+  FiPlus,
+  FiMail
 } from "react-icons/fi";
 
 const STATUS_VI = {
@@ -81,12 +90,82 @@ const ACTION_SUCCESS_VI = {
   cancel: "Đã hủy phiếu mượn.",
 };
 
+const normalizeTicketStatus = (status) => String(status || "").trim().toLowerCase();
+
+const USER_ROLE_LABEL = {
+  admin: "Thủ thư",
+  user: "Độc giả",
+};
+
+const USER_STATUS_FILTERS = [
+  { value: "all", label: "Tất cả trạng thái" },
+  { value: "active", label: "Đang hoạt động" },
+  { value: "locked", label: "Đã khóa" },
+  { value: "unverified", label: "Chưa xác thực email" },
+];
+
+const USER_ROLE_FILTERS = [
+  { value: "all", label: "Tất cả vai trò" },
+  { value: "user", label: "Độc giả" },
+  { value: "admin", label: "Thủ thư" },
+];
+
+const emptyUserForm = {
+  name: "",
+  email: "",
+  role: "user",
+  stream: "",
+  year: "",
+  phone: "",
+};
+
+const CONTACT_SUBJECT_LABEL = {
+  general: "Câu hỏi chung",
+  borrow: "Mượn / trả sách",
+  donate: "Hiến sách",
+  volunteer: "Tình nguyện",
+  feedback: "Góp ý",
+  other: "Khác",
+};
+
+const CONTACT_STATUS_LABEL = {
+  new: "Mới",
+  in_progress: "Đang xử lý",
+  resolved: "Đã xử lý",
+  closed: "Đóng",
+};
+
+const CONTACT_STATUS_FILTERS = [
+  { value: "all", label: "Tất cả trạng thái" },
+  { value: "new", label: "Mới" },
+  { value: "in_progress", label: "Đang xử lý" },
+  { value: "resolved", label: "Đã xử lý" },
+  { value: "closed", label: "Đóng" },
+];
+
 const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const [selectedSection, setSelectedSection] = useState(initialSection);
   const [users, setUsers] = useState([]);
+  const [userSearch, setUserSearch] = useState("");
+  const [userRoleFilter, setUserRoleFilter] = useState("all");
+  const [userStatusFilter, setUserStatusFilter] = useState("all");
+  const [editingUser, setEditingUser] = useState(null);
+  const [userForm, setUserForm] = useState(emptyUserForm);
+  const [isUserSaving, setIsUserSaving] = useState(false);
   const [books, setBooks] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [categorySearch, setCategorySearch] = useState("");
+  const [categoryName, setCategoryName] = useState("");
+  const [editingCategoryId, setEditingCategoryId] = useState(null);
+  const [editingCategoryName, setEditingCategoryName] = useState("");
+  const [isCategorySaving, setIsCategorySaving] = useState(false);
   const [tickets, setTickets] = useState([]);
   const [reviews, setReviews] = useState([]);
+  const [contacts, setContacts] = useState([]);
+  const [contactSearch, setContactSearch] = useState("");
+  const [contactStatusFilter, setContactStatusFilter] = useState("all");
+  const [contactNotes, setContactNotes] = useState({});
+  const [updatingContactId, setUpdatingContactId] = useState(null);
   const [ticketFilter, setTicketFilter] = useState("all");
   const [expandedTicket, setExpandedTicket] = useState(null);
   const [ticketTransactions, setTicketTransactions] = useState({});
@@ -96,6 +175,51 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const getCategoryLabel = (book) => book.categoryId?.name || book.category || "Chưa phân loại";
 
   const totalUsers = useMemo(() => users.filter((user) => user.role === "user").length, [users]);
+  const filteredUsers = useMemo(() => {
+    const searchTerm = userSearch.trim().toLowerCase();
+
+    return users.filter((user) => {
+      const matchesSearch = !searchTerm || [
+        user.name,
+        user.email,
+        user.stream,
+        user.phone,
+        user.year,
+      ].some((value) => String(value || "").toLowerCase().includes(searchTerm));
+      const matchesRole = userRoleFilter === "all" || user.role === userRoleFilter;
+      const matchesStatus =
+        userStatusFilter === "all" ||
+        (userStatusFilter === "active" && user.isActive !== false) ||
+        (userStatusFilter === "locked" && user.isActive === false) ||
+        (userStatusFilter === "unverified" && !user.emailVerified);
+
+      return matchesSearch && matchesRole && matchesStatus;
+    });
+  }, [users, userSearch, userRoleFilter, userStatusFilter]);
+  const filteredCategories = useMemo(() => {
+    const searchTerm = categorySearch.trim().toLowerCase();
+
+    return categories.filter((category) =>
+      !searchTerm || category.name?.toLowerCase().includes(searchTerm)
+    );
+  }, [categories, categorySearch]);
+  const filteredContacts = useMemo(() => {
+    const searchTerm = contactSearch.trim().toLowerCase();
+
+    return contacts.filter((contact) => {
+      const subjectLabel = CONTACT_SUBJECT_LABEL[contact.subject] || contact.subject || "";
+      const matchesSearch = !searchTerm || [
+        contact.name,
+        contact.email,
+        subjectLabel,
+        contact.message,
+        contact.adminNote,
+      ].some((value) => String(value || "").toLowerCase().includes(searchTerm));
+      const matchesStatus = contactStatusFilter === "all" || contact.status === contactStatusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [contacts, contactSearch, contactStatusFilter]);
   const totalBooks = books.length;
   const totalTickets = tickets.length;
   const pendingTickets = tickets.filter((ticket) => ticket.status === "pending" || ticket.status === "awaiting_payment").length;
@@ -121,41 +245,243 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const isWaitingVnpay = (ticket) =>
     ticket.depositStatus === "pending" &&
     ticket.paymentMethod === "vnpay" &&
-    ["pending", "awaiting_payment"].includes(ticket.status);
+    ["pending", "awaiting_payment"].includes(normalizeTicketStatus(ticket.status));
 
   const canApproveTicket = (ticket) =>
-    ["pending", "paid"].includes(ticket.status) &&
+    ["pending", "paid"].includes(normalizeTicketStatus(ticket.status)) &&
     (ticket.paymentMethod === "vnpay" ? ticket.depositStatus === "held" : true);
 
   // Giao tận nơi: bắt đầu giao
   const canDispatch = (ticket) =>
-    ticket.status === "approved" && ticket.shippingStatus === "pending";
+    normalizeTicketStatus(ticket.status) === "approved" && ticket.shippingStatus === "pending";
 
   // Xác nhận đã giao (giao tận nơi)
   const canDeliver = (ticket) =>
-    ticket.status === "dispatched" && ticket.shippingStatus === "dispatched";
+    normalizeTicketStatus(ticket.status) === "dispatched" && ticket.shippingStatus === "dispatched";
 
   // Trả sách: chỉ sau khi delivered (cả quầy lẫn giao hàng)
   const canReturn = (ticket) =>
-    ticket.status === "delivered";
+    normalizeTicketStatus(ticket.status) === "delivered";
 
   const canSettle = (ticket) =>
-    ticket.status === "returned" && ticket.depositStatus === "held";
+    normalizeTicketStatus(ticket.status) === "returned" && ticket.depositStatus === "held";
 
   const canSettleOutstanding = (ticket) =>
-    ticket.depositStatus === "forfeited" && ticket.status !== "closed";
+    ticket.depositStatus === "forfeited" && normalizeTicketStatus(ticket.status) !== "closed";
 
   const canCancel = (ticket) =>
-    ["pending", "awaiting_payment"].includes(ticket.status);
+    ["pending", "awaiting_payment", "paid", "approved"].includes(normalizeTicketStatus(ticket.status));
 
   const fetchUsers = async () => {
     try {
-      const result = await axios.get(`${Server_URL}users`, {
+      const result = await axios.get(`${Server_URL}admin/users`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setUsers(result.data.user || []);
+      setUsers(result.data.users || result.data.user || []);
     } catch (error) {
       console.error("Lỗi tải danh sách người dùng:", error);
+    }
+  };
+
+  const getUserRoleLabel = (role) => USER_ROLE_LABEL[role] || "Chưa cập nhật";
+  const getUserStatusLabel = (user) => (user?.isActive === false ? "Đã khóa" : "Đang hoạt động");
+  const getAxiosErrorMessage = (error, fallback) => error?.response?.data?.message || fallback;
+
+  const openUserEditor = (user) => {
+    setEditingUser(user);
+    setUserForm({
+      name: user.name || "",
+      email: user.email || "",
+      role: user.role || "user",
+      stream: user.stream || "",
+      year: user.year || "",
+      phone: user.phone || "",
+    });
+  };
+
+  const closeUserEditor = () => {
+    setEditingUser(null);
+    setUserForm(emptyUserForm);
+    setIsUserSaving(false);
+  };
+
+  const handleUserFormChange = (event) => {
+    const { name, value } = event.target;
+    setUserForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const replaceUserInList = (updatedUser) => {
+    setUsers((prev) => prev.map((user) => (user._id === updatedUser._id ? updatedUser : user)));
+  };
+
+  const handleUpdateUser = async (event) => {
+    event.preventDefault();
+    if (!editingUser) return;
+
+    const payload = {
+      name: userForm.name.trim(),
+      email: userForm.email.trim(),
+      role: userForm.role,
+      stream: userForm.role === "user" ? userForm.stream.trim() || null : null,
+      year: userForm.role === "user" && userForm.year !== "" ? Number(userForm.year) : null,
+      phone: userForm.phone.trim() || null,
+    };
+
+    try {
+      setIsUserSaving(true);
+      const response = await axios.put(`${Server_URL}admin/users/${editingUser._id}`, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      replaceUserInList(response.data.user);
+      showSuccessToast("Đã cập nhật người dùng");
+      closeUserEditor();
+    } catch (error) {
+      showErrorToast(getAxiosErrorMessage(error, "Không thể cập nhật người dùng"));
+      setIsUserSaving(false);
+    }
+  };
+
+  const handleToggleUserStatus = async (user) => {
+    const nextActive = user.isActive === false;
+    const actionLabel = nextActive ? "mở khóa" : "khóa";
+
+    if (!window.confirm(`Bạn có chắc muốn ${actionLabel} tài khoản ${user.email}?`)) {
+      return;
+    }
+
+    try {
+      const response = await axios.patch(
+        `${Server_URL}admin/users/${user._id}/status`,
+        { isActive: nextActive },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      replaceUserInList(response.data.user);
+      showSuccessToast(response.data.message || `Đã ${actionLabel} tài khoản`);
+    } catch (error) {
+      showErrorToast(getAxiosErrorMessage(error, "Không thể cập nhật trạng thái tài khoản"));
+    }
+  };
+
+  const handleDeleteUser = async (user) => {
+    if (!window.confirm(`Xóa người dùng ${user.email}? Thao tác này không thể hoàn tác.`)) {
+      return;
+    }
+
+    try {
+      await axios.delete(`${Server_URL}admin/users/${user._id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setUsers((prev) => prev.filter((item) => item._id !== user._id));
+      showSuccessToast("Đã xóa người dùng");
+    } catch (error) {
+      showErrorToast(getAxiosErrorMessage(error, "Không thể xóa người dùng"));
+    }
+  };
+
+  const sortCategoriesByName = (items) =>
+    [...items].sort((a, b) => (a.name || "").localeCompare(b.name || "", "vi"));
+
+  const fetchCategories = async () => {
+    try {
+      const result = await axios.get(`${Server_URL}categories`);
+      setCategories(sortCategoriesByName(result.data.categories || []));
+    } catch (error) {
+      console.error("Lỗi tải danh mục:", error);
+    }
+  };
+
+  const replaceCategoryInList = (updatedCategory) => {
+    setCategories((prev) =>
+      sortCategoriesByName(prev.map((category) =>
+        category._id === updatedCategory._id ? updatedCategory : category
+      ))
+    );
+  };
+
+  const handleCreateCategory = async (event) => {
+    event.preventDefault();
+    const name = categoryName.trim();
+
+    if (!name) {
+      showErrorToast("Vui lòng nhập tên danh mục");
+      return;
+    }
+
+    try {
+      setIsCategorySaving(true);
+      const response = await axios.post(
+        `${Server_URL}categories`,
+        { name },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setCategories((prev) => sortCategoriesByName([...prev, response.data.category]));
+      setCategoryName("");
+      showSuccessToast("Đã thêm danh mục");
+    } catch (error) {
+      showErrorToast(getAxiosErrorMessage(error, "Không thể thêm danh mục"));
+    } finally {
+      setIsCategorySaving(false);
+    }
+  };
+
+  const startEditCategory = (category) => {
+    setEditingCategoryId(category._id);
+    setEditingCategoryName(category.name || "");
+  };
+
+  const cancelEditCategory = () => {
+    setEditingCategoryId(null);
+    setEditingCategoryName("");
+  };
+
+  const handleUpdateCategory = async (category) => {
+    const name = editingCategoryName.trim();
+
+    if (!name) {
+      showErrorToast("Vui lòng nhập tên danh mục");
+      return;
+    }
+
+    try {
+      setIsCategorySaving(true);
+      const response = await axios.put(
+        `${Server_URL}categories/${category._id}`,
+        { name },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      replaceCategoryInList(response.data.category);
+      cancelEditCategory();
+      fetchBooks();
+      showSuccessToast("Đã cập nhật danh mục");
+    } catch (error) {
+      showErrorToast(getAxiosErrorMessage(error, "Không thể cập nhật danh mục"));
+    } finally {
+      setIsCategorySaving(false);
+    }
+  };
+
+  const handleDeleteCategory = async (category) => {
+    const bookCount = Number(category.bookCount || 0);
+    const detail = bookCount > 0
+      ? ` ${bookCount} sách thuộc danh mục này sẽ chuyển sang "Chưa phân loại".`
+      : "";
+
+    if (!window.confirm(`Xóa danh mục "${category.name}"?${detail}`)) {
+      return;
+    }
+
+    try {
+      await axios.delete(`${Server_URL}categories/${category._id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCategories((prev) => prev.filter((item) => item._id !== category._id));
+      if (editingCategoryId === category._id) {
+        cancelEditCategory();
+      }
+      fetchBooks();
+      showSuccessToast("Đã xóa danh mục");
+    } catch (error) {
+      showErrorToast(getAxiosErrorMessage(error, "Không thể xóa danh mục"));
     }
   };
 
@@ -187,6 +513,76 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
       setReviews(result.data.reviews || []);
     } catch (error) {
       console.error("Lỗi tải đánh giá:", error);
+    }
+  };
+
+  const fetchContacts = async () => {
+    try {
+      const result = await axios.get(`${Server_URL}admin/contacts`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const contactList = result.data.contacts || [];
+      setContacts(contactList);
+      setContactNotes(
+        contactList.reduce((acc, contact) => ({
+          ...acc,
+          [contact._id]: contact.adminNote || "",
+        }), {})
+      );
+    } catch (error) {
+      console.error("Lỗi tải liên hệ:", error);
+    }
+  };
+
+  const replaceContactInList = (updatedContact) => {
+    setContacts((prev) => prev.map((contact) => (
+      contact._id === updatedContact._id ? updatedContact : contact
+    )));
+    setContactNotes((prev) => ({ ...prev, [updatedContact._id]: updatedContact.adminNote || "" }));
+  };
+
+  const handleContactNoteChange = (contactId, value) => {
+    setContactNotes((prev) => ({ ...prev, [contactId]: value }));
+  };
+
+  const handleUpdateContact = async (contact, nextStatus = contact.status) => {
+    try {
+      setUpdatingContactId(contact._id);
+      const response = await axios.put(
+        `${Server_URL}admin/contacts/${contact._id}`,
+        {
+          status: nextStatus,
+          adminNote: contactNotes[contact._id] || "",
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      replaceContactInList(response.data.contact);
+      showSuccessToast("Đã cập nhật liên hệ");
+    } catch (error) {
+      showErrorToast(getAxiosErrorMessage(error, "Không thể cập nhật liên hệ"));
+    } finally {
+      setUpdatingContactId(null);
+    }
+  };
+
+  const handleDeleteContact = async (contact) => {
+    if (!window.confirm(`Xóa tin nhắn liên hệ từ ${contact.email}?`)) {
+      return;
+    }
+
+    try {
+      await axios.delete(`${Server_URL}admin/contacts/${contact._id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setContacts((prev) => prev.filter((item) => item._id !== contact._id));
+      setContactNotes((prev) => {
+        const next = { ...prev };
+        delete next[contact._id];
+        return next;
+      });
+      showSuccessToast("Đã xóa liên hệ");
+    } catch (error) {
+      showErrorToast(getAxiosErrorMessage(error, "Không thể xóa liên hệ"));
     }
   };
 
@@ -306,9 +702,11 @@ const handleSendReply = async (reviewId) => {
 
   useEffect(() => {
     fetchUsers();
+    fetchCategories();
     fetchBooks();
     fetchTickets();
     fetchReviews();
+    fetchContacts();
   }, []);
 
   useEffect(() => {
@@ -363,10 +761,26 @@ const handleSendReply = async (reviewId) => {
             </li>
             <li className="admin-nav-item">
               <button
+                className={`admin-nav-btn ${selectedSection === "categories" ? "active" : ""}`}
+                onClick={() => setSelectedSection("categories")}
+              >
+                <FiTag /> Danh mục
+              </button>
+            </li>
+            <li className="admin-nav-item">
+              <button
                 className={`admin-nav-btn ${selectedSection === "reviews" ? "active" : ""}`}
                 onClick={() => setSelectedSection("reviews")}
               >
                 <FiCheckCircle /> Đánh giá
+              </button>
+            </li>
+            <li className="admin-nav-item">
+              <button
+                className={`admin-nav-btn ${selectedSection === "contacts" ? "active" : ""}`}
+                onClick={() => setSelectedSection("contacts")}
+              >
+                <FiMail /> Liên hệ
               </button>
             </li>
           </ul>
@@ -733,30 +1147,361 @@ const handleSendReply = async (reviewId) => {
 
           {selectedSection === "users" && (
             <>
-              <h2 className="admin-section-title">Quản lý Độc giả</h2>
-              <div className="admin-table-container">
-                <table className="admin-table">
+              <h2 className="admin-section-title">Quản lý người dùng</h2>
+
+              <div className="user-management-toolbar">
+                <div className="user-search-box">
+                  <FiSearch />
+                  <input
+                    type="search"
+                    value={userSearch}
+                    onChange={(event) => setUserSearch(event.target.value)}
+                    placeholder="Tìm theo tên, email, ngành, SĐT..."
+                  />
+                </div>
+
+                <div className="user-filter-group">
+                  <FiFilter />
+                  <select
+                    value={userRoleFilter}
+                    onChange={(event) => setUserRoleFilter(event.target.value)}
+                  >
+                    {USER_ROLE_FILTERS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={userStatusFilter}
+                    onChange={(event) => setUserStatusFilter(event.target.value)}
+                  >
+                    {USER_STATUS_FILTERS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="user-result-count">
+                  {filteredUsers.length}/{users.length} người dùng
+                </div>
+              </div>
+
+              <div className="admin-table-container user-table-container">
+                <table className="admin-table user-management-table">
                   <thead>
                     <tr>
                       <th>STT</th>
-                      <th>Họ và tên</th>
-                      <th>Địa chỉ email</th>
+                      <th>Người dùng</th>
                       <th>Vai trò</th>
+                      <th>Ngành</th>
+                      <th>Năm</th>
+                      <th>SĐT</th>
+                      <th>Tài khoản</th>
+                      <th>Ngày tạo</th>
+                      <th>Thao tác</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map((user, index) => (
-                      <tr key={user._id || index}>
-                        <td>{index + 1}</td>
-                        <td>{user.name}</td>
-                        <td>{user.email}</td>
-                        <td>
-                          <span className={`status-badge ${user.role === 'admin' ? 'rejected' : 'approved'}`}>
-                            {user.role === 'admin' ? 'Thủ thư' : 'Độc giả'}
-                          </span>
+                    {filteredUsers.length > 0 ? (
+                      filteredUsers.map((user, index) => (
+                        <tr key={user._id || index}>
+                          <td>{index + 1}</td>
+                          <td>
+                            <div className="admin-user-cell">
+                              <strong>{user.name}</strong>
+                              <span>{user.email}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <span className={`status-badge ${user.role === "admin" ? "approved" : "returned"}`}>
+                              {getUserRoleLabel(user.role)}
+                            </span>
+                          </td>
+                          <td>{user.stream || "—"}</td>
+                          <td>{user.year || "—"}</td>
+                          <td>{user.phone || "—"}</td>
+                          <td>
+                            <div className="admin-user-status-stack">
+                              <span className={`status-badge ${user.isActive === false ? "cancelled" : "closed"}`}>
+                                {getUserStatusLabel(user)}
+                              </span>
+                              {!user.emailVerified && (
+                                <span className="email-warning-badge">Chưa xác thực</span>
+                              )}
+                            </div>
+                          </td>
+                          <td>{user.createdAt ? new Date(user.createdAt).toLocaleDateString("vi-VN") : "—"}</td>
+                          <td>
+                            <div className="admin-user-actions">
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-primary"
+                                onClick={() => openUserEditor(user)}
+                              >
+                                <FiEdit2 /> Sửa
+                              </button>
+                              <button
+                                type="button"
+                                className={`btn btn-sm ${user.isActive === false ? "btn-outline-success" : "btn-outline-danger"}`}
+                                onClick={() => handleToggleUserStatus(user)}
+                              >
+                                {user.isActive === false ? <FiUnlock /> : <FiLock />}
+                                {user.isActive === false ? "Mở" : "Khóa"}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-danger"
+                                onClick={() => handleDeleteUser(user)}
+                              >
+                                <FiTrash2 /> Xóa
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td className="empty-users-cell" colSpan="9">
+                          Không tìm thấy người dùng phù hợp.
                         </td>
                       </tr>
-                    ))}
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {editingUser && (
+                <div className="admin-modal-backdrop" role="dialog" aria-modal="true">
+                  <form className="admin-user-modal" onSubmit={handleUpdateUser}>
+                    <div className="admin-user-modal-header">
+                      <h3>Sửa người dùng</h3>
+                      <button type="button" className="modal-close-btn" onClick={closeUserEditor}>
+                        <FiX />
+                      </button>
+                    </div>
+
+                    <div className="admin-user-form-grid">
+                      <label>
+                        <span>Họ và tên</span>
+                        <input
+                          name="name"
+                          value={userForm.name}
+                          onChange={handleUserFormChange}
+                          required
+                        />
+                      </label>
+
+                      <label>
+                        <span>Email</span>
+                        <input
+                          name="email"
+                          type="email"
+                          value={userForm.email}
+                          onChange={handleUserFormChange}
+                          required
+                        />
+                      </label>
+
+                      <label>
+                        <span>Vai trò</span>
+                        <select name="role" value={userForm.role} onChange={handleUserFormChange}>
+                          <option value="user">Độc giả</option>
+                          <option value="admin">Thủ thư</option>
+                        </select>
+                      </label>
+
+                      <label>
+                        <span>SĐT</span>
+                        <input
+                          name="phone"
+                          value={userForm.phone}
+                          onChange={handleUserFormChange}
+                          placeholder="Chưa cập nhật"
+                        />
+                      </label>
+
+                      <label>
+                        <span>Ngành</span>
+                        <input
+                          name="stream"
+                          value={userForm.stream}
+                          onChange={handleUserFormChange}
+                          disabled={userForm.role === "admin"}
+                        />
+                      </label>
+
+                      <label>
+                        <span>Năm học</span>
+                        <input
+                          name="year"
+                          type="number"
+                          min="1"
+                          max="10"
+                          value={userForm.year}
+                          onChange={handleUserFormChange}
+                          disabled={userForm.role === "admin"}
+                        />
+                      </label>
+                    </div>
+
+                    <div className="admin-user-modal-actions">
+                      <button type="button" className="btn btn-outline-danger" onClick={closeUserEditor}>
+                        Hủy
+                      </button>
+                      <button type="submit" className="btn btn-success" disabled={isUserSaving}>
+                        {isUserSaving ? "Đang lưu..." : "Lưu thay đổi"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+            </>
+          )}
+
+          {selectedSection === "categories" && (
+            <>
+              <h2 className="admin-section-title">Quản lý danh mục</h2>
+
+              <div className="category-management-grid">
+                <form className="category-form-card" onSubmit={handleCreateCategory}>
+                  <div className="category-form-icon">
+                    <FiTag />
+                  </div>
+                  <div className="category-form-body">
+                    <label htmlFor="categoryName">Tên danh mục mới</label>
+                    <div className="category-input-row">
+                      <input
+                        id="categoryName"
+                        value={categoryName}
+                        onChange={(event) => setCategoryName(event.target.value)}
+                        placeholder="Ví dụ: Khoa học dữ liệu"
+                        maxLength="255"
+                      />
+                      <button type="submit" className="btn btn-success" disabled={isCategorySaving}>
+                        <FiPlus /> Thêm
+                      </button>
+                    </div>
+                  </div>
+                </form>
+
+                <div className="category-summary-card">
+                  <span>Tổng danh mục</span>
+                  <strong>{categories.length}</strong>
+                  <small>{categories.reduce((total, category) => total + Number(category.bookCount || 0), 0)} sách đã phân loại</small>
+                </div>
+              </div>
+
+              <div className="user-management-toolbar category-toolbar">
+                <div className="user-search-box">
+                  <FiSearch />
+                  <input
+                    type="search"
+                    value={categorySearch}
+                    onChange={(event) => setCategorySearch(event.target.value)}
+                    placeholder="Tìm danh mục..."
+                  />
+                </div>
+                <div className="user-result-count">
+                  {filteredCategories.length}/{categories.length} danh mục
+                </div>
+              </div>
+
+              <div className="admin-table-container">
+                <table className="admin-table category-management-table">
+                  <thead>
+                    <tr>
+                      <th>STT</th>
+                      <th>Tên danh mục</th>
+                      <th>Số sách</th>
+                      <th>Ngày tạo</th>
+                      <th>Cập nhật</th>
+                      <th>Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredCategories.length > 0 ? (
+                      filteredCategories.map((category, index) => {
+                        const isEditing = editingCategoryId === category._id;
+
+                        return (
+                          <tr key={category._id || index}>
+                            <td>{index + 1}</td>
+                            <td>
+                              {isEditing ? (
+                                <input
+                                  className="category-inline-input"
+                                  value={editingCategoryName}
+                                  onChange={(event) => setEditingCategoryName(event.target.value)}
+                                  autoFocus
+                                  maxLength="255"
+                                />
+                              ) : (
+                                <div className="admin-category-cell">
+                                  <FiTag />
+                                  <strong>{category.name}</strong>
+                                </div>
+                              )}
+                            </td>
+                            <td>
+                              <span className="status-badge returned">
+                                {Number(category.bookCount || 0)} cuốn
+                              </span>
+                            </td>
+                            <td>{category.createdAt ? new Date(category.createdAt).toLocaleDateString("vi-VN") : "—"}</td>
+                            <td>{category.updatedAt ? new Date(category.updatedAt).toLocaleDateString("vi-VN") : "—"}</td>
+                            <td>
+                              <div className="admin-user-actions">
+                                {isEditing ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-success"
+                                      onClick={() => handleUpdateCategory(category)}
+                                      disabled={isCategorySaving}
+                                    >
+                                      <FiCheck /> Lưu
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-outline-danger"
+                                      onClick={cancelEditCategory}
+                                    >
+                                      <FiX /> Hủy
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-outline-primary"
+                                      onClick={() => startEditCategory(category)}
+                                    >
+                                      <FiEdit2 /> Sửa
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-outline-danger"
+                                      onClick={() => handleDeleteCategory(category)}
+                                    >
+                                      <FiTrash2 /> Xóa
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td className="empty-users-cell" colSpan="6">
+                          Không tìm thấy danh mục phù hợp.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -795,6 +1540,128 @@ const handleSendReply = async (reviewId) => {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </>
+          )}
+
+          {selectedSection === "contacts" && (
+            <>
+              <h2 className="admin-section-title">Quản lý liên hệ</h2>
+
+              <div className="contact-admin-stats">
+                {CONTACT_STATUS_FILTERS.filter((option) => option.value !== "all").map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`contact-stat-card ${option.value} ${contactStatusFilter === option.value ? "active" : ""}`}
+                    onClick={() => setContactStatusFilter(option.value)}
+                  >
+                    <span>{option.label}</span>
+                    <strong>{contacts.filter((contact) => contact.status === option.value).length}</strong>
+                  </button>
+                ))}
+              </div>
+
+              <div className="user-management-toolbar contact-toolbar">
+                <div className="user-search-box">
+                  <FiSearch />
+                  <input
+                    type="search"
+                    value={contactSearch}
+                    onChange={(event) => setContactSearch(event.target.value)}
+                    placeholder="Tìm theo tên, email, chủ đề, nội dung..."
+                  />
+                </div>
+                <div className="user-filter-group contact-filter-group">
+                  <FiFilter />
+                  <select
+                    value={contactStatusFilter}
+                    onChange={(event) => setContactStatusFilter(event.target.value)}
+                  >
+                    {CONTACT_STATUS_FILTERS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="user-result-count">
+                  {filteredContacts.length}/{contacts.length} liên hệ
+                </div>
+              </div>
+
+              <div className="admin-contact-list">
+                {filteredContacts.length > 0 ? (
+                  filteredContacts.map((contact) => (
+                    <article key={contact._id} className="admin-contact-item">
+                      <div className="admin-contact-header">
+                        <div className="admin-contact-sender">
+                          <strong>{contact.name}</strong>
+                          <a href={`mailto:${contact.email}`}>{contact.email}</a>
+                        </div>
+                        <span className={`contact-status-badge ${contact.status}`}>
+                          {CONTACT_STATUS_LABEL[contact.status] || "Chưa cập nhật"}
+                        </span>
+                      </div>
+
+                      <div className="admin-contact-meta">
+                        <span>{CONTACT_SUBJECT_LABEL[contact.subject] || contact.subject || "Khác"}</span>
+                        <span>{contact.createdAt ? new Date(contact.createdAt).toLocaleString("vi-VN") : "—"}</span>
+                        {contact.handledBy && (
+                          <span>Xử lý bởi {contact.handledBy.name || contact.handledBy.email}</span>
+                        )}
+                      </div>
+
+                      <p className="admin-contact-message">{contact.message}</p>
+
+                      <label className="admin-contact-note">
+                        <span>Ghi chú xử lý</span>
+                        <textarea
+                          value={contactNotes[contact._id] || ""}
+                          onChange={(event) => handleContactNoteChange(contact._id, event.target.value)}
+                          placeholder="Nhập ghi chú nội bộ cho tin nhắn này..."
+                          rows="3"
+                        />
+                      </label>
+
+                      <div className="admin-contact-actions">
+                        <select
+                          value={contact.status}
+                          onChange={(event) => handleUpdateContact(contact, event.target.value)}
+                          disabled={updatingContactId === contact._id}
+                        >
+                          {CONTACT_STATUS_FILTERS.filter((option) => option.value !== "all").map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-success"
+                          onClick={() => handleUpdateContact(contact)}
+                          disabled={updatingContactId === contact._id}
+                        >
+                          <FiCheck /> Lưu ghi chú
+                        </button>
+                        <a className="btn btn-sm btn-outline-primary" href={`mailto:${contact.email}`}>
+                          <FiMail /> Trả lời
+                        </a>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-danger"
+                          onClick={() => handleDeleteContact(contact)}
+                        >
+                          <FiTrash2 /> Xóa
+                        </button>
+                      </div>
+                    </article>
+                  ))
+                ) : (
+                  <div className="admin-contact-empty">
+                    Không tìm thấy tin nhắn liên hệ phù hợp.
+                  </div>
+                )}
               </div>
             </>
           )}

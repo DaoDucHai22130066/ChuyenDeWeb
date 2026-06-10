@@ -580,6 +580,32 @@
   transform: translateY(0);
 }
 
+.btn-ticket-cancel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-ticket-cancel:hover:not(:disabled) {
+  background-color: #fee2e2;
+  border-color: #fca5a5;
+  transform: translateY(-1px);
+}
+
+.btn-ticket-cancel:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 /* Responsive Styling */
 @media (max-width: 992px) {
   .profile-container {
@@ -1114,4 +1140,294 @@
 .no-review-dash {
   color: #cbd5e1;
   font-size: 1rem;
+}
+
+/* Clearer profile redesign */
+.profile-page {
+  max-width: 1280px;
+  padding: 24px;
+  background:
+    linear-gradient(180deg, #eff6ff 0, rgba(255, 255, 255, 0) 320px),
+    #f8fafc;
+}
+
+.profile-hero-banner {
+  min-height: 220px;
+  margin: 0;
+  border-radius: 24px;
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.94), rgba(14, 165, 233, 0.88)),
+    url("https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=1400&q=80") center/cover;
+  box-shadow: 0 18px 48px rgba(37, 99, 235, 0.18);
+}
+
+.banner-overlay {
+  background: linear-gradient(90deg, rgba(15, 23, 42, 0.45), rgba(15, 23, 42, 0.08));
+}
+
+.profile-hero-copy {
+  align-items: flex-start;
+  max-width: 1120px;
+  padding: 42px 32px;
+  text-align: left;
+}
+
+.profile-hero-copy h1,
+.profile-hero-copy span {
+  margin-left: 0;
+  margin-right: 0;
+  text-align: left;
+}
+
+.profile-hero-copy h1 {
+  max-width: 620px;
+  font-size: clamp(1.85rem, 3vw, 2.6rem);
+  letter-spacing: -0.025em;
+}
+
+.profile-container {
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 22px;
+  margin-top: 22px;
+}
+
+.profile-card {
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+}
+
+.profile-card:hover {
+  transform: none;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.09);
+}
+
+.summary-card,
+.stats-card,
+.details-card,
+.tickets-card {
+  border-radius: 16px;
+}
+
+.profile-avatar {
+  border-radius: 22px;
+  background: linear-gradient(135deg, #2563eb, #06b6d4);
+}
+
+.role-badge {
+  bottom: -10px;
+  border-radius: 999px;
+}
+
+.stats-grid {
+  grid-template-columns: 1fr;
+}
+
+.stat-item {
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.details-card .form-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  align-items: end;
+}
+
+.form-group {
+  min-width: 0;
+}
+
+.form-group input {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  border-radius: 12px;
+  background: #f8fafc;
+  box-sizing: border-box;
+  text-overflow: ellipsis;
+}
+
+.form-group input.disabled-field {
+  color: #334155;
+  background: #f8fafc;
+}
+
+.card-header-flex {
+  align-items: flex-start;
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.tickets-count {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.ticket-card-list {
+  display: grid;
+  gap: 14px;
+}
+
+.profile-ticket-card {
+  padding: 18px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+}
+
+.profile-ticket-card.pending,
+.profile-ticket-card.awaiting_payment,
+.profile-ticket-card.paid {
+  border-left: 5px solid #f59e0b;
+}
+
+.profile-ticket-card.approved,
+.profile-ticket-card.dispatched,
+.profile-ticket-card.delivered {
+  border-left: 5px solid #2563eb;
+}
+
+.profile-ticket-card.returned,
+.profile-ticket-card.closed {
+  border-left: 5px solid #16a34a;
+}
+
+.profile-ticket-card.cancelled {
+  border-left: 5px solid #dc2626;
+}
+
+.profile-ticket-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.ticket-id-label,
+.ticket-date-grid span {
+  display: block;
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.profile-ticket-top strong {
+  display: block;
+  margin-top: 4px;
+  color: #0f172a;
+  font-size: 1.1rem;
+}
+
+.ticket-date-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.ticket-date-grid > div {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.ticket-date-grid strong {
+  display: block;
+  margin-top: 4px;
+  color: #0f172a;
+  font-size: 0.95rem;
+}
+
+.ticket-book-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.ticket-book-chips span {
+  max-width: 260px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #eef6ff;
+  color: #1e40af;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-ticket-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.profile-ticket-actions .review-action-cell {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.btn-ticket-cancel,
+.btn-renew,
+.btn-review {
+  border-radius: 999px;
+  min-height: 36px;
+}
+
+.btn-ticket-cancel {
+  background: #fff1f2;
+  color: #be123c;
+  border-color: #fecdd3;
+}
+
+.btn-ticket-cancel:hover:not(:disabled) {
+  background: #ffe4e6;
+  border-color: #fda4af;
+}
+
+.no-review-dash {
+  color: #64748b;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+@media (max-width: 1080px) {
+  .profile-container,
+  .details-card .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .profile-page {
+    padding: 12px;
+  }
+
+  .profile-hero-copy {
+    padding: 32px 20px;
+  }
+
+  .profile-container {
+    margin-top: 14px;
+  }
+
+  .ticket-date-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-ticket-top {
+    flex-direction: column;
+  }
 }

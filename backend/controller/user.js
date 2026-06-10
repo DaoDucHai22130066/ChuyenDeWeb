@@ -21,6 +21,15 @@ function buildUserPayload(userRow) {
   };
 }
 
+const CONTACT_SUBJECTS = new Set([
+  "general",
+  "borrow",
+  "donate",
+  "volunteer",
+  "feedback",
+  "other",
+]);
+
 userController.userRegistration = async (req, res) => {
   try {
     const { name, email, password, stream, year, role } = req.body;
@@ -93,6 +102,10 @@ userController.login = async (req, res) => {
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
+    if (Number(user.is_active) === 0) {
+      return res.status(403).json({ message: "Tài khoản đã bị khóa. Vui lòng liên hệ thủ thư." });
+    }
+
     if (!user.password) {
       return res.status(400).json({ message: "Use Google login for this account" });
     }
@@ -124,7 +137,7 @@ userController.login = async (req, res) => {
 userController.getUsers = async (req, res) => {
   try {
     const rows = await query(
-      `SELECT id, name, email, role, stream, year, phone, email_verified, created_at, updated_at
+      `SELECT id, name, email, role, stream, year, phone, email_verified, is_active, created_at, updated_at
        FROM users
        ORDER BY id DESC`
     );
@@ -141,7 +154,7 @@ userController.profile = async (req, res) => {
   try {
     const { id } = req.userInfo;
     const rows = await query(
-      `SELECT id, name, email, role, stream, year, phone, email_verified, created_at, updated_at
+      `SELECT id, name, email, role, stream, year, phone, email_verified, is_active, created_at, updated_at
        FROM users
        WHERE id = ?
        LIMIT 1`,
@@ -161,14 +174,37 @@ userController.profile = async (req, res) => {
 };
 
 userController.addContact = async (req, res) => {
-  const { name, email, subject, message } = req.body;
+  const name = String(req.body.name || "").trim();
+  const email = String(req.body.email || "").trim().toLowerCase();
+  const subject = String(req.body.subject || "").trim().toLowerCase();
+  const message = String(req.body.message || "").trim();
 
   if (!name || !email || !subject || !message) {
-    return res.status(400).json({ error: "All fields are required" });
+    return res.status(400).json({ error: true, message: "Vui lòng nhập đầy đủ thông tin liên hệ" });
+  }
+
+  if (name.length > 255 || email.length > 255) {
+    return res.status(400).json({ error: true, message: "Họ tên hoặc email quá dài" });
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: true, message: "Email không hợp lệ" });
+  }
+
+  if (!CONTACT_SUBJECTS.has(subject)) {
+    return res.status(400).json({ error: true, message: "Chủ đề liên hệ không hợp lệ" });
+  }
+
+  if (message.length < 10) {
+    return res.status(400).json({ error: true, message: "Nội dung liên hệ cần ít nhất 10 ký tự" });
+  }
+
+  if (message.length > 5000) {
+    return res.status(400).json({ error: true, message: "Nội dung liên hệ không được vượt quá 5000 ký tự" });
   }
 
   try {
-    await query(
+    const result = await query(
       `INSERT INTO contacts (name, email, subject, message)
        VALUES (?, ?, ?, ?)` ,
       [name, email, subject, message]
@@ -177,10 +213,15 @@ userController.addContact = async (req, res) => {
     // Send email to admin
     await sendContactNotification({ name, email, subject, message });
 
-    res.status(200).json({ success: true, message: "Your message has been sent! We will get back to you soon." });
+    res.status(201).json({
+      success: true,
+      error: false,
+      message: "Tin nhắn đã được gửi. Chúng tôi sẽ phản hồi sớm.",
+      contactId: result.insertId,
+    });
   } catch (error) {
     console.error("Error saving contact:", error.message);
-    res.status(500).json({ error: "Server error while saving message" });
+    res.status(500).json({ error: true, message: "Lỗi hệ thống khi gửi liên hệ" });
   }
 };
 
@@ -386,6 +427,10 @@ userController.googleLogin = async (req, res) => {
       user = rows[0];
     }
 
+    if (Number(user.is_active) === 0) {
+      return res.status(403).json({ message: "Tài khoản đã bị khóa. Vui lòng liên hệ thủ thư." });
+    }
+
     const tokenPayload = buildUserPayload(user);
     const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: "24h" });
     res.json({
@@ -416,7 +461,7 @@ userController.updateProfile = async (req, res) => {
     );
 
     const rows = await query(
-      `SELECT id, name, email, role, stream, year, phone, email_verified, created_at, updated_at
+      `SELECT id, name, email, role, stream, year, phone, email_verified, is_active, created_at, updated_at
        FROM users
        WHERE id = ?
        LIMIT 1`,
