@@ -25,7 +25,6 @@ export default function Login() {
         navigate("/");
       }
 
-      // notify cart context to sync
       try { window.dispatchEvent(new Event('cart:auth-changed')); } catch (e) {}
 
       showSuccessToast("Đăng nhập thành công!");
@@ -34,7 +33,6 @@ export default function Login() {
     }
   };
 
-  // Callback đăng nhập bằng Google
   const handleCredentialResponse = async (response) => {
     try {
       const idToken = response.credential;
@@ -57,63 +55,86 @@ export default function Login() {
       });
       window.google.accounts.id.renderButton(
         document.getElementById('googleSignInDiv'),
-        { theme: 'outline', size: 'large' }
+        { theme: 'outline', size: 'large', width: '100%', shape: 'pill' }
       );
     }
   }, []);
 
-  const handleGoogleClick = () => {
-    if (window.google) {
-      // Show one-tap / prompt to select account
-      window.google.accounts.id.prompt();
-    } else {
-      showErrorToast("Đăng nhập bằng Google không khả dụng");
-    }
-  };
-
   return (
-    <div className="login-container">
-      <div className="login-box">
-        <h2 className="login-title">Đăng nhập</h2>
-        <p className="login-subtitle">D Free Book — Thư viện cộng đồng</p>
-        <form onSubmit={handleSubmit(onSubmit)} className="login-form">
-          <div className="form-group">
-            <label>Email</label>
-            <input
-              type="email"
-              {...register("email", { required: "Vui lòng nhập email" })}
-              className="form-input"
-              placeholder="email@example.com"
-            />
-            {errors.email && <span className="error-text">{errors.email.message}</span>}
-          </div>
-
-          <div className="form-group">
-            <label>Mật khẩu</label>
-            <input
-              type="password"
-              {...register("password", { required: "Vui lòng nhập mật khẩu" })}
-              className="form-input"
-            />
-            {errors.password && <span className="error-text">{errors.password.message}</span>}
-          </div>
-
-          <div className="forgot-password">
-            <button type="button" className="forgot-btn" onClick={() => navigate("/forgetPassword")}>
-              Quên mật khẩu?
-            </button>
-          </div>
-
-          <button type="submit" className="btn-submit">Đăng nhập</button>
-
-          <div style={{ marginTop: 12, textAlign: 'center' }}>
-            <div id="googleSignInDiv" style={{ marginTop: 8 }}></div>
-          </div>
-
-          <p className="login-register-link">
-            Chưa có tài khoản? <Link to="/register">Đăng ký ngay</Link>
+    <div className="login-split-container">
+      {/* CỘT TRÁI: BANNER & SLOGAN */}
+      <div className="login-banner">
+        <div className="banner-overlay"></div>
+        <div className="banner-content">
+          <div className="banner-logo-badge">D Free Book</div>
+          <h1 className="banner-slogan">
+            Mượn sách bằng <br />
+            <span>đặt cọc tự tâm</span>
+          </h1>
+          <p className="banner-description">
+            Không gian lan tỏa văn hóa đọc, kết nối những tâm hồn yêu tri thức và sẻ chia giá trị cộng đồng hoàn toàn miễn phí.
           </p>
-        </form>
+          <div className="banner-footer">
+            <span className="footer-dot"></span> Thư viện cộng đồng không lợi nhuận
+          </div>
+        </div>
+        {/* Decorative elements */}
+        <div className="banner-blob blob-1"></div>
+        <div className="banner-blob blob-2"></div>
+      </div>
+
+      {/* CỘT PHẢI: FORM ĐĂNG NHẬP */}
+      <div className="login-form-section">
+        <div className="login-form-wrapper animate-fade-in-right">
+          <div className="login-form-header">
+            <h2 className="form-title">Chào mừng trở lại</h2>
+            <p className="form-subtitle">Vui lòng nhập thông tin tài khoản của bạn</p>
+          </div>
+
+          <form onSubmit={handleSubmit(onSubmit)} className="modern-form">
+            <div className="form-group-modern">
+              <label>Email</label>
+              <input
+                type="email"
+                {...register("email", { required: "Vui lòng nhập email" })}
+                className="input-field-modern"
+                placeholder="name@example.com"
+              />
+              {errors.email && <span className="error-msg-modern">{errors.email.message}</span>}
+            </div>
+
+            <div className="form-group-modern">
+              <label>Mật khẩu</label>
+              <input
+                type="password"
+                {...register("password", { required: "Vui lòng nhập mật khẩu" })}
+                className="input-field-modern"
+                placeholder="••••••••"
+              />
+              {errors.password && <span className="error-msg-modern">{errors.password.message}</span>}
+            </div>
+
+            <div className="form-options-modern">
+              <button type="button" className="forgot-link-modern" onClick={() => navigate("/forgetPassword")}>
+                Quên mật khẩu?
+              </button>
+            </div>
+
+            <button type="submit" className="btn-submit-modern">Đăng nhập</button>
+
+            <div className="divider-modern">
+              <span>Hoặc tiếp tục với</span>
+            </div>
+
+            <div className="google-btn-container">
+              <div id="googleSignInDiv"></div>
+            </div>
+
+            <p className="switch-page-text">
+              Bạn chưa có tài khoản? <Link to="/register">Đăng ký thành viên</Link>
+            </p>
+          </form>
+        </div>
       </div>
     </div>
   );
