@@ -1,7 +1,7 @@
 const bcrypt = require("bcryptjs");
 const JWT_SECRET = process.env.JWT_SECRET || "12345@abcd12";
 const jwt = require("jsonwebtoken");
-const { query, mapUserRow } = require("../utils/mysql");
+const { query, mapUserRow, mapContactRow } = require("../utils/mysql");
 
 const adminController = {};
 
@@ -10,6 +10,26 @@ const USER_SELECT = `
   FROM users
 `;
 const USER_ROLES = ["admin", "user"];
+const CONTACT_STATUSES = ["new", "in_progress", "resolved", "closed"];
+const CONTACT_SELECT = `
+  SELECT
+    c.id,
+    c.name,
+    c.email,
+    c.subject,
+    c.message,
+    c.status,
+    c.admin_note,
+    c.handled_by,
+    c.handled_at,
+    c.date,
+    c.updated_at,
+    u.name AS handler_name,
+    u.email AS handler_email,
+    u.role AS handler_role
+  FROM contacts c
+  LEFT JOIN users u ON u.id = c.handled_by
+`;
 
 function parseUserId(value) {
   const id = Number(value);
@@ -51,6 +71,11 @@ function normalizeBoolean(value, fallback = null) {
 
 async function getUserById(id) {
   const rows = await query(`${USER_SELECT} WHERE id = ? LIMIT 1`, [id]);
+  return rows[0];
+}
+
+async function getContactById(id) {
+  const rows = await query(`${CONTACT_SELECT} WHERE c.id = ? LIMIT 1`, [id]);
   return rows[0];
 }
 
@@ -319,6 +344,109 @@ adminController.deleteUser = async (req, res, next) => {
       });
     }
 
+    next(error);
+  }
+};
+
+adminController.getContacts = async (req, res, next) => {
+  try {
+    const { search = "", status = "all" } = req.query;
+    const where = [];
+    const params = [];
+    const normalizedStatus = String(status).trim().toLowerCase();
+    const searchTerm = String(search).trim();
+
+    if (CONTACT_STATUSES.includes(normalizedStatus)) {
+      where.push("c.status = ?");
+      params.push(normalizedStatus);
+    }
+
+    if (searchTerm) {
+      where.push("(c.name LIKE ? OR c.email LIKE ? OR c.subject LIKE ? OR c.message LIKE ? OR c.admin_note LIKE ?)");
+      const likeValue = `%${searchTerm}%`;
+      params.push(likeValue, likeValue, likeValue, likeValue, likeValue);
+    }
+
+    const rows = await query(
+      `${CONTACT_SELECT}
+       ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+       ORDER BY c.date DESC, c.id DESC`,
+      params
+    );
+    const contacts = rows.map(mapContactRow);
+
+    const summaryRows = await query("SELECT status, COUNT(*) AS total FROM contacts GROUP BY status");
+    const summary = CONTACT_STATUSES.reduce((acc, key) => ({ ...acc, [key]: 0 }), {});
+    summaryRows.forEach((row) => {
+      summary[row.status] = Number(row.total || 0);
+    });
+
+    res.status(200).json({
+      success: true,
+      error: false,
+      message: "contacts fetched successfully",
+      contacts,
+      totalContacts: contacts.length,
+      summary,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+adminController.updateContact = async (req, res, next) => {
+  try {
+    const id = parseUserId(req.params.id);
+    const status = String(req.body.status || "").trim().toLowerCase();
+    const adminNote = normalizeOptionalText(req.body.adminNote ?? req.body.admin_note);
+
+    if (!id) {
+      return res.status(400).json({ error: true, message: "Contact id không hợp lệ" });
+    }
+
+    if (!CONTACT_STATUSES.includes(status)) {
+      return res.status(400).json({ error: true, message: "Trạng thái liên hệ không hợp lệ" });
+    }
+
+    const existingContact = await getContactById(id);
+    if (!existingContact) {
+      return res.status(404).json({ error: true, message: "Không tìm thấy tin nhắn liên hệ" });
+    }
+
+    const handledBy = status === "new" ? null : Number(req.userInfo?.id);
+    await query(
+      `UPDATE contacts
+       SET status = ?, admin_note = ?, handled_by = ?, handled_at = ${status === "new" ? "NULL" : "NOW()"}
+       WHERE id = ?`,
+      [status, adminNote, handledBy, id]
+    );
+
+    const updatedContact = await getContactById(id);
+    res.status(200).json({
+      success: true,
+      error: false,
+      message: "Đã cập nhật tin nhắn liên hệ",
+      contact: mapContactRow(updatedContact),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+adminController.deleteContact = async (req, res, next) => {
+  try {
+    const id = parseUserId(req.params.id);
+    if (!id) {
+      return res.status(400).json({ error: true, message: "Contact id không hợp lệ" });
+    }
+
+    const result = await query("DELETE FROM contacts WHERE id = ?", [id]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: true, message: "Không tìm thấy tin nhắn liên hệ" });
+    }
+
+    res.status(200).json({ success: true, error: false, message: "Đã xóa tin nhắn liên hệ" });
+  } catch (error) {
     next(error);
   }
 };

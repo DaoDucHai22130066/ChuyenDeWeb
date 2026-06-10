@@ -15,6 +15,11 @@ const formatVND = (value) => {
   return new Intl.NumberFormat("vi-VN").format(numericValue) + " VNĐ";
 };
 
+const BRANCH_LABELS = {
+  "dai-la": "Cs. Đại La",
+  "cau-giay": "Cs. Cầu Giấy",
+};
+
 const ViewBooks = () => {
   const navigate = useNavigate();
   const [books, setBooks] = useState([]);
@@ -27,6 +32,9 @@ const ViewBooks = () => {
     isbn: "",
     price: "",
     totalCopies: "",
+    coverImage: "",
+    description: "",
+    branch: "dai-la",
   });
 
   useEffect(() => {
@@ -70,6 +78,9 @@ const ViewBooks = () => {
       isbn: book.isbn,
       price: book.price,
       totalCopies: book.totalCopies,
+      coverImage: book.coverImage || "",
+      description: book.description || "",
+      branch: book.branch || "dai-la",
     });
     setShowModal(true);
   };
@@ -129,6 +140,7 @@ const ViewBooks = () => {
               <h5 className="card-title">{book.title}</h5>
               <p className="book-author">{book.author}</p>
               <p className="book-category">📚 {book.categoryId?.name || book.category || "Chưa phân loại"}</p>
+              <p className="book-branch">Chi nhánh: {BRANCH_LABELS[book.branch] || "Cs. Đại La"}</p>
               <p className="book-isbn">🔢 ISBN: {book.isbn}</p>
               <p className="book-price">💰 {formatVND(book.price)}</p>
             </div>
@@ -178,6 +190,20 @@ const ViewBooks = () => {
               <label className="form-label fw-bold">Danh mục</label>
               <input type="text" className="form-control" name="category" value={formData.category} onChange={handleChange} />
             </div>
+            <div className="mb-3">
+              <label className="form-label fw-bold">Chi nhánh</label>
+              <select className="form-select" name="branch" value={formData.branch} onChange={handleChange}>
+                <option value="dai-la">Cs. Đại La</option>
+                <option value="cau-giay">Cs. Cầu Giấy</option>
+              </select>
+            </div>
+            <div className="mb-3">
+              <label className="form-label fw-bold">Ảnh bìa (URL)</label>
+              <input type="text" className="form-control" name="coverImage" value={formData.coverImage} onChange={handleChange} placeholder="https://..." />
+              <div className="edit-cover-preview">
+                <img src={formData.coverImage || "https://via.placeholder.com/120x170"} alt="Xem trước ảnh bìa" />
+              </div>
+            </div>
             <div className="row">
               <div className="col-md-6 mb-3">
                 <label className="form-label fw-bold">ISBN</label>
@@ -191,6 +217,10 @@ const ViewBooks = () => {
             <div className="mb-3">
               <label className="form-label fw-bold">Tổng số bản</label>
               <input type="number" className="form-control" name="totalCopies" value={formData.totalCopies} onChange={handleChange} />
+            </div>
+            <div className="mb-3">
+              <label className="form-label fw-bold">Mô tả</label>
+              <textarea className="form-control" name="description" rows="4" value={formData.description} onChange={handleChange} />
             </div>
           </form>
         </div>

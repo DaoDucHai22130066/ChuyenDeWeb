@@ -27,7 +27,8 @@ import {
   FiSearch,
   FiFilter,
   FiTag,
-  FiPlus
+  FiPlus,
+  FiMail
 } from "react-icons/fi";
 
 const STATUS_VI = {
@@ -116,6 +117,30 @@ const emptyUserForm = {
   phone: "",
 };
 
+const CONTACT_SUBJECT_LABEL = {
+  general: "Câu hỏi chung",
+  borrow: "Mượn / trả sách",
+  donate: "Hiến sách",
+  volunteer: "Tình nguyện",
+  feedback: "Góp ý",
+  other: "Khác",
+};
+
+const CONTACT_STATUS_LABEL = {
+  new: "Mới",
+  in_progress: "Đang xử lý",
+  resolved: "Đã xử lý",
+  closed: "Đóng",
+};
+
+const CONTACT_STATUS_FILTERS = [
+  { value: "all", label: "Tất cả trạng thái" },
+  { value: "new", label: "Mới" },
+  { value: "in_progress", label: "Đang xử lý" },
+  { value: "resolved", label: "Đã xử lý" },
+  { value: "closed", label: "Đóng" },
+];
+
 const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const [selectedSection, setSelectedSection] = useState(initialSection);
   const [users, setUsers] = useState([]);
@@ -134,6 +159,11 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const [isCategorySaving, setIsCategorySaving] = useState(false);
   const [tickets, setTickets] = useState([]);
   const [reviews, setReviews] = useState([]);
+  const [contacts, setContacts] = useState([]);
+  const [contactSearch, setContactSearch] = useState("");
+  const [contactStatusFilter, setContactStatusFilter] = useState("all");
+  const [contactNotes, setContactNotes] = useState({});
+  const [updatingContactId, setUpdatingContactId] = useState(null);
   const [ticketFilter, setTicketFilter] = useState("all");
   const [expandedTicket, setExpandedTicket] = useState(null);
   const [ticketTransactions, setTicketTransactions] = useState({});
@@ -171,6 +201,23 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
       !searchTerm || category.name?.toLowerCase().includes(searchTerm)
     );
   }, [categories, categorySearch]);
+  const filteredContacts = useMemo(() => {
+    const searchTerm = contactSearch.trim().toLowerCase();
+
+    return contacts.filter((contact) => {
+      const subjectLabel = CONTACT_SUBJECT_LABEL[contact.subject] || contact.subject || "";
+      const matchesSearch = !searchTerm || [
+        contact.name,
+        contact.email,
+        subjectLabel,
+        contact.message,
+        contact.adminNote,
+      ].some((value) => String(value || "").toLowerCase().includes(searchTerm));
+      const matchesStatus = contactStatusFilter === "all" || contact.status === contactStatusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [contacts, contactSearch, contactStatusFilter]);
   const totalBooks = books.length;
   const totalTickets = tickets.length;
   const pendingTickets = tickets.filter((ticket) => ticket.status === "pending" || ticket.status === "awaiting_payment").length;
@@ -467,6 +514,76 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
     }
   };
 
+  const fetchContacts = async () => {
+    try {
+      const result = await axios.get(`${Server_URL}admin/contacts`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const contactList = result.data.contacts || [];
+      setContacts(contactList);
+      setContactNotes(
+        contactList.reduce((acc, contact) => ({
+          ...acc,
+          [contact._id]: contact.adminNote || "",
+        }), {})
+      );
+    } catch (error) {
+      console.error("Lỗi tải liên hệ:", error);
+    }
+  };
+
+  const replaceContactInList = (updatedContact) => {
+    setContacts((prev) => prev.map((contact) => (
+      contact._id === updatedContact._id ? updatedContact : contact
+    )));
+    setContactNotes((prev) => ({ ...prev, [updatedContact._id]: updatedContact.adminNote || "" }));
+  };
+
+  const handleContactNoteChange = (contactId, value) => {
+    setContactNotes((prev) => ({ ...prev, [contactId]: value }));
+  };
+
+  const handleUpdateContact = async (contact, nextStatus = contact.status) => {
+    try {
+      setUpdatingContactId(contact._id);
+      const response = await axios.put(
+        `${Server_URL}admin/contacts/${contact._id}`,
+        {
+          status: nextStatus,
+          adminNote: contactNotes[contact._id] || "",
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      replaceContactInList(response.data.contact);
+      showSuccessToast("Đã cập nhật liên hệ");
+    } catch (error) {
+      showErrorToast(getAxiosErrorMessage(error, "Không thể cập nhật liên hệ"));
+    } finally {
+      setUpdatingContactId(null);
+    }
+  };
+
+  const handleDeleteContact = async (contact) => {
+    if (!window.confirm(`Xóa tin nhắn liên hệ từ ${contact.email}?`)) {
+      return;
+    }
+
+    try {
+      await axios.delete(`${Server_URL}admin/contacts/${contact._id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setContacts((prev) => prev.filter((item) => item._id !== contact._id));
+      setContactNotes((prev) => {
+        const next = { ...prev };
+        delete next[contact._id];
+        return next;
+      });
+      showSuccessToast("Đã xóa liên hệ");
+    } catch (error) {
+      showErrorToast(getAxiosErrorMessage(error, "Không thể xóa liên hệ"));
+    }
+  };
+
   const handleToggleReviewStatus = async (review) => {
     const newStatus = review.status === 'visible' ? 'hidden' : 'visible';
     try {
@@ -587,6 +704,7 @@ const handleSendReply = async (reviewId) => {
     fetchBooks();
     fetchTickets();
     fetchReviews();
+    fetchContacts();
   }, []);
 
   useEffect(() => {
@@ -653,6 +771,14 @@ const handleSendReply = async (reviewId) => {
                 onClick={() => setSelectedSection("reviews")}
               >
                 <FiCheckCircle /> Đánh giá
+              </button>
+            </li>
+            <li className="admin-nav-item">
+              <button
+                className={`admin-nav-btn ${selectedSection === "contacts" ? "active" : ""}`}
+                onClick={() => setSelectedSection("contacts")}
+              >
+                <FiMail /> Liên hệ
               </button>
             </li>
           </ul>
@@ -1412,6 +1538,128 @@ const handleSendReply = async (reviewId) => {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </>
+          )}
+
+          {selectedSection === "contacts" && (
+            <>
+              <h2 className="admin-section-title">Quản lý liên hệ</h2>
+
+              <div className="contact-admin-stats">
+                {CONTACT_STATUS_FILTERS.filter((option) => option.value !== "all").map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`contact-stat-card ${option.value} ${contactStatusFilter === option.value ? "active" : ""}`}
+                    onClick={() => setContactStatusFilter(option.value)}
+                  >
+                    <span>{option.label}</span>
+                    <strong>{contacts.filter((contact) => contact.status === option.value).length}</strong>
+                  </button>
+                ))}
+              </div>
+
+              <div className="user-management-toolbar contact-toolbar">
+                <div className="user-search-box">
+                  <FiSearch />
+                  <input
+                    type="search"
+                    value={contactSearch}
+                    onChange={(event) => setContactSearch(event.target.value)}
+                    placeholder="Tìm theo tên, email, chủ đề, nội dung..."
+                  />
+                </div>
+                <div className="user-filter-group contact-filter-group">
+                  <FiFilter />
+                  <select
+                    value={contactStatusFilter}
+                    onChange={(event) => setContactStatusFilter(event.target.value)}
+                  >
+                    {CONTACT_STATUS_FILTERS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="user-result-count">
+                  {filteredContacts.length}/{contacts.length} liên hệ
+                </div>
+              </div>
+
+              <div className="admin-contact-list">
+                {filteredContacts.length > 0 ? (
+                  filteredContacts.map((contact) => (
+                    <article key={contact._id} className="admin-contact-item">
+                      <div className="admin-contact-header">
+                        <div className="admin-contact-sender">
+                          <strong>{contact.name}</strong>
+                          <a href={`mailto:${contact.email}`}>{contact.email}</a>
+                        </div>
+                        <span className={`contact-status-badge ${contact.status}`}>
+                          {CONTACT_STATUS_LABEL[contact.status] || "Chưa cập nhật"}
+                        </span>
+                      </div>
+
+                      <div className="admin-contact-meta">
+                        <span>{CONTACT_SUBJECT_LABEL[contact.subject] || contact.subject || "Khác"}</span>
+                        <span>{contact.createdAt ? new Date(contact.createdAt).toLocaleString("vi-VN") : "—"}</span>
+                        {contact.handledBy && (
+                          <span>Xử lý bởi {contact.handledBy.name || contact.handledBy.email}</span>
+                        )}
+                      </div>
+
+                      <p className="admin-contact-message">{contact.message}</p>
+
+                      <label className="admin-contact-note">
+                        <span>Ghi chú xử lý</span>
+                        <textarea
+                          value={contactNotes[contact._id] || ""}
+                          onChange={(event) => handleContactNoteChange(contact._id, event.target.value)}
+                          placeholder="Nhập ghi chú nội bộ cho tin nhắn này..."
+                          rows="3"
+                        />
+                      </label>
+
+                      <div className="admin-contact-actions">
+                        <select
+                          value={contact.status}
+                          onChange={(event) => handleUpdateContact(contact, event.target.value)}
+                          disabled={updatingContactId === contact._id}
+                        >
+                          {CONTACT_STATUS_FILTERS.filter((option) => option.value !== "all").map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-success"
+                          onClick={() => handleUpdateContact(contact)}
+                          disabled={updatingContactId === contact._id}
+                        >
+                          <FiCheck /> Lưu ghi chú
+                        </button>
+                        <a className="btn btn-sm btn-outline-primary" href={`mailto:${contact.email}`}>
+                          <FiMail /> Trả lời
+                        </a>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-danger"
+                          onClick={() => handleDeleteContact(contact)}
+                        >
+                          <FiTrash2 /> Xóa
+                        </button>
+                      </div>
+                    </article>
+                  ))
+                ) : (
+                  <div className="admin-contact-empty">
+                    Không tìm thấy tin nhắn liên hệ phù hợp.
+                  </div>
+                )}
               </div>
             </>
           )}

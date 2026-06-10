@@ -21,6 +21,15 @@ function buildUserPayload(userRow) {
   };
 }
 
+const CONTACT_SUBJECTS = new Set([
+  "general",
+  "borrow",
+  "donate",
+  "volunteer",
+  "feedback",
+  "other",
+]);
+
 userController.userRegistration = async (req, res) => {
   try {
     const { name, email, password, stream, year, role } = req.body;
@@ -165,14 +174,37 @@ userController.profile = async (req, res) => {
 };
 
 userController.addContact = async (req, res) => {
-  const { name, email, subject, message } = req.body;
+  const name = String(req.body.name || "").trim();
+  const email = String(req.body.email || "").trim().toLowerCase();
+  const subject = String(req.body.subject || "").trim().toLowerCase();
+  const message = String(req.body.message || "").trim();
 
   if (!name || !email || !subject || !message) {
-    return res.status(400).json({ error: "All fields are required" });
+    return res.status(400).json({ error: true, message: "Vui lòng nhập đầy đủ thông tin liên hệ" });
+  }
+
+  if (name.length > 255 || email.length > 255) {
+    return res.status(400).json({ error: true, message: "Họ tên hoặc email quá dài" });
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: true, message: "Email không hợp lệ" });
+  }
+
+  if (!CONTACT_SUBJECTS.has(subject)) {
+    return res.status(400).json({ error: true, message: "Chủ đề liên hệ không hợp lệ" });
+  }
+
+  if (message.length < 10) {
+    return res.status(400).json({ error: true, message: "Nội dung liên hệ cần ít nhất 10 ký tự" });
+  }
+
+  if (message.length > 5000) {
+    return res.status(400).json({ error: true, message: "Nội dung liên hệ không được vượt quá 5000 ký tự" });
   }
 
   try {
-    await query(
+    const result = await query(
       `INSERT INTO contacts (name, email, subject, message)
        VALUES (?, ?, ?, ?)` ,
       [name, email, subject, message]
@@ -181,10 +213,15 @@ userController.addContact = async (req, res) => {
     // Send email to admin
     await sendContactNotification({ name, email, subject, message });
 
-    res.status(200).json({ success: true, message: "Your message has been sent! We will get back to you soon." });
+    res.status(201).json({
+      success: true,
+      error: false,
+      message: "Tin nhắn đã được gửi. Chúng tôi sẽ phản hồi sớm.",
+      contactId: result.insertId,
+    });
   } catch (error) {
     console.error("Error saving contact:", error.message);
-    res.status(500).json({ error: "Server error while saving message" });
+    res.status(500).json({ error: true, message: "Lỗi hệ thống khi gửi liên hệ" });
   }
 };
 

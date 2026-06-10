@@ -198,7 +198,13 @@ CREATE TABLE contacts (
   email   VARCHAR(255) NOT NULL,
   subject VARCHAR(255) NOT NULL,
   message TEXT NOT NULL,
-  date    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  status  ENUM('new','in_progress','resolved','closed') NOT NULL DEFAULT 'new',
+  admin_note TEXT NULL,
+  handled_by INT UNSIGNED NULL,
+  handled_at DATETIME NULL,
+  date    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_contacts_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
