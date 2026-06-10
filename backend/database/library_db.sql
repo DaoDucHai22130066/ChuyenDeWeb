@@ -10,6 +10,7 @@ DROP TABLE IF EXISTS cart_items;
 DROP TABLE IF EXISTS carts;
 DROP TABLE IF EXISTS borrow_ticket_books;
 DROP TABLE IF EXISTS transactions;
+DROP TABLE IF EXISTS ticket_renewals;
 DROP TABLE IF EXISTS borrow_tickets;
 DROP TABLE IF EXISTS books;
 DROP TABLE IF EXISTS categories;
@@ -93,6 +94,8 @@ CREATE TABLE borrow_tickets (
   shipping_address VARCHAR(255) NULL,
   shipping_phone  VARCHAR(20) NULL,
   fine_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
+  renew_count INT NOT NULL DEFAULT 0,
+  last_renewed_at DATETIME NULL DEFAULT NULL,
   approved_by INT UNSIGNED NULL,
   approved_at TIMESTAMP NULL DEFAULT NULL,
   created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -132,6 +135,20 @@ CREATE TABLE transactions (
   INDEX idx_transactions_status (status),
   CONSTRAINT fk_transactions_ticket FOREIGN KEY (ticket_id) REFERENCES borrow_tickets(id) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT fk_transactions_user   FOREIGN KEY (user_id)   REFERENCES users(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+--  BẢNG ticket_renewals
+-- ============================================================
+CREATE TABLE ticket_renewals (
+  id           INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  ticket_id    INT UNSIGNED NOT NULL,
+  user_id      INT UNSIGNED NOT NULL,
+  old_due_date DATETIME NOT NULL,
+  new_due_date DATETIME NOT NULL,
+  created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_renewals_ticket FOREIGN KEY (ticket_id) REFERENCES borrow_tickets(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_renewals_user   FOREIGN KEY (user_id)   REFERENCES users(id) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================

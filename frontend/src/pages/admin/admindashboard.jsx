@@ -90,6 +90,8 @@ const ACTION_SUCCESS_VI = {
   cancel: "Đã hủy phiếu mượn.",
 };
 
+const normalizeTicketStatus = (status) => String(status || "").trim().toLowerCase();
+
 const USER_ROLE_LABEL = {
   admin: "Thủ thư",
   user: "Độc giả",
@@ -243,32 +245,32 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const isWaitingVnpay = (ticket) =>
     ticket.depositStatus === "pending" &&
     ticket.paymentMethod === "vnpay" &&
-    ["pending", "awaiting_payment"].includes(ticket.status);
+    ["pending", "awaiting_payment"].includes(normalizeTicketStatus(ticket.status));
 
   const canApproveTicket = (ticket) =>
-    ["pending", "paid"].includes(ticket.status) &&
+    ["pending", "paid"].includes(normalizeTicketStatus(ticket.status)) &&
     (ticket.paymentMethod === "vnpay" ? ticket.depositStatus === "held" : true);
 
   // Giao tận nơi: bắt đầu giao
   const canDispatch = (ticket) =>
-    ticket.status === "approved" && ticket.shippingStatus === "pending";
+    normalizeTicketStatus(ticket.status) === "approved" && ticket.shippingStatus === "pending";
 
   // Xác nhận đã giao (giao tận nơi)
   const canDeliver = (ticket) =>
-    ticket.status === "dispatched" && ticket.shippingStatus === "dispatched";
+    normalizeTicketStatus(ticket.status) === "dispatched" && ticket.shippingStatus === "dispatched";
 
   // Trả sách: chỉ sau khi delivered (cả quầy lẫn giao hàng)
   const canReturn = (ticket) =>
-    ticket.status === "delivered";
+    normalizeTicketStatus(ticket.status) === "delivered";
 
   const canSettle = (ticket) =>
-    ticket.status === "returned" && ticket.depositStatus === "held";
+    normalizeTicketStatus(ticket.status) === "returned" && ticket.depositStatus === "held";
 
   const canSettleOutstanding = (ticket) =>
-    ticket.depositStatus === "forfeited" && ticket.status !== "closed";
+    ticket.depositStatus === "forfeited" && normalizeTicketStatus(ticket.status) !== "closed";
 
   const canCancel = (ticket) =>
-    ["pending", "awaiting_payment"].includes(ticket.status);
+    ["pending", "awaiting_payment", "paid", "approved"].includes(normalizeTicketStatus(ticket.status));
 
   const fetchUsers = async () => {
     try {

@@ -205,6 +205,63 @@ async function fetchSingleTicket(connection, ticketId) {
   return tickets[0] || null;
 }
 
+async function cancelTicket(connection, ticket, { allowedStatuses, message }) {
+  const currentStatus = normalizeTicketStatus(ticket.status);
+  const currentDepositStatus = normalizeEnumValue(ticket.depositStatus);
+
+  if (!allowedStatuses.includes(currentStatus)) {
+    const error = new Error(message);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const [pendingTransactions] = await connection.query(
+    `SELECT id FROM transactions
+     WHERE ticket_id = ? AND status = 'pending'
+     ORDER BY id ASC`,
+    [ticket._id]
+  );
+
+  for (const transaction of pendingTransactions) {
+    await updateTransactionStatus(connection, transaction.id, "failed");
+  }
+
+  if (currentDepositStatus === "held") {
+    const [depositRows] = await connection.query(
+      `SELECT amount, method, vnpay_txn_ref FROM transactions
+       WHERE ticket_id = ? AND type = 'deposit' AND status = 'completed'
+       LIMIT 1`,
+      [ticket._id]
+    );
+
+    if (depositRows.length > 0) {
+      await createTransaction(connection, {
+        ticketId: ticket._id,
+        userId: ticket.userId?._id || ticket.userId,
+        type: "deposit",
+        method: depositRows[0].method,
+        amount: -Number(depositRows[0].amount),
+        status: "refunded",
+        vnpayTxnRef: depositRows[0].vnpay_txn_ref,
+      });
+    }
+
+    await connection.query(
+      `UPDATE borrow_tickets
+       SET status = 'cancelled', deposit_status = 'refunded'
+       WHERE id = ?`,
+      [ticket._id]
+    );
+  } else {
+    await connection.query(
+      `UPDATE borrow_tickets
+       SET status = 'cancelled', deposit_status = 'none'
+       WHERE id = ?`,
+      [ticket._id]
+    );
+  }
+}
+
 ticketController.createTicket = async (req, res) => {
   try {
     const userId = req.userInfo.id;
@@ -724,55 +781,10 @@ ticketController.updateTicketStatus = async (req, res) => {
       }
 
       if (nextAction === "cancel") {
-        if (!['pending', 'awaiting_payment', 'paid'].includes(currentStatus)) {
-          throw new Error("Only pending or paid tickets can be cancelled");
-        }
-
-        const [pendingTransactions] = await connection.query(
-          `SELECT id FROM transactions
-           WHERE ticket_id = ? AND status = 'pending'
-           ORDER BY id ASC`,
-          [id]
-        );
-
-        for (const transaction of pendingTransactions) {
-          await updateTransactionStatus(connection, transaction.id, "failed");
-        }
-
-        if (currentDepositStatus === "held") {
-          const [depositRows] = await connection.query(
-            `SELECT amount, method, vnpay_txn_ref FROM transactions
-             WHERE ticket_id = ? AND type = 'deposit' AND status = 'completed'
-             LIMIT 1`,
-            [id]
-          );
-
-          if (depositRows.length > 0) {
-            await createTransaction(connection, {
-              ticketId: id,
-              userId: ticket.userId?._id || ticket.userId,
-              type: "deposit",
-              method: depositRows[0].method,
-              amount: -Number(depositRows[0].amount),
-              status: "refunded",
-              vnpayTxnRef: depositRows[0].vnpay_txn_ref,
-            });
-          }
-
-          await connection.query(
-            `UPDATE borrow_tickets
-             SET status = 'cancelled', deposit_status = 'refunded'
-             WHERE id = ?`,
-            [id]
-          );
-        } else {
-          await connection.query(
-            `UPDATE borrow_tickets
-             SET status = 'cancelled', deposit_status = 'none'
-             WHERE id = ?`,
-            [id]
-          );
-        }
+        await cancelTicket(connection, ticket, {
+          allowedStatuses: ["pending", "awaiting_payment", "paid", "approved"],
+          message: "Only tickets that have not started delivery can be cancelled",
+        });
       }
 
       return fetchSingleTicket(connection, id);
@@ -803,6 +815,52 @@ ticketController.updateTicketStatus = async (req, res) => {
       error: true,
       message,
       details: error.statusCode === 400 ? undefined : error.message,
+    });
+  }
+};
+
+ticketController.cancelMyTicket = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = Number(req.userInfo.id);
+
+    const updatedTicket = await withTransaction(async (connection) => {
+      const ticket = await fetchSingleTicket(connection, id);
+      if (!ticket) {
+        return null;
+      }
+
+      if (Number(ticket.userId?._id || ticket.userId) !== userId) {
+        const error = new Error("Bạn không có quyền hủy phiếu này");
+        error.statusCode = 403;
+        throw error;
+      }
+
+      await cancelTicket(connection, ticket, {
+        allowedStatuses: ["pending", "awaiting_payment"],
+        message: "Chỉ có thể hủy phiếu đang chờ duyệt hoặc chờ thanh toán",
+      });
+
+      return fetchSingleTicket(connection, id);
+    });
+
+    if (!updatedTicket) {
+      return res.status(404).json({ error: true, message: "Ticket not found" });
+    }
+
+    clearCache("homeData");
+    res.status(200).json({
+      error: false,
+      message: "Ticket cancelled successfully",
+      ticket: updatedTicket,
+    });
+  } catch (error) {
+    console.error("cancelMyTicket error:", error);
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({
+      error: true,
+      message: statusCode === 500 ? "Internal Server Error" : error.message,
+      details: statusCode === 500 ? error.message : undefined,
     });
   }
 };
