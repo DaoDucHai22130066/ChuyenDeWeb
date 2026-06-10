@@ -15,7 +15,12 @@ import {
   FiX,
   FiCalendar,
   FiBook,
-  FiActivity
+  FiActivity,
+  FiCreditCard,
+  FiDollarSign,
+  FiInfo,
+  FiMapPin,
+  FiTruck
 } from "react-icons/fi";
 import { FaGraduationCap } from "react-icons/fa";
 
@@ -37,6 +42,46 @@ const STATUS_VI = {
 
 const normalizeTicketStatus = (status) => String(status || "").trim().toLowerCase();
 const canCancelTicketStatus = (status) => ["pending", "awaiting_payment"].includes(normalizeTicketStatus(status));
+const formatCurrency = (value) => new Intl.NumberFormat("vi-VN", {
+  style: "currency",
+  currency: "VND",
+  maximumFractionDigits: 0,
+}).format(Number(value || 0));
+
+const DEPOSIT_STATUS_VI = {
+  none: "Không có",
+  pending: "Chờ xác nhận",
+  held: "Đã giữ cọc",
+  refunded: "Đã hoàn cọc",
+  forfeited: "Đã trừ cọc",
+};
+
+const SHIPPING_STATUS_VI = {
+  none: "Không giao hàng",
+  pending: "Chờ giao",
+  dispatched: "Đang giao",
+  delivered: "Đã giao",
+  returned: "Đã trả",
+};
+
+const TRANSACTION_TYPE_VI = {
+  deposit: "Tiền cọc",
+  shipping: "Phí ship",
+  fine: "Phí phạt",
+  volunteer_stipend: "Hỗ trợ tình nguyện",
+};
+
+const TRANSACTION_STATUS_VI = {
+  pending: "Chờ xử lý",
+  completed: "Hoàn tất",
+  failed: "Thất bại",
+  refunded: "Đã hoàn",
+};
+
+const PAYMENT_METHOD_VI = {
+  cash: "Tiền mặt",
+  vnpay: "VNPay",
+};
 
 function ProfilePage() {
   const [user, setUser] = useState(null);
@@ -45,6 +90,9 @@ function ProfilePage() {
   const [formData, setFormData] = useState({ name: "", stream: "", year: "" });
   const [isSaving, setIsSaving] = useState(false);
   const [cancelingTicketId, setCancelingTicketId] = useState(null);
+  const [detailTicket, setDetailTicket] = useState(null);
+  const [ticketTransactions, setTicketTransactions] = useState({});
+  const [loadingTransactionId, setLoadingTransactionId] = useState(null);
 
   // Review modal state
   const [reviewModal, setReviewModal] = useState(null); // { ticket, book }
@@ -181,6 +229,30 @@ function ProfilePage() {
     }
   };
 
+  const openTicketDetail = async (ticket) => {
+    setDetailTicket(ticket);
+    if (ticketTransactions[ticket._id]) return;
+
+    setLoadingTransactionId(ticket._id);
+    try {
+      const response = await axios.get(`${Server_URL}tickets/${ticket._id}/transactions`, {
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
+      });
+      setTicketTransactions((current) => ({
+        ...current,
+        [ticket._id]: response.data.transactions || [],
+      }));
+    } catch (err) {
+      showErrorToast(err.response?.data?.message || "Không thể tải lịch sử giao dịch.");
+    } finally {
+      setLoadingTransactionId(null);
+    }
+  };
+
+  const closeTicketDetail = () => {
+    setDetailTicket(null);
+  };
+
   if (!user) return <div className="loading-container"><div className="spinner"></div><p>Đang tải hồ sơ...</p></div>;
 
   const getInitials = (name) => {
@@ -195,6 +267,7 @@ function ProfilePage() {
   const pendingTickets = tickets.filter(t => ["pending", "awaiting_payment"].includes(normalizeTicketStatus(t.status))).length;
   const approvedTickets = tickets.filter(t => ["approved", "dispatched", "delivered"].includes(normalizeTicketStatus(t.status))).length;
   const returnedTickets = tickets.filter(t => ["returned", "closed"].includes(normalizeTicketStatus(t.status))).length;
+  const detailTransactions = detailTicket ? ticketTransactions[detailTicket._id] || [] : [];
 
   return (
     <div className="profile-page">
@@ -431,6 +504,14 @@ function ProfilePage() {
                       </div>
 
                       <div className="profile-ticket-actions">
+                        <button
+                          className="btn-ticket-detail"
+                          onClick={() => openTicketDetail(ticket)}
+                          title="Xem chi tiết phiếu mượn"
+                        >
+                          <FiInfo /> Chi tiết
+                        </button>
+
                         {canReview && (
                           <div className="review-action-cell">
                             {ticket.books.map((book) => {
@@ -484,6 +565,99 @@ function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {detailTicket && (
+        <div className="ticket-detail-overlay">
+          <div className="ticket-detail-modal">
+            <div className="ticket-detail-header">
+              <div>
+                <span>Chi tiết phiếu mượn</span>
+                <h3>#{detailTicket._id.toString().slice(-6).toUpperCase()}</h3>
+              </div>
+              <button type="button" className="ticket-detail-close" onClick={closeTicketDetail} title="Đóng">
+                <FiX />
+              </button>
+            </div>
+
+            <div className="ticket-detail-status-row">
+              <span className={`status-badge ${normalizeTicketStatus(detailTicket.status)}`}>
+                {STATUS_VI[detailTicket.status] || STATUS_VI[normalizeTicketStatus(detailTicket.status)] || detailTicket.status}
+              </span>
+              <span>{PAYMENT_METHOD_VI[detailTicket.paymentMethod] || detailTicket.paymentMethod || "Chưa cập nhật"}</span>
+            </div>
+
+            <div className="ticket-detail-grid">
+              <div className="ticket-detail-box">
+                <FiDollarSign />
+                <span>Tiền cọc</span>
+                <strong>{formatCurrency(detailTicket.depositAmount)}</strong>
+              </div>
+              <div className="ticket-detail-box">
+                <FiTruck />
+                <span>Phí ship</span>
+                <strong>{formatCurrency(detailTicket.shippingFee)}</strong>
+              </div>
+              <div className="ticket-detail-box">
+                <FiCreditCard />
+                <span>Trạng thái cọc</span>
+                <strong>{DEPOSIT_STATUS_VI[detailTicket.depositStatus] || detailTicket.depositStatus || "Chưa cập nhật"}</strong>
+              </div>
+              <div className="ticket-detail-box">
+                <FiTruck />
+                <span>Giao hàng</span>
+                <strong>{SHIPPING_STATUS_VI[detailTicket.shippingStatus] || detailTicket.shippingStatus || "Chưa cập nhật"}</strong>
+              </div>
+            </div>
+
+            <div className="ticket-detail-section">
+              <h4><FiMapPin /> Địa chỉ nhận</h4>
+              <p>{detailTicket.shippingAddress || "Không có địa chỉ giao hàng"}</p>
+              {detailTicket.shippingPhone && <small>SĐT nhận hàng: {detailTicket.shippingPhone}</small>}
+            </div>
+
+            <div className="ticket-detail-section">
+              <h4><FiBook /> Sách trong phiếu</h4>
+              <div className="ticket-detail-books">
+                {(detailTicket.books || []).map((book) => (
+                  <div key={book._id || book.id || book.title}>
+                    <strong>{book.title}</strong>
+                    {book.author && <span>{book.author}</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="ticket-detail-section">
+              <h4><FiCreditCard /> Lịch sử giao dịch</h4>
+              {loadingTransactionId === detailTicket._id ? (
+                <p className="ticket-detail-muted">Đang tải giao dịch...</p>
+              ) : detailTransactions.length > 0 ? (
+                <div className="ticket-transaction-list">
+                  {detailTransactions.map((transaction) => (
+                    <div key={transaction._id} className="ticket-transaction-item">
+                      <div>
+                        <strong>{TRANSACTION_TYPE_VI[transaction.type] || transaction.type}</strong>
+                        <span>
+                          {PAYMENT_METHOD_VI[transaction.method] || transaction.method}
+                          {transaction.createdAt ? ` • ${new Date(transaction.createdAt).toLocaleString("vi-VN")}` : ""}
+                        </span>
+                      </div>
+                      <div className="transaction-value">
+                        <strong>{formatCurrency(transaction.amount)}</strong>
+                        <span className={`txn-status ${transaction.status}`}>
+                          {TRANSACTION_STATUS_VI[transaction.status] || transaction.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="ticket-detail-muted">Chưa có giao dịch.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Review Modal */}
       {reviewModal && (

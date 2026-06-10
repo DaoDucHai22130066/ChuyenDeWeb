@@ -868,6 +868,17 @@ ticketController.cancelMyTicket = async (req, res) => {
 ticketController.getTicketTransactions = async (req, res) => {
   try {
     const { id } = req.params;
+    if (req.userInfo.role !== "admin") {
+      const ticket = await fetchSingleTicket(null, id);
+      if (!ticket) {
+        return res.status(404).json({ error: true, message: "Ticket not found" });
+      }
+
+      if (Number(ticket.userId?._id || ticket.userId) !== Number(req.userInfo.id)) {
+        return res.status(403).json({ error: true, message: "Bạn không có quyền xem giao dịch của phiếu này" });
+      }
+    }
+
     const transactions = await getTransactionsByTicket(id);
     res.status(200).json({
       error: false,

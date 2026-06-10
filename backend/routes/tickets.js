@@ -9,7 +9,7 @@ router.get("/me", userAuth, checkRole("user"), ticketController.getMyTickets);
 router.get("/vnpay/return", ticketController.vnpayReturn);
 router.get("/vnpay/ipn", ticketController.vnpayIpn);
 router.get("/", userAuth, checkRole("admin"), ticketController.getAllTickets);
-router.get("/:id/transactions", userAuth, checkRole("admin"), ticketController.getTicketTransactions);
+router.get("/:id/transactions", userAuth, checkRole(["user", "admin"]), ticketController.getTicketTransactions);
 router.put("/:id/status", userAuth, checkRole("admin"), ticketController.updateTicketStatus);
 router.post("/:id/cancel", userAuth, checkRole("user"), ticketController.cancelMyTicket);
 // Allow both regular users and admins to call renew endpoint; renewTicket will enforce ownership/admin rules
