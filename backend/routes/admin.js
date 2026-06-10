@@ -14,6 +14,7 @@ router.delete("/users/:id", userAuth, checkRole("admin"), adminController.delete
 router.get("/contacts", userAuth, checkRole("admin"), adminController.getContacts)
 router.put("/contacts/:id", userAuth, checkRole("admin"), adminController.updateContact)
 router.delete("/contacts/:id", userAuth, checkRole("admin"), adminController.deleteContact)
+router.get("/reports", userAuth, checkRole("admin"), adminController.getReports)
 router.get("/reviews", userAuth, checkRole("admin"), adminController.getAllReviews)
 router.put("/reviews/:id/status", userAuth, checkRole("admin"), adminController.updateReviewStatus)
 router.delete("/reviews/:id", userAuth, checkRole("admin"), adminController.deleteReview)

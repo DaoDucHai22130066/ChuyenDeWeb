@@ -28,7 +28,10 @@ import {
   FiFilter,
   FiTag,
   FiPlus,
-  FiMail
+  FiMail,
+  FiBarChart2,
+  FiDownload,
+  FiTrendingUp
 } from "react-icons/fi";
 
 const STATUS_VI = {
@@ -143,6 +146,20 @@ const CONTACT_STATUS_FILTERS = [
   { value: "closed", label: "Đóng" },
 ];
 
+const emptyReport = {
+  topBorrowedBooks: [],
+  revenueByType: {},
+  lateReturn: {
+    returnedWithDueDate: 0,
+    lateReturned: 0,
+    currentlyOverdue: 0,
+    lateRate: 0,
+  },
+  ticketStatusSummary: {},
+  recentTransactions: [],
+  generatedAt: null,
+};
+
 const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const [selectedSection, setSelectedSection] = useState(initialSection);
   const [users, setUsers] = useState([]);
@@ -169,6 +186,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const [ticketFilter, setTicketFilter] = useState("all");
   const [expandedTicket, setExpandedTicket] = useState(null);
   const [ticketTransactions, setTicketTransactions] = useState({});
+  const [reports, setReports] = useState(emptyReport);
 
   const token = localStorage.getItem("authToken");
 
@@ -239,6 +257,92 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const getShippingStatusLabel = (value) => SHIPPING_STATUS_VI[value] || "Chưa cập nhật";
   const getTransactionTypeLabel = (value) => TRANSACTION_TYPE_VI[value] || "Giao dịch";
   const getTransactionStatusLabel = (value) => TRANSACTION_STATUS_VI[value] || "Chưa cập nhật";
+  const reportRevenueTypes = ["deposit", "shipping", "fine"];
+  const totalCompletedRevenue = reportRevenueTypes.reduce(
+    (total, type) => total + Number(reports.revenueByType?.[type]?.completedAmount || 0),
+    0
+  );
+  const totalNetRevenue = reportRevenueTypes.reduce(
+    (total, type) => total + Number(reports.revenueByType?.[type]?.netAmount || 0),
+    0
+  );
+  const recentTransactionGroups = useMemo(() => {
+    const groups = new Map();
+
+    reports.recentTransactions.slice(0, 20).forEach((transaction, index) => {
+      const ticketKey = transaction.ticketId || transaction.ticket?._id || `unknown-${index}`;
+      const group = groups.get(ticketKey) || {
+        key: ticketKey,
+        ticketId: transaction.ticketId,
+        userName: transaction.userName,
+        userEmail: transaction.userEmail,
+        latestAt: transaction.createdAt,
+        totalAmount: 0,
+        transactions: [],
+      };
+
+      const amount = Number(transaction.amount || 0);
+      const currentDate = transaction.createdAt ? new Date(transaction.createdAt).getTime() : 0;
+      const latestDate = group.latestAt ? new Date(group.latestAt).getTime() : 0;
+
+      group.totalAmount += amount;
+      group.transactions.push(transaction);
+
+      if (currentDate >= latestDate) {
+        group.latestAt = transaction.createdAt;
+        group.userName = transaction.userName || group.userName;
+        group.userEmail = transaction.userEmail || group.userEmail;
+      }
+
+      groups.set(ticketKey, group);
+    });
+
+    return Array.from(groups.values());
+  }, [reports.recentTransactions]);
+  const escapeCsvValue = (value) => {
+    const text = value === undefined || value === null ? "" : String(value);
+    return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  };
+  const downloadCsv = (filename, rows) => {
+    const csvContent = rows.map((row) => row.map(escapeCsvValue).join(",")).join("\r\n");
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+  const exportReportCsv = () => {
+    const rows = [
+      ["Loại báo cáo", "Chi tiết 1", "Chi tiết 2", "Chi tiết 3", "Giá trị"],
+      ["Tổng thu hoàn tất", "", "", "", totalCompletedRevenue],
+      ["Tổng thu thuần", "", "", "", totalNetRevenue],
+      ["Tỷ lệ trả trễ", "Đã trả có hạn", reports.lateReturn.returnedWithDueDate, "Trả trễ", `${reports.lateReturn.lateRate}%`],
+      ["Đang quá hạn", "", "", "", reports.lateReturn.currentlyOverdue],
+      [],
+      ["Sách mượn nhiều", "Tiêu đề", "Tác giả", "Danh mục", "Lượt mượn"],
+      ...reports.topBorrowedBooks.map((book) => [
+        "Sách mượn nhiều",
+        book.title,
+        book.author,
+        book.category,
+        book.borrowCount,
+      ]),
+      [],
+      ["Giao dịch", "Mã phiếu", "Độc giả", "Loại", "Số tiền", "Trạng thái", "Ngày tạo"],
+      ...reports.recentTransactions.map((transaction) => [
+        "Giao dịch",
+        transaction.ticketId,
+        transaction.userEmail || transaction.userName || "",
+        getTransactionTypeLabel(transaction.type),
+        transaction.amount,
+        getTransactionStatusLabel(transaction.status),
+        transaction.createdAt ? new Date(transaction.createdAt).toLocaleString("vi-VN") : "",
+      ]),
+    ];
+    downloadCsv(`bao-cao-thu-vien-${new Date().toISOString().slice(0, 10)}.csv`, rows);
+  };
 
   // Cash should be collected when delivering, not at pending/approval stage
   // VNPay: chỉ show badge, không cho admin tự duyệt
@@ -534,6 +638,17 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
     }
   };
 
+  const fetchReports = async () => {
+    try {
+      const result = await axios.get(`${Server_URL}admin/reports`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setReports(result.data.report || emptyReport);
+    } catch (error) {
+      console.error("Lỗi tải báo cáo:", error);
+    }
+  };
+
   const replaceContactInList = (updatedContact) => {
     setContacts((prev) => prev.map((contact) => (
       contact._id === updatedContact._id ? updatedContact : contact
@@ -684,6 +799,7 @@ const handleSendReply = async (reviewId) => {
       showSuccessToast(ACTION_SUCCESS_VI[action] || "Đã cập nhật trạng thái phiếu mượn.");
       fetchTickets();
       fetchBooks();
+      fetchReports();
     } catch {
       showErrorToast("Không cập nhật được phiếu mượn. Vui lòng thử lại!");
     }
@@ -707,6 +823,7 @@ const handleSendReply = async (reviewId) => {
     fetchTickets();
     fetchReviews();
     fetchContacts();
+    fetchReports();
   }, []);
 
   useEffect(() => {
@@ -781,6 +898,14 @@ const handleSendReply = async (reviewId) => {
                 onClick={() => setSelectedSection("contacts")}
               >
                 <FiMail /> Liên hệ
+              </button>
+            </li>
+            <li className="admin-nav-item">
+              <button
+                className={`admin-nav-btn ${selectedSection === "reports" ? "active" : ""}`}
+                onClick={() => setSelectedSection("reports")}
+              >
+                <FiBarChart2 /> Báo cáo
               </button>
             </li>
           </ul>
@@ -1142,6 +1267,164 @@ const handleSendReply = async (reviewId) => {
                   </div>
                 ))}
               </div>
+            </>
+          )}
+
+          {selectedSection === "reports" && (
+            <>
+              <div className="report-header">
+                <div>
+                  <h2 className="admin-section-title">Báo cáo thư viện</h2>
+                  <p>Theo dõi sách được mượn nhiều, các khoản thu và tình trạng trả sách.</p>
+                </div>
+                <button type="button" className="btn admin-btn-primary" onClick={exportReportCsv}>
+                  <FiDownload /> Xuất CSV
+                </button>
+              </div>
+
+              <div className="report-summary-grid">
+                <div className="report-summary-card">
+                  <span>Đã thu</span>
+                  <strong>{formatCurrency(totalCompletedRevenue)}</strong>
+                  <small>Tổng tiền cọc, ship và phạt đã ghi nhận hoàn tất.</small>
+                </div>
+                <div className="report-summary-card">
+                  <span>Còn lại sau hoàn tiền</span>
+                  <strong>{formatCurrency(totalNetRevenue)}</strong>
+                  <small>Số tiền sau khi trừ các khoản hoàn cọc hoặc giao dịch âm.</small>
+                </div>
+                <div className="report-summary-card warning">
+                  <span>Trả trễ</span>
+                  <strong>{reports.lateReturn.lateRate}%</strong>
+                  <small>{reports.lateReturn.lateReturned}/{reports.lateReturn.returnedWithDueDate} phiếu đã trả có ghi hạn trả.</small>
+                </div>
+                <div className="report-summary-card danger">
+                  <span>Đang quá hạn</span>
+                  <strong>{reports.lateReturn.currentlyOverdue}</strong>
+                  <small>Phiếu chưa hoàn tất dù đã quá hạn trả.</small>
+                </div>
+              </div>
+
+              <div className="report-revenue-grid">
+                {reportRevenueTypes.map((type) => {
+                  const item = reports.revenueByType?.[type] || {};
+                  return (
+                    <div key={type} className="report-revenue-card">
+                      <div className="report-card-title">
+                        <FiDollarSign />
+                        <strong>{getTransactionTypeLabel(type)}</strong>
+                      </div>
+                      <div className="report-money-row">
+                        <span>Đã thu</span>
+                        <strong>{formatCurrency(item.completedAmount || 0)}</strong>
+                      </div>
+                      <div className="report-money-row">
+                        <span>Chờ xử lý</span>
+                        <strong>{formatCurrency(item.pendingAmount || 0)}</strong>
+                      </div>
+                      <div className="report-money-row">
+                        <span>Đã hoàn / giảm trừ</span>
+                        <strong>{formatCurrency(item.refundedAmount || 0)}</strong>
+                      </div>
+                      <div className="report-money-row total">
+                        <span>Còn lại</span>
+                        <strong>{formatCurrency(item.netAmount || 0)}</strong>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="report-content-grid">
+                <section className="report-panel">
+                  <div className="report-panel-heading">
+                    <h3><FiTrendingUp /> Sách mượn nhiều</h3>
+                  </div>
+                  <div className="report-book-list">
+                    {reports.topBorrowedBooks.length > 0 ? (
+                      reports.topBorrowedBooks.map((book, index) => (
+                        <div key={book._id || book.title} className="report-book-item">
+                          <span className="report-rank">#{index + 1}</span>
+                          <div>
+                            <strong>{book.title}</strong>
+                            <small>{book.author || "Chưa cập nhật"} · {book.category || "Chưa phân loại"}</small>
+                          </div>
+                          <span>{book.borrowCount} lượt</span>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="report-empty">Chưa có dữ liệu mượn sách.</p>
+                    )}
+                  </div>
+                </section>
+
+                <section className="report-panel">
+                  <div className="report-panel-heading">
+                    <h3><FiClipboard /> Trạng thái phiếu</h3>
+                  </div>
+                  <div className="report-status-list">
+                    {Object.entries(reports.ticketStatusSummary || {}).map(([status, total]) => (
+                      <div key={status} className="report-status-item">
+                        <span className={`status-badge ${status}`}>{getStatusLabel(status)}</span>
+                        <strong>{total}</strong>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              </div>
+
+              <section className="report-panel">
+                <div className="report-panel-heading">
+                  <h3><FiDollarSign /> Giao dịch gần đây</h3>
+                  <small>Gom theo mã phiếu từ 20 giao dịch mới nhất</small>
+                </div>
+                <div className="report-transaction-list">
+                  {recentTransactionGroups.length > 0 ? (
+                    recentTransactionGroups.map((group) => (
+                      <article key={group.key} className="report-transaction-card grouped">
+                        <div className="report-transaction-main">
+                          <span className="report-transaction-icon">
+                            <FiDollarSign />
+                          </span>
+                          <div>
+                            <strong>Phiếu #{group.ticketId || "Chưa có mã"}</strong>
+                            <small>
+                              {group.userEmail || group.userName || "Chưa rõ độc giả"} · {group.transactions.length} khoản
+                            </small>
+                          </div>
+                        </div>
+                        <div className="report-transaction-side">
+                          <strong className={Number(group.totalAmount) < 0 ? "negative" : "positive"}>
+                            {formatCurrency(group.totalAmount)}
+                          </strong>
+                          <div>
+                            <span className="status-badge completed">Tổng phiếu</span>
+                            <small>{group.latestAt ? new Date(group.latestAt).toLocaleString("vi-VN") : "—"}</small>
+                          </div>
+                        </div>
+                        <div className="report-transaction-items">
+                          {group.transactions.map((transaction) => (
+                            <div key={transaction._id} className={`report-transaction-item ${transaction.type}`}>
+                              <span className={`report-transaction-dot ${transaction.type}`} />
+                              <div>
+                                <strong>{getTransactionTypeLabel(transaction.type)}</strong>
+                                <small>
+                                  {getTransactionStatusLabel(transaction.status)} · {transaction.createdAt ? new Date(transaction.createdAt).toLocaleString("vi-VN") : "—"}
+                                </small>
+                              </div>
+                              <strong className={Number(transaction.amount) < 0 ? "negative" : "positive"}>
+                                {formatCurrency(transaction.amount)}
+                              </strong>
+                            </div>
+                          ))}
+                        </div>
+                      </article>
+                    ))
+                  ) : (
+                    <p className="report-empty">Chưa có giao dịch.</p>
+                  )}
+                </div>
+              </section>
             </>
           )}
 
