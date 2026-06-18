@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import Navbar from "../components/navbar";
 import Footer from "../components/footer";
 import { ToastContainer } from 'react-toastify';
+import "../styles/user-modern.css";
 
 export default function UserLayout() {
   const location = useLocation();
@@ -16,6 +17,7 @@ export default function UserLayout() {
     <>
       <Navbar />
       <motion.main
+        className="user-app-main"
         key={location.pathname}
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}

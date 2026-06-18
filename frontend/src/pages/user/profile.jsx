@@ -274,8 +274,20 @@ function ProfilePage() {
       <div className="profile-hero-banner">
         <div className="banner-overlay"></div>
         <div className="profile-hero-copy">
-          <span>Hồ sơ độc giả</span>
-          <h1>Quản lý thông tin và lịch sử mượn sách</h1>
+          <div className="profile-hero-identity">
+            <div className="profile-hero-avatar">{getInitials(user.name)}</div>
+            <div>
+              <span>Không gian độc giả</span>
+              <h1>Xin chào, {user.name}</h1>
+              <p>Theo dõi hồ sơ, phiếu mượn và hoạt động đọc sách của bạn.</p>
+            </div>
+          </div>
+          <div className="profile-hero-stats">
+            <div><strong>{totalTickets}</strong><small>Tổng phiếu</small></div>
+            <div><strong>{pendingTickets}</strong><small>Chờ xử lý</small></div>
+            <div><strong>{approvedTickets}</strong><small>Đang mượn</small></div>
+            <div><strong>{returnedTickets}</strong><small>Đã hoàn tất</small></div>
+          </div>
         </div>
       </div>
 
@@ -283,6 +295,7 @@ function ProfilePage() {
         {/* Left Side: Summary & Quick Stats */}
         <div className="profile-sidebar">
           <div className="profile-card summary-card">
+            <span className="profile-card-eyebrow">Thông tin cá nhân</span>
             <div className="avatar-container">
               <div className="profile-avatar">
                 {getInitials(user.name)}
@@ -330,7 +343,10 @@ function ProfilePage() {
 
           {/* Stats Card */}
           <div className="profile-card stats-card">
-            <h3>Thống kê hoạt động</h3>
+            <div className="profile-card-heading">
+              <div><span>Thói quen đọc</span><h3>Hoạt động của bạn</h3></div>
+              <FiActivity />
+            </div>
             <div className="stats-grid">
               <div className="stat-item total">
                 <div className="stat-icon-wrapper">
@@ -376,7 +392,10 @@ function ProfilePage() {
         <div className="profile-main-content">
           {/* Details & Edit Form */}
           <div className="profile-card details-card">
-            <h3>Thông tin tài khoản</h3>
+            <div className="profile-card-heading">
+              <div><span>Hồ sơ tài khoản</span><h3>Thông tin cá nhân</h3></div>
+              <FiUser />
+            </div>
             <form onSubmit={handleSaveProfile} className="profile-form">
               <div className="form-grid">
                 <div className="form-group">
@@ -449,7 +468,10 @@ function ProfilePage() {
           {/* Borrow Tickets List */}
           <div className="profile-card tickets-card">
             <div className="card-header-flex">
-              <h3>Lịch sử mượn sách</h3>
+              <div>
+                <span className="profile-card-eyebrow">Hoạt động gần đây</span>
+                <h3>Lịch sử mượn sách</h3>
+              </div>
               <span className="tickets-count">Tổng số: {tickets.length} phiếu</span>
             </div>
 
