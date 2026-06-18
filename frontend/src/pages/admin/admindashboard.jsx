@@ -31,7 +31,10 @@ import {
   FiMail,
   FiBarChart2,
   FiDownload,
-  FiTrendingUp
+  FiTrendingUp,
+  FiCalendar,
+  FiCreditCard,
+  FiPackage
 } from "react-icons/fi";
 
 const STATUS_VI = {
@@ -184,6 +187,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const [contactNotes, setContactNotes] = useState({});
   const [updatingContactId, setUpdatingContactId] = useState(null);
   const [ticketFilter, setTicketFilter] = useState("all");
+  const [ticketSearch, setTicketSearch] = useState("");
   const [expandedTicket, setExpandedTicket] = useState(null);
   const [ticketTransactions, setTicketTransactions] = useState({});
   const [reports, setReports] = useState(emptyReport);
@@ -241,6 +245,22 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const totalBooks = books.length;
   const totalTickets = tickets.length;
   const pendingTickets = tickets.filter((ticket) => ticket.status === "pending" || ticket.status === "awaiting_payment").length;
+  const filteredTickets = useMemo(() => {
+    const keyword = ticketSearch.trim().toLowerCase();
+
+    return tickets.filter((ticket) => {
+      const matchesStatus = ticketFilter === "all" || ticket.status === ticketFilter;
+      const matchesSearch = !keyword || [
+        ticket._id,
+        ticket.userId?.name,
+        ticket.userId?.email,
+        ticket.shippingAddress,
+        ...(ticket.books || []).flatMap((book) => [book.title, book.author]),
+      ].some((value) => String(value || "").toLowerCase().includes(keyword));
+
+      return matchesStatus && matchesSearch;
+    });
+  }, [tickets, ticketFilter, ticketSearch]);
 
   const formatCurrency = (value) => new Intl.NumberFormat("vi-VN").format(value) + " đ";
   const getBookPrice = (book) => {
@@ -344,8 +364,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
     downloadCsv(`bao-cao-thu-vien-${new Date().toISOString().slice(0, 10)}.csv`, rows);
   };
 
-  // Cash should be collected when delivering, not at pending/approval stage
-  // VNPay: chỉ show badge, không cho admin tự duyệt
+
   const isWaitingVnpay = (ticket) =>
     ticket.depositStatus === "pending" &&
     ticket.paymentMethod === "vnpay" &&
@@ -363,7 +382,22 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const canDeliver = (ticket) =>
     normalizeTicketStatus(ticket.status) === "dispatched" && ticket.shippingStatus === "dispatched";
 
-  // Trả sách: chỉ sau khi delivered (cả quầy lẫn giao hàng)
+  const getOverdueDays = (ticket) => {
+    if (normalizeTicketStatus(ticket.status) !== "delivered" || !ticket.dueDate) return 0;
+    const due = new Date(ticket.dueDate);
+    due.setHours(23, 59, 59, 999);
+    const now = new Date();
+    const diffTime = now.getTime() - due.getTime();
+    if (diffTime <= 0) return 0;
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  const getEstimatedFine = (ticket) => {
+    return getOverdueDays(ticket) * 5000;
+  };
+  const overdueTickets = tickets.filter((ticket) => getOverdueDays(ticket) > 0).length;
+
+  // Cash should be collected when delivering, not at pending/approval stage)
   const canReturn = (ticket) =>
     normalizeTicketStatus(ticket.status) === "delivered";
 
@@ -913,8 +947,15 @@ const handleSendReply = async (reviewId) => {
 
         <main className="col-md-9 col-lg-10 admin-main">
           {selectedSection === "dashboard" && (
-            <>
-              <h2 className="admin-section-title">Tổng quan hệ thống</h2>
+            <section className="admin-workspace-section">
+              <div className="admin-section-hero dashboard-hero">
+                <div>
+                  <span className="admin-section-kicker">Trung tâm điều hành</span>
+                  <h2>Tổng quan hệ thống</h2>
+                  <p>Nắm nhanh hoạt động thư viện và các công việc cần xử lý trong ngày.</p>
+                </div>
+                <span className="admin-section-hero-icon"><FiGrid /></span>
+              </div>
 
               <div className="stats-grid">
                 <div className="stat-card books">
@@ -992,25 +1033,49 @@ const handleSendReply = async (reviewId) => {
                   </tbody>
                 </table>
               </div>
-            </>
+            </section>
           )}
 
           {selectedSection === "tickets" && (
-            <>
-              <h2 className="admin-section-title">Quản lý Phiếu mượn</h2>
+            <section className="ticket-management-page">
+              <div className="ticket-page-hero">
+                <div>
+                  <span className="ticket-page-kicker">Vận hành mượn trả</span>
+                  <h2>Quản lý phiếu mượn</h2>
+                  <p>Theo dõi thanh toán, giao nhận và tiến độ hoàn trả trong một luồng thống nhất.</p>
+                </div>
+                <div className="ticket-overview-grid">
+                  <div><FiClipboard /><span><strong>{totalTickets}</strong>Tổng phiếu</span></div>
+                  <div><FiClock /><span><strong>{pendingTickets}</strong>Chờ xử lý</span></div>
+                  <div><FiPackage /><span><strong>{tickets.filter((ticket) => ["approved", "dispatched", "delivered"].includes(ticket.status)).length}</strong>Đang thực hiện</span></div>
+                  <div className={overdueTickets ? "danger" : ""}><FiCalendar /><span><strong>{overdueTickets}</strong>Quá hạn</span></div>
+                </div>
+              </div>
 
-              {/* Filter tabs */}
+              <div className="ticket-control-panel">
+                <div className="ticket-search-box">
+                  <FiSearch />
+                  <input
+                    value={ticketSearch}
+                    onChange={(event) => setTicketSearch(event.target.value)}
+                    placeholder="Tìm mã phiếu, độc giả, sách hoặc địa chỉ..."
+                    aria-label="Tìm kiếm phiếu mượn"
+                  />
+                </div>
+                <span className="ticket-result-count">{filteredTickets.length} kết quả</span>
+              </div>
+
               <div className="ticket-filter-tabs">
                 {[
-                  { key: "all",              label: "Tất cả" },
-                  { key: "pending",          label: "Chờ duyệt" },
+                  { key: "all", label: "Tất cả" },
+                  { key: "pending", label: "Chờ duyệt" },
                   { key: "awaiting_payment", label: "Chờ thanh toán" },
-                  { key: "approved",         label: "Đã duyệt" },
-                  { key: "dispatched",       label: "Đang giao" },
-                  { key: "delivered",        label: "Đã giao" },
-                  { key: "returned",         label: "Đã trả" },
-                  { key: "closed",           label: "Hoàn tất" },
-                  { key: "cancelled",        label: "Đã hủy" },
+                  { key: "approved", label: "Đã duyệt" },
+                  { key: "dispatched", label: "Đang giao" },
+                  { key: "delivered", label: "Đã giao" },
+                  { key: "returned", label: "Đã trả" },
+                  { key: "closed", label: "Hoàn tất" },
+                  { key: "cancelled", label: "Đã hủy" },
                 ].map(({ key, label }) => (
                   <button
                     key={key}
@@ -1018,41 +1083,44 @@ const handleSendReply = async (reviewId) => {
                     onClick={() => setTicketFilter(key)}
                   >
                     {label}
-                    {key !== "all" && (
-                      <span className="ticket-filter-count">
-                        {tickets.filter(t => t.status === key).length}
-                      </span>
-                    )}
+                    <span className="ticket-filter-count">
+                      {key === "all" ? tickets.length : tickets.filter((ticket) => ticket.status === key).length}
+                    </span>
                   </button>
                 ))}
               </div>
 
-              <div className="admin-table-container">
-                {tickets
-                  .filter(t => ticketFilter === "all" || t.status === ticketFilter)
-                  .map((ticket) => (
-                  <div key={ticket._id} className="ticket-item">
+              <div className="ticket-list">
+                {filteredTickets.map((ticket) => (
+                  <article key={ticket._id} className={`ticket-item ${expandedTicket === ticket._id ? "is-expanded" : ""}`}>
                     <div className="ticket-header" onClick={() => toggleTicketExpand(ticket._id)}>
                       <div className="ticket-header-main">
-                        <button className="expand-btn">
+                        <button className="expand-btn" aria-label={expandedTicket === ticket._id ? "Thu gọn phiếu" : "Xem chi tiết phiếu"}>
                           {expandedTicket === ticket._id ? <FiChevronUp /> : <FiChevronDown />}
                         </button>
                         <div className="ticket-header-info">
-                          <div className="ticket-id">#{ticket._id}</div>
+                          <div className="ticket-id">Phiếu #{String(ticket._id).slice(-8).toUpperCase()}</div>
                           <div className="ticket-reader">
                             {ticket.userId?.name || ticket.userId?.email || "—"}
                           </div>
+                          {ticket.userId?.email && ticket.userId?.name && <small>{ticket.userId.email}</small>}
                         </div>
                         <div className="ticket-books-list">
                           <span className="ticket-books-count">{ticket.books?.length || 0} cuốn</span>
                           <span>{getTicketBookTitleList(ticket)}</span>
                         </div>
                         <div className="ticket-dates">
-                          <small>Mượn: {ticket.borrowDate ? new Date(ticket.borrowDate).toLocaleDateString("vi-VN") : "—"}</small>
-                          {ticket.dueDate && <small>Hạn: {new Date(ticket.dueDate).toLocaleDateString("vi-VN")}</small>}
+                          <small><FiCalendar /> Mượn {ticket.borrowDate ? new Date(ticket.borrowDate).toLocaleDateString("vi-VN") : "—"}</small>
+                          {ticket.dueDate && <small><FiClock /> Hạn {new Date(ticket.dueDate).toLocaleDateString("vi-VN")}</small>}
+                          {getOverdueDays(ticket) > 0 && (
+                            <span className="ticket-overdue-badge">
+                              Quá hạn {getOverdueDays(ticket)} ngày
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="ticket-header-status">
+                        <span className="ticket-payment-method"><FiCreditCard /> {ticket.paymentMethod === "vnpay" ? "VNPay" : "Tiền mặt"}</span>
                         <span className={`status-badge ${ticket.status.toLowerCase()}`}>
                           {getStatusLabel(ticket.status)}
                         </span>
@@ -1120,7 +1188,13 @@ const handleSendReply = async (reviewId) => {
                             </div>
                             <div className="detail-row">
                               <span>Phạt trễ hạn:</span>
-                              <strong>{formatCurrency(ticket.fineAmount || 0)}</strong>
+                              <strong>
+                                {ticket.fineAmount > 0
+                                  ? formatCurrency(ticket.fineAmount)
+                                  : getEstimatedFine(ticket) > 0
+                                    ? `Tạm tính: ${formatCurrency(getEstimatedFine(ticket))}`
+                                    : formatCurrency(0)}
+                              </strong>
                             </div>
                           </div>
 
@@ -1264,17 +1338,25 @@ const handleSendReply = async (reviewId) => {
                         </div>
                       </div>
                     )}
-                  </div>
+                  </article>
                 ))}
+                {!filteredTickets.length && (
+                  <div className="ticket-empty-state">
+                    <FiClipboard />
+                    <h3>Không tìm thấy phiếu mượn</h3>
+                    <p>Thử thay đổi từ khóa hoặc chọn một trạng thái khác.</p>
+                  </div>
+                )}
               </div>
-            </>
+            </section>
           )}
 
           {selectedSection === "reports" && (
-            <>
+            <section className="admin-workspace-section">
               <div className="report-header">
                 <div>
-                  <h2 className="admin-section-title">Báo cáo thư viện</h2>
+                  <span className="admin-section-kicker">Phân tích dữ liệu</span>
+                  <h2>Báo cáo thư viện</h2>
                   <p>Theo dõi sách được mượn nhiều, các khoản thu và tình trạng trả sách.</p>
                 </div>
                 <button type="button" className="btn admin-btn-primary" onClick={exportReportCsv}>
@@ -1425,12 +1507,23 @@ const handleSendReply = async (reviewId) => {
                   )}
                 </div>
               </section>
-            </>
+            </section>
           )}
 
           {selectedSection === "users" && (
-            <>
-              <h2 className="admin-section-title">Quản lý người dùng</h2>
+            <section className="admin-workspace-section">
+              <div className="admin-section-hero users-hero">
+                <div>
+                  <span className="admin-section-kicker">Cộng đồng thư viện</span>
+                  <h2>Quản lý người dùng</h2>
+                  <p>Quản lý hồ sơ, quyền truy cập và trạng thái tài khoản của độc giả, thủ thư.</p>
+                </div>
+                <div className="admin-section-mini-stats">
+                  <div><strong>{users.length}</strong><span>Tài khoản</span></div>
+                  <div><strong>{totalUsers}</strong><span>Độc giả</span></div>
+                  <div><strong>{users.filter((user) => user.isActive === false).length}</strong><span>Đã khóa</span></div>
+                </div>
+              </div>
 
               <div className="user-management-toolbar">
                 <div className="user-search-box">
@@ -1641,12 +1734,19 @@ const handleSendReply = async (reviewId) => {
                   </form>
                 </div>
               )}
-            </>
+            </section>
           )}
 
           {selectedSection === "categories" && (
-            <>
-              <h2 className="admin-section-title">Quản lý danh mục</h2>
+            <section className="admin-workspace-section">
+              <div className="admin-section-hero categories-hero">
+                <div>
+                  <span className="admin-section-kicker">Phân loại nội dung</span>
+                  <h2>Quản lý danh mục</h2>
+                  <p>Tổ chức kho sách thành các nhóm rõ ràng để độc giả tìm kiếm nhanh hơn.</p>
+                </div>
+                <span className="admin-section-hero-icon"><FiTag /></span>
+              </div>
 
               <div className="category-management-grid">
                 <form className="category-form-card" onSubmit={handleCreateCategory}>
@@ -1788,12 +1888,23 @@ const handleSendReply = async (reviewId) => {
                   </tbody>
                 </table>
               </div>
-            </>
+            </section>
           )}
 
           {selectedSection === "books" && (
-            <>
-              <h2 className="admin-section-title">Kho sách thư viện</h2>
+            <section className="admin-workspace-section">
+              <div className="admin-section-hero books-hero">
+                <div>
+                  <span className="admin-section-kicker">Tài nguyên thư viện</span>
+                  <h2>Kho sách thư viện</h2>
+                  <p>Theo dõi nhanh số lượng đầu sách và tình trạng sẵn có trong kho.</p>
+                </div>
+                <div className="admin-section-mini-stats">
+                  <div><strong>{books.length}</strong><span>Đầu sách</span></div>
+                  <div><strong>{books.reduce((total, book) => total + Number(book.totalCopies || 0), 0)}</strong><span>Tổng bản</span></div>
+                  <div><strong>{books.reduce((total, book) => total + Number(book.availableCopies || 0), 0)}</strong><span>Sẵn có</span></div>
+                </div>
+              </div>
               <div className="admin-table-container">
                 <table className="admin-table">
                   <thead>
@@ -1824,12 +1935,19 @@ const handleSendReply = async (reviewId) => {
                   </tbody>
                 </table>
               </div>
-            </>
+            </section>
           )}
 
           {selectedSection === "contacts" && (
-            <>
-              <h2 className="admin-section-title">Quản lý liên hệ</h2>
+            <section className="admin-workspace-section">
+              <div className="admin-section-hero contacts-hero">
+                <div>
+                  <span className="admin-section-kicker">Hộp thư hỗ trợ</span>
+                  <h2>Quản lý liên hệ</h2>
+                  <p>Tiếp nhận, phân loại và theo dõi tiến độ xử lý yêu cầu từ độc giả.</p>
+                </div>
+                <span className="admin-section-hero-icon"><FiMail /></span>
+              </div>
 
               <div className="contact-admin-stats">
                 {CONTACT_STATUS_FILTERS.filter((option) => option.value !== "all").map((option) => (
@@ -1946,15 +2064,26 @@ const handleSendReply = async (reviewId) => {
                   </div>
                 )}
               </div>
-            </>
+            </section>
           )}
 
           {selectedSection === "reviews" && (
-            <>
-              <h2 className="admin-section-title">Quản lý Đánh giá</h2>
+            <section className="admin-workspace-section">
+              <div className="admin-section-hero reviews-hero">
+                <div>
+                  <span className="admin-section-kicker">Phản hồi độc giả</span>
+                  <h2>Quản lý đánh giá</h2>
+                  <p>Kiểm duyệt nội dung và phản hồi trực tiếp các nhận xét về sách.</p>
+                </div>
+                <div className="admin-section-mini-stats">
+                  <div><strong>{reviews.length}</strong><span>Đánh giá</span></div>
+                  <div><strong>{reviews.filter((review) => review.status === "visible").length}</strong><span>Hiển thị</span></div>
+                  <div><strong>{reviews.filter((review) => review.admin_reply).length}</strong><span>Đã phản hồi</span></div>
+                </div>
+              </div>
               <div className="admin-table-container">
                 {reviews.length === 0 ? (
-                  <p style={{ padding: '24px', color: '#94a3b8', textAlign: 'center' }}>Chưa có đánh giá nào.</p>
+                  <div className="admin-reviews-empty"><span>☆</span>Chưa có đánh giá nào.</div>
                 ) : (
                   <table className="admin-table">
                     <thead>
@@ -1972,53 +2101,45 @@ const handleSendReply = async (reviewId) => {
                       {reviews.map((review) => (
                         <tr key={review.id}>
                           <td>
-                            <div style={{ fontWeight: 600 }}>{review.user_name}</div>
-                            <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{review.user_email}</div>
+                            <div className="admin-review-user">
+                              <span className="admin-review-avatar">{String(review.user_name || "U").charAt(0).toUpperCase()}</span>
+                              <div className="admin-review-user-info">
+                                <strong>{review.user_name}</strong>
+                                <span>{review.user_email}</span>
+                              </div>
+                            </div>
                           </td>
-                          <td style={{ maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {review.book_title}
-                          </td>
+                          <td><span className="admin-review-book">{review.book_title}</span></td>
                           <td>
-                            <span style={{ color: '#f59e0b', fontSize: '1rem' }}>
+                            <span className="admin-review-stars">
                               {'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}
                             </span>
                           </td>
-                          {/* <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {review.comment || <em style={{ color: '#cbd5e1' }}>Không có</em>}
-                          </td> */}
-                          <td style={{ maxWidth: '300px' }}> 
-  {/* Lưu ý: Tôi đã bỏ thuộc tính whiteSpace: 'nowrap' để khung phản hồi không bị che khuất */}
-  <div style={{ marginBottom: '8px', wordWrap: 'break-word', whiteSpace: 'normal' }}>
-    {review.comment || <em style={{ color: '#cbd5e1' }}>Không có</em>}
-  </div>
-  
-  {/* --- ĐOẠN CODE BƯỚC 1.2 ĐƯỢC CHÈN VÀO ĐÂY --- */}
-  <div className="review-reply-section" style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed #e2e8f0' }}>
-      {review.admin_reply ? (
-          <div style={{ backgroundColor: '#eef2f5', padding: '8px', borderRadius: '5px', borderLeft: '4px solid #4CAF50', fontSize: '0.85rem', whiteSpace: 'normal' }}>
-              <strong style={{ color: '#2e7d32', display: 'block', marginBottom: '2px' }}>Đã phản hồi: </strong>
-              <span>{review.admin_reply}</span>
-          </div>
-      ) : (
-          <div style={{ display: 'flex', gap: '5px', flexDirection: 'column' }}>
-              <textarea 
-                  placeholder="Nhập câu trả lời..."
-                  value={replyInputs[review.id] || ""}
-                  onChange={(e) => handleReplyChange(review.id, e.target.value)}
-                  style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #ccc', minHeight: '50px', fontSize: '0.85rem' }}
-              />
-              <button 
-                  onClick={() => handleSendReply(review.id)}
-                  style={{ padding: '5px 12px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', alignSelf: 'flex-start', fontSize: '0.8rem' }}
-              >
-                  Gửi phản hồi
-              </button>
-          </div>
-      )}
-  </div>
-  {/* --- KẾT THÚC ĐOẠN BƯỚC 1.2 --- */}
-</td>
-                          <td style={{ whiteSpace: 'nowrap' }}>
+                          <td>
+                            <div className="admin-review-content">
+                              <p>{review.comment || <em>Không có nội dung</em>}</p>
+                              <div className="review-reply-section">
+                                {review.admin_reply ? (
+                                  <div className="admin-review-reply">
+                                    <strong>Phản hồi của thư viện</strong>
+                                    <span>{review.admin_reply}</span>
+                                  </div>
+                                ) : (
+                                  <div className="admin-review-reply-form">
+                                    <textarea
+                                      placeholder="Nhập câu trả lời..."
+                                      value={replyInputs[review.id] || ""}
+                                      onChange={(event) => handleReplyChange(review.id, event.target.value)}
+                                    />
+                                    <button type="button" onClick={() => handleSendReply(review.id)}>
+                                      <FiMail /> Gửi phản hồi
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="admin-review-date">
                             {new Date(review.created_at).toLocaleDateString('vi-VN')}
                           </td>
                           <td>
@@ -2027,7 +2148,7 @@ const handleSendReply = async (reviewId) => {
                             </span>
                           </td>
                           <td>
-                            <div style={{ display: 'flex', gap: '6px' }}>
+                            <div className="admin-review-actions">
                               <button
                                 className="btn btn-sm btn-outline-secondary"
                                 onClick={() => handleToggleReviewStatus(review)}
@@ -2050,7 +2171,7 @@ const handleSendReply = async (reviewId) => {
                   </table>
                 )}
               </div>
-            </>
+            </section>
           )}
         </main>
 

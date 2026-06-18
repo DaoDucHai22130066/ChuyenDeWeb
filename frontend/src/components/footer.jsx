@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { FiFacebook, FiInstagram, FiMail } from 'react-icons/fi';
+import { FiBookOpen, FiFacebook, FiInstagram, FiMail, FiMapPin } from 'react-icons/fi';
 import './footer.css';
 
 const Footer = () => {
@@ -10,13 +10,17 @@ const Footer = () => {
   return (
     <footer className="library-footer">
       <div className="footer-container">
-        <div className="footer-tagline">
-          <p>
-            D Free Book là một thư viện cộng đồng cho mượn sách miễn phí, đặt cọc hoàn lại và phí trễ hạn minh bạch.
-          </p>
-        </div>
-
         <div className="footer-main">
+          <div className="footer-column footer-brand-column">
+            <div className="footer-brand">
+              <span><FiBookOpen /></span>
+              <div><strong>D Free Book</strong><small>Thư viện cộng đồng</small></div>
+            </div>
+            <p>
+              Kết nối sách với người đọc bằng quy trình mượn minh bạch, thuận tiện và thân thiện.
+            </p>
+            <div className="footer-location"><FiMapPin /> Đại La & Cầu Giấy, Hà Nội</div>
+          </div>
           <div className="footer-column">
             <h3 className="footer-heading">Trang</h3>
             <ul className="footer-links">
@@ -38,7 +42,6 @@ const Footer = () => {
               <li><Link to="/chinh-sach/dieu-khoan" className="footer-link" onClick={handleLinkClick}>Điều khoản dịch vụ</Link></li>
             </ul>
           </div>
-
           <div className="footer-column">
             <h3 className="footer-heading">Giữ liên lạc</h3>
             <ul className="footer-contact-info">
@@ -48,24 +51,8 @@ const Footer = () => {
               </li>
             </ul>
             <div className="footer-social">
-              <a
-                href="https://www.facebook.com/dfreebook"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="social-icon"
-                aria-label="Facebook"
-              >
-                <FiFacebook />
-              </a>
-              <a
-                href="https://www.instagram.com/dfree.book"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="social-icon"
-                aria-label="Instagram"
-              >
-                <FiInstagram />
-              </a>
+              <a href="https://www.facebook.com/dfreebook" target="_blank" rel="noopener noreferrer" className="social-icon" aria-label="Facebook"><FiFacebook /></a>
+              <a href="https://www.instagram.com/dfree.book" target="_blank" rel="noopener noreferrer" className="social-icon" aria-label="Instagram"><FiInstagram /></a>
             </div>
           </div>
         </div>

@@ -28,6 +28,7 @@ export default function AdminLayout() {
 
     {render ? <><AdminNavbar />
           <motion.main
+            className="admin-app-main"
             key={location.pathname}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}

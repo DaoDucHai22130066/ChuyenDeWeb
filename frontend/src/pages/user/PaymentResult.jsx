@@ -97,7 +97,7 @@ export default function PaymentResult() {
             </div>
             <div className="detail-row">
               <span>Hình thức thanh toán</span>
-              <strong style={{ textTransform: "uppercase" }}>{statusInfo.method === 'cash' ? 'Tiền mặt' : 'VNPAY'}</strong>
+              <strong className="payment-method-value">{statusInfo.method === 'cash' ? 'Tiền mặt' : 'VNPAY'}</strong>
             </div>
             <div className="detail-row total-row">
               <span>Tổng thanh toán</span>

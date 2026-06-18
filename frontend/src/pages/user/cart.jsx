@@ -7,6 +7,18 @@ import { DEFAULT_SHIPPING_FEE, estimateDeposit } from "../../utils/borrowConfig"
 import { showErrorToast, showSuccessToast } from "../../utils/toasthelper";
 import { getAuthToken } from "../../utils/auth";
 import { useCart } from "../../context/CartContext";
+import {
+  FiArrowRight,
+  FiBookOpen,
+  FiCheck,
+  FiCreditCard,
+  FiMapPin,
+  FiPhone,
+  FiShield,
+  FiShoppingBag,
+  FiTrash2,
+  FiTruck,
+} from "react-icons/fi";
 import "./cart.css";
 
 const getBookId = (book) => String(book?._id ?? book?.id ?? "");
@@ -124,20 +136,24 @@ export default function CartPage() {
     >
       <div className="cart-hero">
         <div>
-          <p className="cart-eyebrow">Giỏ sách mượn</p>
-          <h1>Chọn sách muốn mượn</h1>
+          <p className="cart-eyebrow"><FiShoppingBag /> Giỏ sách mượn</p>
+          <h1>Hoàn tất yêu cầu mượn sách</h1>
           <p>
-            Tích một hoặc nhiều cuốn sách trong giỏ, hệ thống sẽ tạo một phiếu mượn cho các cuốn đã chọn.
+            Chọn sách, nhập thông tin giao nhận và xác nhận yêu cầu trong một quy trình đơn giản.
           </p>
         </div>
-        <div className="cart-summary">
-          <span>{selectedBooks.length}</span>
-          <small>cuốn đã chọn</small>
+        <div className="cart-progress">
+          <div className="active"><span>1</span><small>Chọn sách</small></div>
+          <i />
+          <div className={selectedBooks.length ? "active" : ""}><span>2</span><small>Giao nhận</small></div>
+          <i />
+          <div className={acceptedPolicy ? "active" : ""}><span>3</span><small>Xác nhận</small></div>
         </div>
       </div>
 
       {cartItems.length === 0 ? (
         <div className="cart-empty dfb-card">
+          <span className="cart-empty-icon"><FiBookOpen /></span>
           <h2>Giỏ sách trống</h2>
           <p>Hãy quay lại trang sách và thêm vài đầu sách bạn muốn mượn.</p>
           <button type="button" className="btn-dfb-primary" onClick={() => navigate("/books")}>Xem sách</button>
@@ -145,16 +161,15 @@ export default function CartPage() {
       ) : (
         <div className="cart-layout">
           <div className="cart-items">
-            <div className="cart-select-bar dfb-card">
+            <div className="cart-section-heading">
+              <div>
+                <span>Bước 1</span>
+                <h2>Chọn sách cần mượn</h2>
+              </div>
               <label className="cart-select-all">
-                <input
-                  type="checkbox"
-                  checked={allSelected}
-                  onChange={handleToggleAll}
-                />
-                Chọn tất cả
+                <input type="checkbox" checked={allSelected} onChange={handleToggleAll} />
+                <span>Chọn tất cả ({selectedBooks.length}/{cartItems.length})</span>
               </label>
-              <span>{selectedBooks.length}/{cartItems.length} cuốn đã chọn</span>
             </div>
 
             {cartItems.map((book) => {
@@ -163,13 +178,14 @@ export default function CartPage() {
               const bookPrice = Number(book.price || 0);
 
               return (
-                <div key={bookId} className={`cart-item dfb-card ${isSelected ? "selected" : ""}`}>
+                <article key={bookId} className={`cart-item ${isSelected ? "selected" : ""}`}>
                   <label className="cart-item-select" aria-label={`Chọn ${book.title}`}>
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => handleToggleBook(bookId)}
                     />
+                    <span><FiCheck /></span>
                   </label>
                   <img
                     src={book.coverImage || "/assets/library.avif"}
@@ -179,47 +195,38 @@ export default function CartPage() {
                     }}
                   />
                   <div className="cart-item-body">
+                    <span className="cart-item-category">{book.categoryId?.name || book.category || "Chưa phân loại"}</span>
                     <h3>{book.title}</h3>
                     <p>{book.author}</p>
-                    <span>{book.categoryId?.name || book.category || "Chưa phân loại"}</span>
-                    <strong className="cart-item-price">{formatCurrency(bookPrice)}</strong>
+                    <div className="cart-item-meta">
+                      <span><FiBookOpen /> Giá tham khảo</span>
+                      <strong>{formatCurrency(bookPrice)}</strong>
+                    </div>
                   </div>
                   <div className="cart-item-actions">
                     <button type="button" className="cart-remove-btn" onClick={() => removeFromCart(book._id ?? book.id)}>
-                      Xóa
+                      <FiTrash2 /> <span>Xóa</span>
                     </button>
                   </div>
-                </div>
+                </article>
               );
             })}
           </div>
 
-          <aside className="cart-panel dfb-card">
-            <h2>Tổng kết</h2>
-            <p>{selectedBooks.length} cuốn sách đã chọn để gửi yêu cầu.</p>
+          <aside className="cart-panel">
+            <div className="cart-panel-header">
+              <span>Tóm tắt yêu cầu</span>
+              <strong>{selectedBooks.length} cuốn</strong>
+            </div>
             <div className="cart-form-section">
-              <h3>Hình thức nhận sách</h3>
-              <p className="cart-delivery-note">Giao tận nơi</p>
-              <input
-                type="text"
-                className="cart-input"
-                placeholder="Địa chỉ nhận sách"
-                value={shippingAddress}
-                onChange={(e) => setShippingAddress(e.target.value)}
-              />
-              <input
-                type="text"
-                className="cart-input mt-2"
-                placeholder="Số điện thoại nhận sách"
-                value={shippingPhone}
-                onChange={(e) => setShippingPhone(e.target.value)}
-                style={{ marginTop: "10px" }}
-              />
+              <h3><FiTruck /> Thông tin giao nhận</h3>
+              <div className="cart-input-wrap"><FiMapPin /><input type="text" placeholder="Địa chỉ nhận sách" value={shippingAddress} onChange={(e) => setShippingAddress(e.target.value)} /></div>
+              <div className="cart-input-wrap"><FiPhone /><input type="text" placeholder="Số điện thoại người nhận" value={shippingPhone} onChange={(e) => setShippingPhone(e.target.value)} /></div>
             </div>
 
             <div className="cart-form-section">
-              <h3>Phương thức thanh toán</h3>
-              <label className="cart-option">
+              <h3><FiCreditCard /> Phương thức thanh toán</h3>
+              <label className={`cart-option ${paymentMethod === "cash" ? "selected" : ""}`}>
                 <input
                   type="radio"
                   name="paymentMethod"
@@ -227,9 +234,9 @@ export default function CartPage() {
                   checked={paymentMethod === "cash"}
                   onChange={() => setPaymentMethod("cash")}
                 />
-                Tiền mặt khi nhận sách
+                <span><strong>Tiền mặt</strong><small>Thanh toán khi nhận sách</small></span>
               </label>
-              <label className="cart-option">
+              <label className={`cart-option ${paymentMethod === "vnpay" ? "selected" : ""}`}>
                 <input
                   type="radio"
                   name="paymentMethod"
@@ -237,7 +244,7 @@ export default function CartPage() {
                   checked={paymentMethod === "vnpay"}
                   onChange={() => setPaymentMethod("vnpay")}
                 />
-                VNPAY online
+                <span><strong>VNPAY</strong><small>Thanh toán trực tuyến an toàn</small></span>
               </label>
             </div>
 
@@ -251,18 +258,13 @@ export default function CartPage() {
                 <strong>{formatCurrency(shippingFee)}</strong>
               </div>
               <div className="summary-row total">
-                <span>Tiền cọc + phí ship</span>
+                <span>Tổng thanh toán</span>
                 <strong>{formatCurrency(totalEstimate)}</strong>
               </div>
             </div>
             <div className="cart-policy-box">
-              <h3>Điều khoản mượn</h3>
-              <ul>
-                <li>Mượn sách miễn phí.</li>
-                <li>Đặt cọc hoàn lại khi trả đúng quy định.</li>
-                <li>Phí trễ hạn áp dụng theo chính sách đã công bố.</li>
-                <li>Quyên góp hoặc hội viên hỗ trợ là tùy chọn.</li>
-              </ul>
+              <h3><FiShield /> Chính sách mượn</h3>
+              <p>Mượn miễn phí · Cọc hoàn lại · Phí trễ hạn minh bạch</p>
               <label className="cart-policy-check">
                 <input
                   type="checkbox"
@@ -278,7 +280,7 @@ export default function CartPage() {
               onClick={handleSubmitRequest}
               disabled={isSubmitting || selectedBooks.length === 0 || !acceptedPolicy}
             >
-              {isSubmitting ? "Đang gửi..." : "Gửi yêu cầu sách đã chọn"}
+              {isSubmitting ? "Đang gửi..." : <>Gửi yêu cầu mượn <FiArrowRight /></>}
             </button>
             <button type="button" className="btn-dfb-outline cart-clear-btn" onClick={clearCart}>
               Xóa toàn bộ giỏ

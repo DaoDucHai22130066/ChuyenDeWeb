@@ -267,23 +267,6 @@ const Books = () => {
                           }
                         }}
                         title={isInWishlist(book._id || book.id) ? "Bỏ lưu" : "Lưu yêu thích"}
-                        style={{
-                          position: "absolute",
-                          top: "10px",
-                          right: "10px",
-                          background: "white",
-                          border: "none",
-                          borderRadius: "50%",
-                          width: "32px",
-                          height: "32px",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          cursor: "pointer",
-                          boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
-                          zIndex: 2,
-                          padding: 0
-                        }}
                       >
                         {isInWishlist(book._id || book.id) ? <FaHeart color="#e74c3c" size={16} /> : <FaRegHeart color="#7f8c8d" size={16} />}
                       </button>

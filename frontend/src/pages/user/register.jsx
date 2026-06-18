@@ -5,6 +5,7 @@ import axios from "axios";
 import { Server_URL } from "../../utils/config";
 import { showErrorToast, showSuccessToast } from "../../utils/toasthelper";
 import "./login.css";
+import { FiBookOpen, FiCheckCircle } from "react-icons/fi";
 
 export default function Register() {
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
@@ -105,9 +106,22 @@ export default function Register() {
 
   return (
     <div className="login-container">
-      <div className="login-box" style={{ maxWidth: "480px" }}>
-        <h2 className="login-title">Đăng ký</h2>
-        <p className="login-subtitle">Tham gia cộng đồng độc giả D Free Book</p>
+      <section className="auth-showcase register-showcase">
+        <div className="auth-showcase-content">
+          <span className="auth-showcase-logo"><FiBookOpen /></span>
+          <p className="auth-eyebrow">Tham gia cộng đồng</p>
+          <h1>Bắt đầu hành trình đọc theo cách của bạn.</h1>
+          <p>Tạo tài khoản miễn phí để khám phá, lưu và mượn sách thuận tiện hơn.</p>
+          <div className="auth-benefits">
+            <span><FiCheckCircle /> Theo dõi phiếu mượn</span>
+            <span><FiCheckCircle /> Lưu danh sách yêu thích</span>
+          </div>
+        </div>
+      </section>
+      <div className="login-box register-box">
+        <span className="auth-mobile-logo"><FiBookOpen /> D Free Book</span>
+        <h2 className="login-title">{pendingEmail ? "Xác nhận email" : "Tạo tài khoản"}</h2>
+        <p className="login-subtitle">{pendingEmail ? "Nhập mã OTP được gửi đến email của bạn." : "Tham gia cộng đồng độc giả D Free Book."}</p>
         {pendingEmail ? (
           <form onSubmit={handleVerifyRegistration} className="login-form">
             <p className="login-subtitle">Mã OTP đã gửi đến <strong>{pendingEmail}</strong>.</p>
@@ -128,8 +142,7 @@ export default function Register() {
             </button>
             <button
               type="button"
-              className="btn-submit"
-              style={{ marginTop: 10, background: "#6c757d" }}
+              className="btn-submit auth-secondary-submit"
               onClick={handleResendRegistrationOtp}
             >
               Gửi lại mã OTP
@@ -172,9 +185,8 @@ export default function Register() {
 
           <button type="submit" className="btn-submit">Đăng ký</button>
 
-          <div style={{ marginTop: 12, textAlign: 'center' }}>
-            <div id="googleSignInDiv" style={{ marginTop: 8 }}></div>
-          </div>
+          <div className="auth-divider"><span>hoặc</span></div>
+          <div className="auth-google-row"><div id="googleSignInDiv"></div></div>
 
           <p className="login-register-link">
             Đã có tài khoản? <Link to="/login">Đăng nhập</Link>
