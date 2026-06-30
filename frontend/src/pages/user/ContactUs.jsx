@@ -1,4 +1,3 @@
-import React from "react";
 import { useForm } from "react-hook-form";
 import axios from "axios";
 import { FiMail, FiMapPin, FiClock, FiSend } from "react-icons/fi";
@@ -11,16 +10,16 @@ const ContactUs = () => {
     register,
     handleSubmit,
     reset,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm();
 
   const onSubmit = async (data) => {
     try {
-      await axios.post(Server_URL + "users/contact", data);
-      showSuccessToast("Tin nhắn đã được gửi! Chúng tôi sẽ phản hồi sớm.");
+      const response = await axios.post(Server_URL + "users/contact", data);
+      showSuccessToast(response.data?.message || "Tin nhắn đã được gửi! Chúng tôi sẽ phản hồi sớm.");
       reset();
     } catch (error) {
-      showErrorToast("Không gửi được tin nhắn. Vui lòng thử lại sau.");
+      showErrorToast(error?.response?.data?.message || "Không gửi được tin nhắn. Vui lòng thử lại sau.");
     }
   };
 
@@ -121,18 +120,18 @@ const ContactUs = () => {
               <div className="form-group">
                 <label htmlFor="message">Nội dung</label>
                 <textarea
-                  {...register("message", { required: true })}
+                  {...register("message", { required: true, minLength: 10, maxLength: 5000 })}
                   id="message"
                   rows="6"
                   placeholder="Nhập nội dung tin nhắn..."
                 ></textarea>
                 {errors.message && (
-                  <span className="error">Vui lòng nhập nội dung</span>
+                  <span className="error">Vui lòng nhập nội dung từ 10 đến 5000 ký tự</span>
                 )}
               </div>
 
-              <button type="submit" className="contact-submit-btn">
-                <FiSend className="btn-icon" /> Gửi tin nhắn
+              <button type="submit" className="contact-submit-btn" disabled={isSubmitting}>
+                <FiSend className="btn-icon" /> {isSubmitting ? "Đang gửi..." : "Gửi tin nhắn"}
               </button>
             </form>
           </div>

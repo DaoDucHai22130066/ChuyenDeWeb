@@ -159,7 +159,7 @@ export default function Home() {
             <div className="home-process-card">
               <FiTruck />
               <h3>3. Nhận sách</h3>
-              <p>Nhận tại quầy hoặc chọn giao tận nơi nếu bạn cần hỗ trợ vận chuyển.</p>
+              <p>Nhập địa chỉ giao tận nơi để admin xử lý và vận chuyển sách đến bạn.</p>
             </div>
           </div>
         </div>

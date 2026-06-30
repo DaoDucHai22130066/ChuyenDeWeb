@@ -8,14 +8,22 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const generateOtpEmailTemplate = (otp) => {
+const escapeHtml = (value) =>
+  String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+const generateOtpEmailTemplate = (otp, title = "Mã xác thực (OTP) đặt lại mật khẩu", note = "Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.") => {
   return `
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 12px; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
       <div style="text-align: center; margin-bottom: 25px; border-bottom: 2px solid #f0f0f0; padding-bottom: 15px;">
         <h1 style="color: #2e7d32; margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 1px;">THƯ VIỆN SỐ</h1>
       </div>
       <div style="background-color: #f4fcf5; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid #4CAF50; text-align: center;">
-        <h2 style="color: #2e7d32; margin-top: 0; font-size: 18px;">Mã xác thực (OTP) đặt lại mật khẩu</h2>
+        <h2 style="color: #2e7d32; margin-top: 0; font-size: 18px;">${title}</h2>
         <div style="color: #444; line-height: 1.6; font-size: 15px; margin-top: 15px;">
           <p>Mã OTP của bạn là:</p>
           <div style="font-size: 32px; font-weight: bold; color: #4CAF50; letter-spacing: 5px; margin: 20px 0;">${otp}</div>
@@ -23,7 +31,7 @@ const generateOtpEmailTemplate = (otp) => {
         </div>
       </div>
       <div style="text-align: center; margin-top: 35px; padding-top: 20px; border-top: 1px solid #eaeaea; color: #999; font-size: 12px; line-height: 1.5;">
-        <p style="margin: 5px 0;">Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.</p>
+        <p style="margin: 5px 0;">${note}</p>
         <p style="margin: 5px 0;">Đây là email tự động, vui lòng không trả lời qua email này.</p>
         <p style="margin: 5px 0;">&copy; ${new Date().getFullYear()} Hệ thống Thư Viện Số. All rights reserved.</p>
       </div>
@@ -42,6 +50,24 @@ const sendOtpMail = async (email, otp) => {
     console.log(`Sent OTP email to ${email}`);
   } catch (error) {
     console.error("Error sending OTP mail:", error);
+  }
+};
+
+const sendRegistrationOtpMail = async (email, otp) => {
+  try {
+    await transporter.sendMail({
+      from: `"Thư Viện Số" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: "[Thư Viện] Mã xác nhận đăng ký tài khoản",
+      html: generateOtpEmailTemplate(
+        otp,
+        "Mã xác nhận đăng ký tài khoản",
+        "Nếu bạn không đăng ký tài khoản, vui lòng bỏ qua email này."
+      ),
+    });
+    console.log(`Sent registration OTP email to ${email}`);
+  } catch (error) {
+    console.error("Error sending registration OTP mail:", error);
   }
 };
 
@@ -121,7 +147,7 @@ const generateEmailTemplate = (title, content, ticket) => {
           ` : ''}
           <tr>
             <td><strong>Phương thức nhận:</strong></td>
-            <td>${ticket.shippingAddress ? '<span style="color: #1976d2; font-weight: bold;">Giao tận nơi</span>' : '<span style="color: #388e3c; font-weight: bold;">Nhận tại quầy</span>'}</td>
+            <td><span style="color: #1976d2; font-weight: bold;">Giao tận nơi</span></td>
           </tr>
           ${ticket.shippingAddress ? `
           <tr>
@@ -205,7 +231,12 @@ const sendApprovalSuccessMail = async (ticket) => {
 const sendContactNotification = async (contactInfo) => {
   try {
     const { name, email, subject, message } = contactInfo;
-    const adminEmail = "caominhhieunq@gmail.com";
+    const adminEmail = process.env.CONTACT_RECEIVER_EMAIL || process.env.EMAIL_USER;
+
+    if (!adminEmail) {
+      console.warn("CONTACT_RECEIVER_EMAIL or EMAIL_USER is not configured; skipping contact notification email");
+      return;
+    }
     
     const subjectMap = {
       general: "Câu hỏi chung",
@@ -216,6 +247,10 @@ const sendContactNotification = async (contactInfo) => {
       other: "Khác"
     };
     const displaySubject = subjectMap[subject] || subject;
+    const safeName = escapeHtml(name);
+    const safeEmail = escapeHtml(email);
+    const safeSubject = escapeHtml(displaySubject);
+    const safeMessage = escapeHtml(message);
 
     const htmlContent = `
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 12px; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
@@ -232,11 +267,11 @@ const sendContactNotification = async (contactInfo) => {
           <table style="width: 100%; font-size: 14px; color: #555; line-height: 1.8;">
             <tr>
               <td style="width: 35%;"><strong>Họ và tên:</strong></td>
-              <td><span style="color: #333; font-weight: 500;">${name}</span></td>
+              <td><span style="color: #333; font-weight: 500;">${safeName}</span></td>
             </tr>
             <tr>
               <td><strong>Email:</strong></td>
-              <td><a href="mailto:${email}" style="color: #1976d2; text-decoration: none;">${email}</a></td>
+              <td><a href="mailto:${safeEmail}" style="color: #1976d2; text-decoration: none;">${safeEmail}</a></td>
             </tr>
             <tr>
               <td><strong>Thời gian:</strong></td>
@@ -249,14 +284,14 @@ const sendContactNotification = async (contactInfo) => {
           <h3 style="color: #333; border-bottom: 1px solid #ddd; padding-bottom: 8px; font-size: 16px;">NỘI DUNG LIÊN HỆ</h3>
           <div style="margin-bottom: 15px;">
             <span style="display: inline-block; background-color: #e3f2fd; color: #1565c0; padding: 4px 10px; border-radius: 4px; font-size: 13px; font-weight: bold; margin-bottom: 10px;">
-              Chủ đề: ${displaySubject}
+              Chủ đề: ${safeSubject}
             </span>
           </div>
-          <div style="background-color: #fff; padding: 15px; border: 1px solid #e0e0e0; border-radius: 6px; color: #444; font-size: 15px; line-height: 1.6; white-space: pre-wrap;">${message}</div>
+          <div style="background-color: #fff; padding: 15px; border: 1px solid #e0e0e0; border-radius: 6px; color: #444; font-size: 15px; line-height: 1.6; white-space: pre-wrap;">${safeMessage}</div>
         </div>
 
         <div style="text-align: center; margin-top: 35px; padding-top: 20px; border-top: 1px solid #eaeaea;">
-          <a href="mailto:${email}" style="display: inline-block; background-color: #4CAF50; color: #fff; text-decoration: none; padding: 10px 25px; border-radius: 4px; font-weight: bold; font-size: 14px;">Trả lời Email này</a>
+          <a href="mailto:${safeEmail}" style="display: inline-block; background-color: #4CAF50; color: #fff; text-decoration: none; padding: 10px 25px; border-radius: 4px; font-weight: bold; font-size: 14px;">Trả lời Email này</a>
         </div>
 
         <div style="text-align: center; margin-top: 25px; color: #999; font-size: 12px; line-height: 1.5;">
@@ -309,4 +344,4 @@ const sendRenewalSuccessMail = async (ticket, oldDueDate, newDueDate) => {
   }
 };
 
-module.exports = { transporter, sendDepositSuccessMail, sendApprovalSuccessMail, sendOtpMail, sendContactNotification, sendRenewalSuccessMail };
+module.exports = { transporter, sendDepositSuccessMail, sendApprovalSuccessMail, sendOtpMail, sendRegistrationOtpMail, sendContactNotification, sendRenewalSuccessMail };

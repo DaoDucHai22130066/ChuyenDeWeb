@@ -7,6 +7,10 @@
   background: var(--dfb-bg-gradient);
 }
 
+.payment-method-value {
+  text-transform: uppercase;
+}
+
 .result-card {
   position: relative;
   width: min(100%, 560px);

@@ -1,4 +1,3 @@
-import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 
 const POLICY_CONTENT = {
@@ -70,7 +69,7 @@ const Policies = () => {
 
   if (!policy) {
     return (
-      <div className="container-dfb policy-content" style={{ marginTop: '2rem' }}>
+      <div className="container-dfb policy-content">
         <h1>Không tìm thấy trang</h1>
         <p>
           <Link to="/">Về trang chủ</Link>
@@ -80,7 +79,7 @@ const Policies = () => {
   }
 
   return (
-    <div className="container-dfb policy-content" style={{ marginTop: '2rem' }}>
+    <div className="container-dfb policy-content">
       <h1>{policy.title}</h1>
       {policy.sections.map((s, i) => (
         <div key={i}>

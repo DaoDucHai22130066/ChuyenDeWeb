@@ -4,9 +4,11 @@ const { checkRole } = require("../middlewares/checkRole");
 const { userAuth } = require("../middlewares/userAuth");
 
 const { userController } = require("../controller/user")
-router.get("/", userController.getUsers)
+router.get("/", userAuth, checkRole("admin"), userController.getUsers)
 
 router.post("/register", userController.userRegistration);
+router.post("/verify-registration-otp", userController.verifyRegistrationOTP);
+router.post("/resend-registration-otp", userController.resendRegistrationOTP);
 
 router.post("/login", userController.login)
 

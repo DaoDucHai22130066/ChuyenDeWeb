@@ -16,9 +16,12 @@ import {
   FiCalendar,
   FiBook,
   FiActivity,
-  FiStar
+  FiCreditCard,
+  FiDollarSign,
+  FiInfo,
+  FiMapPin,
+  FiTruck
 } from "react-icons/fi";
-import { FaStar, FaRegStar } from "react-icons/fa";
 import { FaGraduationCap } from "react-icons/fa";
 
 const STATUS_VI = {
@@ -37,12 +40,59 @@ const STATUS_VI = {
   cancelled: "Đã hủy",
 };
 
+const normalizeTicketStatus = (status) => String(status || "").trim().toLowerCase();
+const canCancelTicketStatus = (status) => ["pending", "awaiting_payment"].includes(normalizeTicketStatus(status));
+const formatCurrency = (value) => new Intl.NumberFormat("vi-VN", {
+  style: "currency",
+  currency: "VND",
+  maximumFractionDigits: 0,
+}).format(Number(value || 0));
+
+const DEPOSIT_STATUS_VI = {
+  none: "Không có",
+  pending: "Chờ xác nhận",
+  held: "Đã giữ cọc",
+  refunded: "Đã hoàn cọc",
+  forfeited: "Đã trừ cọc",
+};
+
+const SHIPPING_STATUS_VI = {
+  none: "Không giao hàng",
+  pending: "Chờ giao",
+  dispatched: "Đang giao",
+  delivered: "Đã giao",
+  returned: "Đã trả",
+};
+
+const TRANSACTION_TYPE_VI = {
+  deposit: "Tiền cọc",
+  shipping: "Phí ship",
+  fine: "Phí phạt",
+  volunteer_stipend: "Hỗ trợ tình nguyện",
+};
+
+const TRANSACTION_STATUS_VI = {
+  pending: "Chờ xử lý",
+  completed: "Hoàn tất",
+  failed: "Thất bại",
+  refunded: "Đã hoàn",
+};
+
+const PAYMENT_METHOD_VI = {
+  cash: "Tiền mặt",
+  vnpay: "VNPay",
+};
+
 function ProfilePage() {
   const [user, setUser] = useState(null);
   const [tickets, setTickets] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({ name: "", stream: "", year: "" });
   const [isSaving, setIsSaving] = useState(false);
+  const [cancelingTicketId, setCancelingTicketId] = useState(null);
+  const [detailTicket, setDetailTicket] = useState(null);
+  const [ticketTransactions, setTicketTransactions] = useState({});
+  const [loadingTransactionId, setLoadingTransactionId] = useState(null);
 
   // Review modal state
   const [reviewModal, setReviewModal] = useState(null); // { ticket, book }
@@ -160,6 +210,49 @@ function ProfilePage() {
     }
   };
 
+  const handleCancelTicket = async (ticketId) => {
+    if (!window.confirm("Bạn có chắc muốn hủy phiếu mượn này?")) return;
+
+    setCancelingTicketId(ticketId);
+    try {
+      const response = await axios.post(`${Server_URL}tickets/${ticketId}/cancel`, {}, {
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
+      });
+      showSuccessToast("Đã hủy phiếu mượn thành công.");
+      setTickets(tickets.map((ticket) => (
+        ticket._id === ticketId ? { ...ticket, ...response.data.ticket } : ticket
+      )));
+    } catch (err) {
+      showErrorToast(err.response?.data?.message || "Không thể hủy phiếu mượn.");
+    } finally {
+      setCancelingTicketId(null);
+    }
+  };
+
+  const openTicketDetail = async (ticket) => {
+    setDetailTicket(ticket);
+    if (ticketTransactions[ticket._id]) return;
+
+    setLoadingTransactionId(ticket._id);
+    try {
+      const response = await axios.get(`${Server_URL}tickets/${ticket._id}/transactions`, {
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
+      });
+      setTicketTransactions((current) => ({
+        ...current,
+        [ticket._id]: response.data.transactions || [],
+      }));
+    } catch (err) {
+      showErrorToast(err.response?.data?.message || "Không thể tải lịch sử giao dịch.");
+    } finally {
+      setLoadingTransactionId(null);
+    }
+  };
+
+  const closeTicketDetail = () => {
+    setDetailTicket(null);
+  };
+
   if (!user) return <div className="loading-container"><div className="spinner"></div><p>Đang tải hồ sơ...</p></div>;
 
   const getInitials = (name) => {
@@ -171,17 +264,30 @@ function ProfilePage() {
 
   // Compute statistics
   const totalTickets = tickets.length;
-  const pendingTickets = tickets.filter(t => ["Pending", "pending", "awaiting_payment"].includes(t.status)).length;
-  const approvedTickets = tickets.filter(t => ["Approved", "approved", "dispatched", "delivered"].includes(t.status)).length;
-  const returnedTickets = tickets.filter(t => ["Returned", "returned", "closed"].includes(t.status)).length;
+  const pendingTickets = tickets.filter(t => ["pending", "awaiting_payment"].includes(normalizeTicketStatus(t.status))).length;
+  const approvedTickets = tickets.filter(t => ["approved", "dispatched", "delivered"].includes(normalizeTicketStatus(t.status))).length;
+  const returnedTickets = tickets.filter(t => ["returned", "closed"].includes(normalizeTicketStatus(t.status))).length;
+  const detailTransactions = detailTicket ? ticketTransactions[detailTicket._id] || [] : [];
 
   return (
     <div className="profile-page">
       <div className="profile-hero-banner">
         <div className="banner-overlay"></div>
         <div className="profile-hero-copy">
-          <span>Hồ sơ độc giả</span>
-          <h1>Quản lý thông tin và lịch sử mượn sách</h1>
+          <div className="profile-hero-identity">
+            <div className="profile-hero-avatar">{getInitials(user.name)}</div>
+            <div>
+              <span>Không gian độc giả</span>
+              <h1>Xin chào, {user.name}</h1>
+              <p>Theo dõi hồ sơ, phiếu mượn và hoạt động đọc sách của bạn.</p>
+            </div>
+          </div>
+          <div className="profile-hero-stats">
+            <div><strong>{totalTickets}</strong><small>Tổng phiếu</small></div>
+            <div><strong>{pendingTickets}</strong><small>Chờ xử lý</small></div>
+            <div><strong>{approvedTickets}</strong><small>Đang mượn</small></div>
+            <div><strong>{returnedTickets}</strong><small>Đã hoàn tất</small></div>
+          </div>
         </div>
       </div>
 
@@ -189,6 +295,7 @@ function ProfilePage() {
         {/* Left Side: Summary & Quick Stats */}
         <div className="profile-sidebar">
           <div className="profile-card summary-card">
+            <span className="profile-card-eyebrow">Thông tin cá nhân</span>
             <div className="avatar-container">
               <div className="profile-avatar">
                 {getInitials(user.name)}
@@ -236,7 +343,10 @@ function ProfilePage() {
 
           {/* Stats Card */}
           <div className="profile-card stats-card">
-            <h3>Thống kê hoạt động</h3>
+            <div className="profile-card-heading">
+              <div><span>Thói quen đọc</span><h3>Hoạt động của bạn</h3></div>
+              <FiActivity />
+            </div>
             <div className="stats-grid">
               <div className="stat-item total">
                 <div className="stat-icon-wrapper">
@@ -282,7 +392,10 @@ function ProfilePage() {
         <div className="profile-main-content">
           {/* Details & Edit Form */}
           <div className="profile-card details-card">
-            <h3>Thông tin tài khoản</h3>
+            <div className="profile-card-heading">
+              <div><span>Hồ sơ tài khoản</span><h3>Thông tin cá nhân</h3></div>
+              <FiUser />
+            </div>
             <form onSubmit={handleSaveProfile} className="profile-form">
               <div className="form-grid">
                 <div className="form-group">
@@ -355,7 +468,10 @@ function ProfilePage() {
           {/* Borrow Tickets List */}
           <div className="profile-card tickets-card">
             <div className="card-header-flex">
-              <h3>Lịch sử mượn sách</h3>
+              <div>
+                <span className="profile-card-eyebrow">Hoạt động gần đây</span>
+                <h3>Lịch sử mượn sách</h3>
+              </div>
               <span className="tickets-count">Tổng số: {tickets.length} phiếu</span>
             </div>
 
@@ -365,87 +481,205 @@ function ProfilePage() {
                 <p>Bạn chưa thực hiện phiếu mượn sách nào.</p>
               </div>
             ) : (
-              <div className="table-responsive">
-                <table className="tickets-table">
-                  <thead>
-                    <tr>
-                      <th>Mã phiếu</th>
-                      <th>Danh sách sách mượn</th>
-                      <th>Ngày mượn</th>
-                      <th>Hạn trả</th>
-                      <th>Trạng thái</th>
-                      <th>Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tickets.map((ticket) => {
-                      const canRenew = ["approved", "dispatched", "delivered"].includes(ticket.status) &&
-                        !ticket.returnDate &&
-                        ticket.dueDate &&
-                        new Date(ticket.dueDate) >= new Date() &&
-                        (ticket.renewCount || 0) < 1;
-                      return (
-                        <tr key={ticket._id}>
-                          <td className="ticket-id">
-                            #{ticket._id.toString().slice(-6).toUpperCase()}
-                          </td>
-                          <td className="ticket-books">
-                            {ticket.books.map((book) => book.title).join(", ")}
-                          </td>
-                          <td className="ticket-date">
-                            {ticket.borrowDate ? new Date(ticket.borrowDate).toLocaleDateString("vi-VN") : "—"}
-                          </td>
-                          <td className="ticket-date">
-                            {ticket.dueDate ? new Date(ticket.dueDate).toLocaleDateString("vi-VN") : "—"}
-                          </td>
-                          <td>
-                            <span className={`status-badge ${ticket.status.toLowerCase()}`}>
-                              {STATUS_VI[ticket.status] || ticket.status}
-                            </span>
-                          </td>
-                          <td>
-                            <div className="action-cell-flex">
-                              {(ticket.status === 'returned' || ticket.status === 'closed') ? (
-                                <div className="review-action-cell">
-                                  {ticket.books.map((book) => {
-                                    const key = `${ticket._id}-${book._id || book.id}`;
-                                    const alreadyReviewed = reviewedKeys.has(key);
-                                    return (
-                                      <button
-                                        key={key}
-                                        className={`btn-review ${alreadyReviewed ? 'reviewed' : ''}`}
-                                        onClick={() => !alreadyReviewed && openReviewModal(ticket, book)}
-                                        disabled={alreadyReviewed}
-                                        title={alreadyReviewed ? 'Đã đánh giá' : `Đánh giá: ${book.title}`}
-                                      >
-                                        {alreadyReviewed ? '✓ Đã đánh giá' : `⭐ ${book.title.substring(0, 14)}${book.title.length > 14 ? '...' : ''}`}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              ) : canRenew ? (
+              <div className="ticket-card-list">
+                {tickets.map((ticket) => {
+                  const status = normalizeTicketStatus(ticket.status);
+                  const canCancel = canCancelTicketStatus(ticket.status);
+                  const canRenew = ["approved", "dispatched", "delivered"].includes(status) &&
+                    !ticket.returnDate &&
+                    ticket.dueDate &&
+                    new Date(ticket.dueDate) >= new Date() &&
+                    (ticket.renewCount || 0) < 1;
+                  const canReview = ["returned", "closed"].includes(status);
+
+                  return (
+                    <article key={ticket._id} className={`profile-ticket-card ${status}`}>
+                      <div className="profile-ticket-top">
+                        <div>
+                          <span className="ticket-id-label">Mã phiếu</span>
+                          <strong>#{ticket._id.toString().slice(-6).toUpperCase()}</strong>
+                        </div>
+                        <span className={`status-badge ${status}`}>
+                          {STATUS_VI[ticket.status] || STATUS_VI[status] || ticket.status}
+                        </span>
+                      </div>
+
+                      <div className="ticket-date-grid">
+                        <div>
+                          <span>Ngày mượn</span>
+                          <strong>{ticket.borrowDate ? new Date(ticket.borrowDate).toLocaleDateString("vi-VN") : "—"}</strong>
+                        </div>
+                        <div>
+                          <span>Hạn trả</span>
+                          <strong>{ticket.dueDate ? new Date(ticket.dueDate).toLocaleDateString("vi-VN") : "—"}</strong>
+                        </div>
+                        <div>
+                          <span>Số sách</span>
+                          <strong>{ticket.books?.length || 0} cuốn</strong>
+                        </div>
+                      </div>
+
+                      <div className="ticket-book-chips">
+                        {(ticket.books || []).map((book) => (
+                          <span key={book._id || book.id || book.title}>{book.title}</span>
+                        ))}
+                      </div>
+
+                      <div className="profile-ticket-actions">
+                        <button
+                          className="btn-ticket-detail"
+                          onClick={() => openTicketDetail(ticket)}
+                          title="Xem chi tiết phiếu mượn"
+                        >
+                          <FiInfo /> Chi tiết
+                        </button>
+
+                        {canReview && (
+                          <div className="review-action-cell">
+                            {ticket.books.map((book) => {
+                              const key = `${ticket._id}-${book._id || book.id}`;
+                              const alreadyReviewed = reviewedKeys.has(key);
+                              return (
                                 <button
-                                  className="btn-renew"
-                                  onClick={() => handleRenewTicket(ticket._id)}
-                                  title="Gia hạn thêm 7 ngày"
+                                  key={key}
+                                  className={`btn-review ${alreadyReviewed ? 'reviewed' : ''}`}
+                                  onClick={() => !alreadyReviewed && openReviewModal(ticket, book)}
+                                  disabled={alreadyReviewed}
+                                  title={alreadyReviewed ? 'Đã đánh giá' : `Đánh giá: ${book.title}`}
                                 >
-                                  <FiClock /> Gia hạn
+                                  {alreadyReviewed ? '✓ Đã đánh giá' : `⭐ ${book.title.substring(0, 18)}${book.title.length > 18 ? '...' : ''}`}
                                 </button>
-                              ) : (
-                                <span className="no-review-dash">—</span>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {canCancel && (
+                          <button
+                            className="btn-ticket-cancel"
+                            onClick={() => handleCancelTicket(ticket._id)}
+                            disabled={cancelingTicketId === ticket._id}
+                            title="Hủy phiếu đang chờ xử lý"
+                          >
+                            <FiX /> {cancelingTicketId === ticket._id ? "Đang hủy..." : "Hủy phiếu"}
+                          </button>
+                        )}
+
+                        {canRenew && (
+                          <button
+                            className="btn-renew"
+                            onClick={() => handleRenewTicket(ticket._id)}
+                            title="Gia hạn thêm 7 ngày"
+                          >
+                            <FiClock /> Gia hạn
+                          </button>
+                        )}
+
+                        {!canReview && !canCancel && !canRenew && (
+                          <span className="no-review-dash">Không có thao tác</span>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {detailTicket && (
+        <div className="ticket-detail-overlay">
+          <div className="ticket-detail-modal">
+            <div className="ticket-detail-header">
+              <div>
+                <span>Chi tiết phiếu mượn</span>
+                <h3>#{detailTicket._id.toString().slice(-6).toUpperCase()}</h3>
+              </div>
+              <button type="button" className="ticket-detail-close" onClick={closeTicketDetail} title="Đóng">
+                <FiX />
+              </button>
+            </div>
+
+            <div className="ticket-detail-status-row">
+              <span className={`status-badge ${normalizeTicketStatus(detailTicket.status)}`}>
+                {STATUS_VI[detailTicket.status] || STATUS_VI[normalizeTicketStatus(detailTicket.status)] || detailTicket.status}
+              </span>
+              <span>{PAYMENT_METHOD_VI[detailTicket.paymentMethod] || detailTicket.paymentMethod || "Chưa cập nhật"}</span>
+            </div>
+
+            <div className="ticket-detail-grid">
+              <div className="ticket-detail-box">
+                <FiDollarSign />
+                <span>Tiền cọc</span>
+                <strong>{formatCurrency(detailTicket.depositAmount)}</strong>
+              </div>
+              <div className="ticket-detail-box">
+                <FiTruck />
+                <span>Phí ship</span>
+                <strong>{formatCurrency(detailTicket.shippingFee)}</strong>
+              </div>
+              <div className="ticket-detail-box">
+                <FiCreditCard />
+                <span>Trạng thái cọc</span>
+                <strong>{DEPOSIT_STATUS_VI[detailTicket.depositStatus] || detailTicket.depositStatus || "Chưa cập nhật"}</strong>
+              </div>
+              <div className="ticket-detail-box">
+                <FiTruck />
+                <span>Giao hàng</span>
+                <strong>{SHIPPING_STATUS_VI[detailTicket.shippingStatus] || detailTicket.shippingStatus || "Chưa cập nhật"}</strong>
+              </div>
+            </div>
+
+            <div className="ticket-detail-section">
+              <h4><FiMapPin /> Địa chỉ nhận</h4>
+              <p>{detailTicket.shippingAddress || "Không có địa chỉ giao hàng"}</p>
+              {detailTicket.shippingPhone && <small>SĐT nhận hàng: {detailTicket.shippingPhone}</small>}
+            </div>
+
+            <div className="ticket-detail-section">
+              <h4><FiBook /> Sách trong phiếu</h4>
+              <div className="ticket-detail-books">
+                {(detailTicket.books || []).map((book) => (
+                  <div key={book._id || book.id || book.title}>
+                    <strong>{book.title}</strong>
+                    {book.author && <span>{book.author}</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="ticket-detail-section">
+              <h4><FiCreditCard /> Lịch sử giao dịch</h4>
+              {loadingTransactionId === detailTicket._id ? (
+                <p className="ticket-detail-muted">Đang tải giao dịch...</p>
+              ) : detailTransactions.length > 0 ? (
+                <div className="ticket-transaction-list">
+                  {detailTransactions.map((transaction) => (
+                    <div key={transaction._id} className="ticket-transaction-item">
+                      <div>
+                        <strong>{TRANSACTION_TYPE_VI[transaction.type] || transaction.type}</strong>
+                        <span>
+                          {PAYMENT_METHOD_VI[transaction.method] || transaction.method}
+                          {transaction.createdAt ? ` • ${new Date(transaction.createdAt).toLocaleString("vi-VN")}` : ""}
+                        </span>
+                      </div>
+                      <div className="transaction-value">
+                        <strong>{formatCurrency(transaction.amount)}</strong>
+                        <span className={`txn-status ${transaction.status}`}>
+                          {TRANSACTION_STATUS_VI[transaction.status] || transaction.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="ticket-detail-muted">Chưa có giao dịch.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Review Modal */}
       {reviewModal && (

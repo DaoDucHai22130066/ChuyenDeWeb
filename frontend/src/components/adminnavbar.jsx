@@ -1,5 +1,17 @@
-import React, { useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import {
+  FiBookOpen,
+  FiChevronDown,
+  FiClipboard,
+  FiGrid,
+  FiHome,
+  FiLogOut,
+  FiMenu,
+  FiPlus,
+  FiUser,
+  FiX,
+} from "react-icons/fi";
 import { useCart } from "../context/CartContext";
 import "./adminnavbar.css";
 
@@ -7,7 +19,7 @@ export default function AdminNavbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const token = localStorage.getItem("authToken");
   const role = localStorage.getItem("role");
-  const { clearCart } = useCart();
+  const { clearLocalCart } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -15,8 +27,11 @@ export default function AdminNavbar() {
     localStorage.removeItem("authToken");
     localStorage.removeItem("role");
     try {
-      clearCart();
-    } catch (e) {}
+      clearLocalCart();
+      window.dispatchEvent(new Event("cart:auth-changed"));
+    } catch {
+      // Cart cleanup is best-effort during logout.
+    }
     navigate("/login");
   };
 
@@ -39,7 +54,7 @@ export default function AdminNavbar() {
           <span className="admin-brand-mark">DFB</span>
           <span>
             <strong>D Free Book</strong>
-            <small>Khu vực quản trị</small>
+            <small>Không gian quản trị</small>
           </span>
         </Link>
 
@@ -47,9 +62,10 @@ export default function AdminNavbar() {
           className="navbar-toggler"
           type="button"
           onClick={() => setMenuOpen(!menuOpen)}
-          aria-label="Mở menu"
+          aria-label={menuOpen ? "Đóng menu" : "Mở menu"}
+          aria-expanded={menuOpen}
         >
-          <span className="navbar-toggler-icon"></span>
+          {menuOpen ? <FiX /> : <FiMenu />}
         </button>
 
         <div className={`collapse navbar-collapse ${menuOpen ? "show" : ""}`}>
@@ -60,39 +76,40 @@ export default function AdminNavbar() {
                 to="/admin"
                 onClick={() => setMenuOpen(false)}
               >
-                Bảng điều khiển
+                <FiGrid /> Tổng quan
               </Link>
             </li>
             <li className="nav-item dropdown">
-              <Link
-                className={`nav-link dropdown-toggle ${isActive("/admin/addbook") || isActive("/admin/viewbook") ? "active" : ""}`}
-                to="#"
+              <button
+                className={`nav-link dropdown-toggle border-0 ${
+                  isActive("/admin/addbook") || isActive("/admin/viewbook") ? "active" : ""
+                }`}
+                type="button"
                 data-bs-toggle="dropdown"
                 aria-expanded="false"
               >
-                Sách
-              </Link>
+                <FiBookOpen /> Kho sách <FiChevronDown className="admin-nav-chevron" />
+              </button>
               <ul className="dropdown-menu admin-dropdown-menu">
                 <li>
                   <Link className="dropdown-item" to="/admin/addbook" onClick={() => setMenuOpen(false)}>
-                    Thêm sách
+                    <FiPlus /> Thêm sách mới
                   </Link>
                 </li>
                 <li>
                   <Link className="dropdown-item" to="/admin/viewbook" onClick={() => setMenuOpen(false)}>
-                    Danh sách sách
+                    <FiBookOpen /> Danh sách sách
                   </Link>
                 </li>
               </ul>
             </li>
-
             <li className="nav-item">
               <Link
                 className={`nav-link ${isActive("/admin/tickets") ? "active" : ""}`}
                 to="/admin/tickets"
                 onClick={() => setMenuOpen(false)}
               >
-                Phiếu mượn
+                <FiClipboard /> Phiếu mượn
               </Link>
             </li>
           </ul>
@@ -114,19 +131,21 @@ export default function AdminNavbar() {
                 </button>
                 <ul className="dropdown-menu dropdown-menu-end admin-dropdown-menu">
                   <li>
-                    <Link className="dropdown-item" to="/" onClick={() => setMenuOpen(false)}>Về trang chủ</Link>
+                    <Link className="dropdown-item" to="/" onClick={() => setMenuOpen(false)}>
+                      <FiHome /> Về trang chủ
+                    </Link>
                   </li>
                   <li><hr className="dropdown-divider" /></li>
                   <li>
                     <button className="dropdown-item text-danger" type="button" onClick={handleLogout}>
-                      Đăng xuất
+                      <FiLogOut /> Đăng xuất
                     </button>
                   </li>
                 </ul>
               </li>
             ) : (
               <li className="nav-item">
-                <Link className="btn admin-account-btn" to="/login">Đăng nhập</Link>
+                <Link className="btn admin-account-btn" to="/login"><FiUser /> Đăng nhập</Link>
               </li>
             )}
           </ul>

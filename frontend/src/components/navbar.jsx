@@ -1,146 +1,120 @@
-import React, { useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import { motion } from 'framer-motion';
+import { useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import {
+  FiBookOpen,
+  FiChevronDown,
+  FiHeart,
+  FiHome,
+  FiInfo,
+  FiLogIn,
+  FiLogOut,
+  FiMail,
+  FiMenu,
+  FiShoppingBag,
+  FiUser,
+  FiUsers,
+  FiX,
+} from "react-icons/fi";
 import { useCart } from "../context/CartContext";
 import "./navbar.css";
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const token = localStorage.getItem("authToken");
-  const { cartCount, clearCart } = useCart();
+  const { cartCount, clearLocalCart } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
 
+  const closeMenu = () => setMenuOpen(false);
   const handleLogout = () => {
     localStorage.removeItem("authToken");
     localStorage.removeItem("role");
-    // clear server-side cart for this session (optional)
-    try {
-      const token = localStorage.getItem("authToken");
-      if (token) {
-        // token is still present in some flows; prefer explicit remove
-      }
-    } catch (e) { }
-    // clear client cart UI now; server cart remains for reload on next login
-    try {
-      clearCart();
-    } catch (e) { }
+    clearLocalCart();
+    window.dispatchEvent(new Event("cart:auth-changed"));
     navigate("/login");
   };
 
-  const isActive = (path) => location.pathname === path;
+  const isActive = (...paths) => paths.some((path) =>
+    path === "/" ? location.pathname === "/" : location.pathname.startsWith(path)
+  );
 
   return (
     <nav className="navbar navbar-expand-lg dfb-navbar">
-      <div className="container">
-        <motion.div className="navbar-brand" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
-          <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <span className="logo-icon">📚</span>
-            D Free Book
+      <div className="container-dfb dfb-navbar-inner">
+        <motion.div className="navbar-brand" whileHover={{ y: -1 }}>
+          <Link to="/" onClick={closeMenu}>
+            <span className="logo-icon"><FiBookOpen /></span>
+            <span className="dfb-brand-copy">
+              <strong>D Free Book</strong>
+              <small>Thư viện cộng đồng</small>
+            </span>
           </Link>
         </motion.div>
 
         <button
           className="navbar-toggler"
           type="button"
-          onClick={() => setMenuOpen(!menuOpen)}
-          aria-label="Menu"
+          onClick={() => setMenuOpen((open) => !open)}
+          aria-label={menuOpen ? "Đóng menu" : "Mở menu"}
+          aria-expanded={menuOpen}
         >
-          <span className="navbar-toggler-icon"></span>
+          {menuOpen ? <FiX /> : <FiMenu />}
         </button>
 
         <div className={`collapse navbar-collapse ${menuOpen ? "show" : ""}`}>
-          <ul className="navbar-nav me-auto">
+          <ul className="navbar-nav me-auto dfb-main-nav">
             <li className="nav-item">
-              <Link className={`nav-link ${isActive("/") ? "active" : ""}`} to="/">
-                Trang chủ
+              <Link className={`nav-link ${isActive("/") ? "active" : ""}`} to="/" onClick={closeMenu}>
+                <FiHome /> Trang chủ
               </Link>
             </li>
             <li className="nav-item">
-              <Link
-                className={`nav-link ${isActive("/ve-d-free-book") || isActive("/aboutus") ? "active" : ""}`}
-                to="/ve-d-free-book"
-              >
-                Về D Free Book
+              <Link className={`nav-link ${isActive("/books", "/bookdetails", "/category") ? "active" : ""}`} to="/books" onClick={closeMenu}>
+                <FiBookOpen /> Kho sách
               </Link>
             </li>
-            <li className="nav-item">
-              <Link className={`nav-link ${isActive("/books") ? "active" : ""}`} to="/books">
-                Sách
-              </Link>
-            </li>
-            <li className="nav-item">
-              <Link className={`nav-link ${isActive("/cart") ? "active" : ""}`} to="/cart">
-                Giỏ sách {cartCount > 0 ? <span className="cart-count-badge">{cartCount}</span> : null}
-              </Link>
-            </li>
-            <li className="nav-item">
-              <Link className={`nav-link ${isActive("/hoat-dong") ? "active" : ""}`} to="/hoat-dong">
-                Hoạt động
-              </Link>
-            </li>
-            <li className="nav-item">
-              <Link
-                className={`nav-link ${isActive("/lien-he") || isActive("/contactus") ? "active" : ""}`}
-                to="/lien-he"
-              >
-                Liên hệ
-              </Link>
+            <li className="nav-item dropdown">
+              <button className={`nav-link dropdown-toggle ${isActive("/ve-d-free-book", "/aboutus", "/hoat-dong", "/doi-tac") ? "active" : ""}`} type="button" data-bs-toggle="dropdown">
+                <FiUsers /> Cộng đồng <FiChevronDown className="nav-chevron" />
+              </button>
+              <ul className="dropdown-menu dfb-nav-dropdown">
+                <li><Link className="dropdown-item" to="/ve-d-free-book" onClick={closeMenu}><FiInfo /> Về D Free Book</Link></li>
+                <li><Link className="dropdown-item" to="/hoat-dong" onClick={closeMenu}><FiUsers /> Hoạt động</Link></li>
+                <li><Link className="dropdown-item" to="/doi-tac" onClick={closeMenu}><FiHeart /> Đối tác & truyền thông</Link></li>
+                <li><Link className="dropdown-item" to="/lien-he" onClick={closeMenu}><FiMail /> Liên hệ</Link></li>
+              </ul>
             </li>
           </ul>
 
-          <ul className="navbar-nav align-items-lg-center gap-2">
+          <div className="dfb-navbar-actions">
+            <Link className={`dfb-cart-link ${isActive("/cart") ? "active" : ""}`} to="/cart" onClick={closeMenu}>
+              <FiShoppingBag />
+              <span>Giỏ sách</span>
+              {cartCount > 0 && <b>{cartCount}</b>}
+            </Link>
+
             {token ? (
-              <li className="nav-item dropdown">
-                <motion.button
-                  className="btn btn-profile dropdown-toggle"
-                  data-bs-toggle="dropdown"
-                  aria-expanded="false"
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  Tài khoản
-                </motion.button>
-                <ul className="dropdown-menu dropdown-menu-end">
-                  <li>
-                    <Link className="dropdown-item" to="/user">
-                      Hồ sơ mượn sách
-                    </Link>
-                  </li>
-                  <li>
-                    <Link className="dropdown-item" to="/wishlist">
-                      Sách yêu thích
-                    </Link>
-                  </li>
-                  <li>
-                    <hr className="dropdown-divider" />
-                  </li>
-                  <li>
-                    <button className="dropdown-item" type="button" onClick={handleLogout}>
-                      Đăng xuất
-                    </button>
-                  </li>
+              <div className="dropdown">
+                <button className="btn dfb-account-button dropdown-toggle" data-bs-toggle="dropdown" type="button">
+                  <span className="dfb-account-avatar"><FiUser /></span>
+                  <span><strong>Tài khoản</strong><small>Hồ sơ độc giả</small></span>
+                  <FiChevronDown />
+                </button>
+                <ul className="dropdown-menu dropdown-menu-end dfb-nav-dropdown">
+                  <li><Link className="dropdown-item" to="/user" onClick={closeMenu}><FiUser /> Hồ sơ mượn sách</Link></li>
+                  <li><Link className="dropdown-item" to="/wishlist" onClick={closeMenu}><FiHeart /> Sách yêu thích</Link></li>
+                  <li><hr className="dropdown-divider" /></li>
+                  <li><button className="dropdown-item text-danger" type="button" onClick={handleLogout}><FiLogOut /> Đăng xuất</button></li>
                 </ul>
-              </li>
+              </div>
             ) : (
-              <>
-                <li className="nav-item">
-                  <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
-                    <Link className="btn btn-login" to="/login">
-                      Đăng nhập
-                    </Link>
-                  </motion.div>
-                </li>
-                <li className="nav-item">
-                  <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
-                    <Link className="btn btn-register" to="/register">
-                      Đăng ký
-                    </Link>
-                  </motion.div>
-                </li>
-              </>
+              <div className="dfb-auth-actions">
+                <Link className="btn btn-login" to="/login" onClick={closeMenu}><FiLogIn /> Đăng nhập</Link>
+                <Link className="btn btn-register" to="/register" onClick={closeMenu}>Đăng ký</Link>
+              </div>
             )}
-          </ul>
+          </div>
         </div>
       </div>
     </nav>

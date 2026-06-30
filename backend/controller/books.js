@@ -382,7 +382,7 @@ booksController.deleteBook = async (req, res) => {
 booksController.updateBook = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, author, category, isbn, price, totalCopies, description, branch } = req.body;
+    const { title, author, category, isbn, price, totalCopies, description, branch, coverImage } = req.body;
 
     const rows = await query(
       `SELECT * FROM books WHERE id = ? LIMIT 1`,
@@ -403,17 +403,23 @@ booksController.updateBook = async (req, res) => {
     const nextIsbn = isbn ?? currentBook.isbn;
     const nextDescription = description ?? currentBook.description;
     const nextBranch = branch ?? currentBook.branch;
+    const nextCoverImage = coverImage === undefined ? currentBook.cover_image : String(coverImage || "").trim();
     const nextPrice = price === undefined || price === "" ? currentBook.price : Number(price);
     const nextTotalCopies = totalCopies === undefined || totalCopies === ""
       ? currentBook.total_copies
       : Number(totalCopies);
+
+    if (!["dai-la", "cau-giay"].includes(nextBranch)) {
+      return res.status(400).json({ error: true, message: "Invalid branch" });
+    }
+
     const borrowedCopies = Math.max(currentBook.total_copies - currentBook.available_copies, 0);
     const nextAvailableCopies = Math.max(nextTotalCopies - borrowedCopies, 0);
 
     await query(
       `UPDATE books
        SET title = ?, author = ?, category = ?, category_id = ?, isbn = ?, description = ?,
-           available_copies = ?, total_copies = ?, price = ?, branch = ?
+           available_copies = ?, total_copies = ?, price = ?, branch = ?, cover_image = ?
        WHERE id = ?`,
       [
         nextTitle,
@@ -426,6 +432,7 @@ booksController.updateBook = async (req, res) => {
         nextTotalCopies,
         nextPrice,
         nextBranch,
+        nextCoverImage,
         id,
       ]
     );

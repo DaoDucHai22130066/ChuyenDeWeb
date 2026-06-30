@@ -15,7 +15,6 @@ const { sendDepositSuccessMail, sendApprovalSuccessMail, sendRenewalSuccessMail 
 
 const ticketController = {};
 
-const DEFAULT_DEPOSIT_PER_BOOK = Number(process.env.DEFAULT_DEPOSIT_PER_BOOK || 50000);
 const DEFAULT_SHIPPING_FEE = Number(process.env.DEFAULT_SHIPPING_FEE || 15000);
 const DEFAULT_BORROW_DAYS = Number(process.env.DEFAULT_BORROW_DAYS || 14);
 
@@ -24,7 +23,6 @@ const VALID_RECEIVE_METHODS = new Set(["delivery"]);
 const VALID_TICKET_ACTIONS = new Set([
   "confirm_cash",
   "approve",
-  "pickup",
   "dispatch",
   "deliver",
   "deliver_and_confirm_cash",
@@ -71,8 +69,8 @@ function formatPaymentRef(ticketId) {
 
 function calculateDepositAmount(bookRows) {
   return bookRows.reduce((total, book) => {
-    const price = book.price === null || book.price === undefined ? null : Number(book.price);
-    return total + (price && Number.isFinite(price) ? price : DEFAULT_DEPOSIT_PER_BOOK);
+    const price = Number(book.price);
+    return total + (Number.isFinite(price) && price > 0 ? price : 0);
   }, 0);
 }
 
@@ -207,6 +205,63 @@ async function fetchSingleTicket(connection, ticketId) {
   return tickets[0] || null;
 }
 
+async function cancelTicket(connection, ticket, { allowedStatuses, message }) {
+  const currentStatus = normalizeTicketStatus(ticket.status);
+  const currentDepositStatus = normalizeEnumValue(ticket.depositStatus);
+
+  if (!allowedStatuses.includes(currentStatus)) {
+    const error = new Error(message);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const [pendingTransactions] = await connection.query(
+    `SELECT id FROM transactions
+     WHERE ticket_id = ? AND status = 'pending'
+     ORDER BY id ASC`,
+    [ticket._id]
+  );
+
+  for (const transaction of pendingTransactions) {
+    await updateTransactionStatus(connection, transaction.id, "failed");
+  }
+
+  if (currentDepositStatus === "held") {
+    const [depositRows] = await connection.query(
+      `SELECT amount, method, vnpay_txn_ref FROM transactions
+       WHERE ticket_id = ? AND type = 'deposit' AND status = 'completed'
+       LIMIT 1`,
+      [ticket._id]
+    );
+
+    if (depositRows.length > 0) {
+      await createTransaction(connection, {
+        ticketId: ticket._id,
+        userId: ticket.userId?._id || ticket.userId,
+        type: "deposit",
+        method: depositRows[0].method,
+        amount: -Number(depositRows[0].amount),
+        status: "refunded",
+        vnpayTxnRef: depositRows[0].vnpay_txn_ref,
+      });
+    }
+
+    await connection.query(
+      `UPDATE borrow_tickets
+       SET status = 'cancelled', deposit_status = 'refunded'
+       WHERE id = ?`,
+      [ticket._id]
+    );
+  } else {
+    await connection.query(
+      `UPDATE borrow_tickets
+       SET status = 'cancelled', deposit_status = 'none'
+       WHERE id = ?`,
+      [ticket._id]
+    );
+  }
+}
+
 ticketController.createTicket = async (req, res) => {
   try {
     const userId = req.userInfo.id;
@@ -225,10 +280,6 @@ ticketController.createTicket = async (req, res) => {
     const uniqueBookIds = [...new Set(books.map((bookId) => Number(bookId)))].filter((bookId) => Number.isInteger(bookId));
     if (uniqueBookIds.length === 0) {
       return res.status(400).json({ error: true, message: "Danh sách sách không hợp lệ." });
-    }
-
-    if (uniqueBookIds.length > 1) {
-      return res.status(400).json({ error: true, message: "Mỗi phiếu mượn chỉ được phép chứa tối đa 1 cuốn sách. Vui lòng gửi yêu cầu từng cuốn một." });
     }
 
     const normalizedPaymentMethod = normalizePaymentMethod(paymentMethod);
@@ -546,35 +597,14 @@ ticketController.updateTicketStatus = async (req, res) => {
           await updateTransactionStatus(connection, transaction.id, 'completed');
         }
 
-        const nextShippingStatus = currentShippingStatus === 'none' ? 'none' : 'delivered';
         await connection.query(
           `UPDATE borrow_tickets
-           SET status = 'delivered', shipping_status = ?, deposit_status = 'held'
-           WHERE id = ?`,
-          [nextShippingStatus, id]
-        );
-
-        triggerDepositMail = true;
-      }
-
-      if (nextAction === "pickup") {
-        // Nhận tại quầy: chỉ áp dụng khi shipping_status = 'none'
-        if (currentStatus !== "approved") {
-          const err = new Error("Chỉ xác nhận nhận tại quầy khi phiếu đã được phê duyệt");
-          err.statusCode = 400;
-          throw err;
-        }
-        if (currentShippingStatus !== "none") {
-          const err = new Error("Action 'pickup' chỉ áp dụng cho phiếu nhận tại quầy");
-          err.statusCode = 400;
-          throw err;
-        }
-        await connection.query(
-          `UPDATE borrow_tickets
-           SET status = 'delivered', shipping_status = 'none', updated_at = NOW()
+           SET status = 'delivered', shipping_status = 'delivered', deposit_status = 'held'
            WHERE id = ?`,
           [id]
         );
+
+        triggerDepositMail = true;
       }
 
       if (nextAction === "dispatch") {
@@ -595,12 +625,11 @@ ticketController.updateTicketStatus = async (req, res) => {
           throw new Error("Only approved or dispatched tickets can be delivered");
         }
 
-        const nextShippingStatus = currentShippingStatus === "none" ? "none" : "delivered";
         await connection.query(
           `UPDATE borrow_tickets
-           SET status = 'delivered', shipping_status = ?
+           SET status = 'delivered', shipping_status = 'delivered'
            WHERE id = ?`,
-          [nextShippingStatus, id]
+          [id]
         );
       }
 
@@ -611,8 +640,7 @@ ticketController.updateTicketStatus = async (req, res) => {
           throw err;
         }
 
-        // Nếu giao tận nơi: phải delivered trước mới được return
-        if (currentShippingStatus !== "none" && currentStatus !== "delivered") {
+        if (currentStatus !== "delivered") {
           const err = new Error("Phải xác nhận đã giao hàng trước khi trả sách");
           err.statusCode = 400;
           throw err;
@@ -753,55 +781,10 @@ ticketController.updateTicketStatus = async (req, res) => {
       }
 
       if (nextAction === "cancel") {
-        if (!['pending', 'awaiting_payment', 'paid'].includes(currentStatus)) {
-          throw new Error("Only pending or paid tickets can be cancelled");
-        }
-
-        const [pendingTransactions] = await connection.query(
-          `SELECT id FROM transactions
-           WHERE ticket_id = ? AND status = 'pending'
-           ORDER BY id ASC`,
-          [id]
-        );
-
-        for (const transaction of pendingTransactions) {
-          await updateTransactionStatus(connection, transaction.id, "failed");
-        }
-
-        if (currentDepositStatus === "held") {
-          const [depositRows] = await connection.query(
-            `SELECT amount, method, vnpay_txn_ref FROM transactions
-             WHERE ticket_id = ? AND type = 'deposit' AND status = 'completed'
-             LIMIT 1`,
-            [id]
-          );
-
-          if (depositRows.length > 0) {
-            await createTransaction(connection, {
-              ticketId: id,
-              userId: ticket.userId?._id || ticket.userId,
-              type: "deposit",
-              method: depositRows[0].method,
-              amount: -Number(depositRows[0].amount),
-              status: "refunded",
-              vnpayTxnRef: depositRows[0].vnpay_txn_ref,
-            });
-          }
-
-          await connection.query(
-            `UPDATE borrow_tickets
-             SET status = 'cancelled', deposit_status = 'refunded'
-             WHERE id = ?`,
-            [id]
-          );
-        } else {
-          await connection.query(
-            `UPDATE borrow_tickets
-             SET status = 'cancelled', deposit_status = 'none'
-             WHERE id = ?`,
-            [id]
-          );
-        }
+        await cancelTicket(connection, ticket, {
+          allowedStatuses: ["pending", "awaiting_payment", "paid", "approved"],
+          message: "Only tickets that have not started delivery can be cancelled",
+        });
       }
 
       return fetchSingleTicket(connection, id);
@@ -836,9 +819,66 @@ ticketController.updateTicketStatus = async (req, res) => {
   }
 };
 
+ticketController.cancelMyTicket = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = Number(req.userInfo.id);
+
+    const updatedTicket = await withTransaction(async (connection) => {
+      const ticket = await fetchSingleTicket(connection, id);
+      if (!ticket) {
+        return null;
+      }
+
+      if (Number(ticket.userId?._id || ticket.userId) !== userId) {
+        const error = new Error("Bạn không có quyền hủy phiếu này");
+        error.statusCode = 403;
+        throw error;
+      }
+
+      await cancelTicket(connection, ticket, {
+        allowedStatuses: ["pending", "awaiting_payment"],
+        message: "Chỉ có thể hủy phiếu đang chờ duyệt hoặc chờ thanh toán",
+      });
+
+      return fetchSingleTicket(connection, id);
+    });
+
+    if (!updatedTicket) {
+      return res.status(404).json({ error: true, message: "Ticket not found" });
+    }
+
+    clearCache("homeData");
+    res.status(200).json({
+      error: false,
+      message: "Ticket cancelled successfully",
+      ticket: updatedTicket,
+    });
+  } catch (error) {
+    console.error("cancelMyTicket error:", error);
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({
+      error: true,
+      message: statusCode === 500 ? "Internal Server Error" : error.message,
+      details: statusCode === 500 ? error.message : undefined,
+    });
+  }
+};
+
 ticketController.getTicketTransactions = async (req, res) => {
   try {
     const { id } = req.params;
+    if (req.userInfo.role !== "admin") {
+      const ticket = await fetchSingleTicket(null, id);
+      if (!ticket) {
+        return res.status(404).json({ error: true, message: "Ticket not found" });
+      }
+
+      if (Number(ticket.userId?._id || ticket.userId) !== Number(req.userInfo.id)) {
+        return res.status(403).json({ error: true, message: "Bạn không có quyền xem giao dịch của phiếu này" });
+      }
+    }
+
     const transactions = await getTransactionsByTicket(id);
     res.status(200).json({
       error: false,

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -7,26 +7,62 @@ import { DEFAULT_SHIPPING_FEE, estimateDeposit } from "../../utils/borrowConfig"
 import { showErrorToast, showSuccessToast } from "../../utils/toasthelper";
 import { getAuthToken } from "../../utils/auth";
 import { useCart } from "../../context/CartContext";
+import {
+  FiArrowRight,
+  FiBookOpen,
+  FiCheck,
+  FiCreditCard,
+  FiMapPin,
+  FiPhone,
+  FiShield,
+  FiShoppingBag,
+  FiTrash2,
+  FiTruck,
+} from "react-icons/fi";
 import "./cart.css";
+
+const getBookId = (book) => String(book?._id ?? book?.id ?? "");
 
 export default function CartPage() {
   const { cartItems, removeFromCart, clearCart } = useCart();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [sendingBookId, setSendingBookId] = useState(null);
+  const [selectedBookIds, setSelectedBookIds] = useState([]);
   const [acceptedPolicy, setAcceptedPolicy] = useState(false);
-  const [receiveMethod, setReceiveMethod] = useState("delivery");
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [shippingAddress, setShippingAddress] = useState("");
   const [shippingPhone, setShippingPhone] = useState("");
   const navigate = useNavigate();
 
-  const depositEstimate = estimateDeposit(cartItems);
-  const shippingFee = receiveMethod === "delivery" ? DEFAULT_SHIPPING_FEE * cartItems.length : 0;
+  const receiveMethod = "delivery";
+  const selectedBooks = useMemo(
+    () => cartItems.filter((book) => selectedBookIds.includes(getBookId(book))),
+    [cartItems, selectedBookIds]
+  );
+  const depositEstimate = estimateDeposit(selectedBooks);
+  const shippingFee = selectedBooks.length > 0 ? DEFAULT_SHIPPING_FEE : 0;
   const totalEstimate = depositEstimate + shippingFee;
+  const allSelected = cartItems.length > 0 && selectedBookIds.length === cartItems.length;
+
+  useEffect(() => {
+    const currentCartIds = new Set(cartItems.map(getBookId));
+    setSelectedBookIds((current) => current.filter((id) => currentCartIds.has(id)));
+  }, [cartItems]);
 
   const formatCurrency = (value) => new Intl.NumberFormat("vi-VN").format(value) + " đ";
 
-  const handleSubmitRequest = async (book) => {
+  const handleToggleBook = (bookId) => {
+    setSelectedBookIds((current) =>
+      current.includes(bookId)
+        ? current.filter((id) => id !== bookId)
+        : [...current, bookId]
+    );
+  };
+
+  const handleToggleAll = () => {
+    setSelectedBookIds(allSelected ? [] : cartItems.map(getBookId));
+  };
+
+  const handleSubmitRequest = async () => {
     const token = getAuthToken();
     if (!token) {
       showErrorToast("Vui lòng đăng nhập để gửi yêu cầu mượn sách.");
@@ -34,8 +70,8 @@ export default function CartPage() {
       return;
     }
 
-    if (!book) {
-      showErrorToast("Giỏ sách đang trống.");
+    if (selectedBooks.length === 0) {
+      showErrorToast("Vui lòng tích chọn ít nhất một cuốn sách.");
       return;
     }
 
@@ -44,27 +80,26 @@ export default function CartPage() {
       return;
     }
 
-    if (receiveMethod === "delivery" && !shippingAddress.trim()) {
+    if (!shippingAddress.trim()) {
       showErrorToast("Vui lòng nhập địa chỉ giao sách.");
       return;
     }
 
-    if (receiveMethod === "delivery" && !shippingPhone.trim()) {
+    if (!shippingPhone.trim()) {
       showErrorToast("Vui lòng nhập số điện thoại người nhận.");
       return;
     }
 
     try {
-      setSendingBookId(book._id);
       setIsSubmitting(true);
       const response = await axios.post(
         `${Server_URL}tickets`,
         {
-          books: [book._id],
+          books: selectedBooks.map((book) => Number(book._id ?? book.id)),
           payment_method: paymentMethod,
           receive_method: receiveMethod,
-          shipping_address: receiveMethod === "delivery" ? shippingAddress.trim() : null,
-          shipping_phone: receiveMethod === "delivery" ? shippingPhone.trim() : null,
+          shipping_address: shippingAddress.trim(),
+          shipping_phone: shippingPhone.trim(),
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -74,13 +109,14 @@ export default function CartPage() {
         return;
       }
 
-      removeFromCart(book._id);
-      showSuccessToast(response.data.message || `Đã gửi yêu cầu cho "${book.title}".`);
+      selectedBooks.forEach((book) => removeFromCart(book._id ?? book.id));
+      setSelectedBookIds([]);
+      showSuccessToast(response.data.message || "Đã gửi yêu cầu mượn sách.");
 
       if (paymentMethod === "vnpay" && response.data.paymentUrl) {
         window.location.href = response.data.paymentUrl;
       } else {
-        const ticketId = response.data.ticket?.id || "";
+        const ticketId = response.data.ticket?._id || response.data.ticket?.id || "";
         const amount = response.data.amounts?.totalAmount || 0;
         navigate(`/payment-result?status=success&method=cash&ticketId=${ticketId}&amount=${amount}`);
       }
@@ -88,7 +124,6 @@ export default function CartPage() {
       showErrorToast(error.response?.data?.message || "Không gửi được yêu cầu mượn sách.");
     } finally {
       setIsSubmitting(false);
-      setSendingBookId(null);
     }
   };
 
@@ -101,20 +136,24 @@ export default function CartPage() {
     >
       <div className="cart-hero">
         <div>
-          <p className="cart-eyebrow">Giỏ sách mượn</p>
-          <h1>Gửi yêu cầu riêng cho từng cuốn sách</h1>
+          <p className="cart-eyebrow"><FiShoppingBag /> Giỏ sách mượn</p>
+          <h1>Hoàn tất yêu cầu mượn sách</h1>
           <p>
-            Mỗi cuốn sách được gửi thành một yêu cầu riêng để tránh nhầm lẫn khi quản trị viên duyệt.
+            Chọn sách, nhập thông tin giao nhận và xác nhận yêu cầu trong một quy trình đơn giản.
           </p>
         </div>
-        <div className="cart-summary">
-          <span>{cartItems.length}</span>
-          <small>cuốn trong giỏ</small>
+        <div className="cart-progress">
+          <div className="active"><span>1</span><small>Chọn sách</small></div>
+          <i />
+          <div className={selectedBooks.length ? "active" : ""}><span>2</span><small>Giao nhận</small></div>
+          <i />
+          <div className={acceptedPolicy ? "active" : ""}><span>3</span><small>Xác nhận</small></div>
         </div>
       </div>
 
       {cartItems.length === 0 ? (
         <div className="cart-empty dfb-card">
+          <span className="cart-empty-icon"><FiBookOpen /></span>
           <h2>Giỏ sách trống</h2>
           <p>Hãy quay lại trang sách và thêm vài đầu sách bạn muốn mượn.</p>
           <button type="button" className="btn-dfb-primary" onClick={() => navigate("/books")}>Xem sách</button>
@@ -122,76 +161,72 @@ export default function CartPage() {
       ) : (
         <div className="cart-layout">
           <div className="cart-items">
-            {cartItems.map((book) => (
-              <div key={book._id} className="cart-item dfb-card">
-                <img
-                  src={book.coverImage || "/assets/library.avif"}
-                  alt={book.title}
-                  onError={(e) => {
-                    e.currentTarget.src = "/assets/library.avif";
-                  }}
-                />
-                <div className="cart-item-body">
-                  <h3>{book.title}</h3>
-                  <p>{book.author}</p>
-                  <span>{book.categoryId?.name || book.category || "Chưa phân loại"}</span>
-                </div>
-                <div className="cart-item-actions">
-                  <button
-                    type="button"
-                    className="btn-dfb-primary cart-send-btn"
-                    onClick={() => handleSubmitRequest(book)}
-                    disabled={isSubmitting || sendingBookId === book._id || !acceptedPolicy}
-                  >
-                    {sendingBookId === book._id ? "Đang gửi..." : "Gửi yêu cầu cuốn này"}
-                  </button>
-                  <button type="button" className="cart-remove-btn" onClick={() => removeFromCart(book._id)}>
-                    Xóa
-                  </button>
-                </div>
+            <div className="cart-section-heading">
+              <div>
+                <span>Bước 1</span>
+                <h2>Chọn sách cần mượn</h2>
               </div>
-            ))}
+              <label className="cart-select-all">
+                <input type="checkbox" checked={allSelected} onChange={handleToggleAll} />
+                <span>Chọn tất cả ({selectedBooks.length}/{cartItems.length})</span>
+              </label>
+            </div>
+
+            {cartItems.map((book) => {
+              const bookId = getBookId(book);
+              const isSelected = selectedBookIds.includes(bookId);
+              const bookPrice = Number(book.price || 0);
+
+              return (
+                <article key={bookId} className={`cart-item ${isSelected ? "selected" : ""}`}>
+                  <label className="cart-item-select" aria-label={`Chọn ${book.title}`}>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => handleToggleBook(bookId)}
+                    />
+                    <span><FiCheck /></span>
+                  </label>
+                  <img
+                    src={book.coverImage || "/assets/library.avif"}
+                    alt={book.title}
+                    onError={(e) => {
+                      e.currentTarget.src = "/assets/library.avif";
+                    }}
+                  />
+                  <div className="cart-item-body">
+                    <span className="cart-item-category">{book.categoryId?.name || book.category || "Chưa phân loại"}</span>
+                    <h3>{book.title}</h3>
+                    <p>{book.author}</p>
+                    <div className="cart-item-meta">
+                      <span><FiBookOpen /> Giá tham khảo</span>
+                      <strong>{formatCurrency(bookPrice)}</strong>
+                    </div>
+                  </div>
+                  <div className="cart-item-actions">
+                    <button type="button" className="cart-remove-btn" onClick={() => removeFromCart(book._id ?? book.id)}>
+                      <FiTrash2 /> <span>Xóa</span>
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
           </div>
 
-          <aside className="cart-panel dfb-card">
-            <h2>Tổng kết</h2>
-            <p>{cartItems.length} cuốn sách đang chờ gửi theo từng yêu cầu riêng.</p>
+          <aside className="cart-panel">
+            <div className="cart-panel-header">
+              <span>Tóm tắt yêu cầu</span>
+              <strong>{selectedBooks.length} cuốn</strong>
+            </div>
             <div className="cart-form-section">
-              <h3>Hình thức nhận sách</h3>
-              <label className="cart-option">
-                <input
-                  type="radio"
-                  name="receiveMethod"
-                  value="delivery"
-                  checked={receiveMethod === "delivery"}
-                  onChange={() => setReceiveMethod("delivery")}
-                />
-                Giao tận nơi
-              </label>
-              {receiveMethod === "delivery" && (
-                <>
-                  <input
-                    type="text"
-                    className="cart-input"
-                    placeholder="Địa chỉ nhận sách"
-                    value={shippingAddress}
-                    onChange={(e) => setShippingAddress(e.target.value)}
-                  />
-                  <input
-                    type="text"
-                    className="cart-input mt-2"
-                    placeholder="Số điện thoại nhận sách"
-                    value={shippingPhone}
-                    onChange={(e) => setShippingPhone(e.target.value)}
-                    style={{ marginTop: '10px' }}
-                  />
-                </>
-              )}
+              <h3><FiTruck /> Thông tin giao nhận</h3>
+              <div className="cart-input-wrap"><FiMapPin /><input type="text" placeholder="Địa chỉ nhận sách" value={shippingAddress} onChange={(e) => setShippingAddress(e.target.value)} /></div>
+              <div className="cart-input-wrap"><FiPhone /><input type="text" placeholder="Số điện thoại người nhận" value={shippingPhone} onChange={(e) => setShippingPhone(e.target.value)} /></div>
             </div>
 
             <div className="cart-form-section">
-              <h3>Phương thức thanh toán</h3>
-              <label className="cart-option">
+              <h3><FiCreditCard /> Phương thức thanh toán</h3>
+              <label className={`cart-option ${paymentMethod === "cash" ? "selected" : ""}`}>
                 <input
                   type="radio"
                   name="paymentMethod"
@@ -199,9 +234,9 @@ export default function CartPage() {
                   checked={paymentMethod === "cash"}
                   onChange={() => setPaymentMethod("cash")}
                 />
-                Tiền mặt khi nhận sách
+                <span><strong>Tiền mặt</strong><small>Thanh toán khi nhận sách</small></span>
               </label>
-              <label className="cart-option">
+              <label className={`cart-option ${paymentMethod === "vnpay" ? "selected" : ""}`}>
                 <input
                   type="radio"
                   name="paymentMethod"
@@ -209,13 +244,13 @@ export default function CartPage() {
                   checked={paymentMethod === "vnpay"}
                   onChange={() => setPaymentMethod("vnpay")}
                 />
-                VNPAY online
+                <span><strong>VNPAY</strong><small>Thanh toán trực tuyến an toàn</small></span>
               </label>
             </div>
 
             <div className="cart-summary-box">
               <div className="summary-row">
-                <span>Tiền cọc dự kiến</span>
+                <span>Tiền cọc sách</span>
                 <strong>{formatCurrency(depositEstimate)}</strong>
               </div>
               <div className="summary-row">
@@ -223,19 +258,13 @@ export default function CartPage() {
                 <strong>{formatCurrency(shippingFee)}</strong>
               </div>
               <div className="summary-row total">
-                <span>Tạm tính</span>
+                <span>Tổng thanh toán</span>
                 <strong>{formatCurrency(totalEstimate)}</strong>
               </div>
-              <small>Lưu ý: mỗi cuốn sách sẽ tạo một phiếu mượn riêng.</small>
             </div>
             <div className="cart-policy-box">
-              <h3>Điều khoản mượn</h3>
-              <ul>
-                <li>Mượn sách miễn phí.</li>
-                <li>Đặt cọc hoàn lại khi trả đúng quy định.</li>
-                <li>Phí trễ hạn áp dụng theo chính sách đã công bố.</li>
-                <li>Quyên góp hoặc hội viên hỗ trợ là tùy chọn.</li>
-              </ul>
+              <h3><FiShield /> Chính sách mượn</h3>
+              <p>Mượn miễn phí · Cọc hoàn lại · Phí trễ hạn minh bạch</p>
               <label className="cart-policy-check">
                 <input
                   type="checkbox"
@@ -245,9 +274,14 @@ export default function CartPage() {
                 Tôi đã đọc và đồng ý với điều khoản mượn sách.
               </label>
             </div>
-            <p className="cart-panel-note">
-              Bạn sẽ gửi từng cuốn riêng lẻ để tránh nhầm lẫn khi quản trị viên duyệt.
-            </p>
+            <button
+              type="button"
+              className="btn-dfb-primary cart-submit-selected-btn"
+              onClick={handleSubmitRequest}
+              disabled={isSubmitting || selectedBooks.length === 0 || !acceptedPolicy}
+            >
+              {isSubmitting ? "Đang gửi..." : <>Gửi yêu cầu mượn <FiArrowRight /></>}
+            </button>
             <button type="button" className="btn-dfb-outline cart-clear-btn" onClick={clearCart}>
               Xóa toàn bộ giỏ
             </button>

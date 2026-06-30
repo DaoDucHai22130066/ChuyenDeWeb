@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { Server_URL } from "../../utils/config";
 import { motion } from "framer-motion";
-import { FaBookOpen, FaTags, FaBarcode, FaInfoCircle } from "react-icons/fa";
+import { FaTags, FaBarcode, FaInfoCircle } from "react-icons/fa";
 import { FiArrowLeft, FiBookOpen, FiCheckCircle, FiClock, FiMapPin, FiShield, FiShoppingBag } from "react-icons/fi";
 import { RiBookmarkLine } from "react-icons/ri";
 import "./bookdetails.css";
@@ -151,13 +151,12 @@ function BookDetails() {
 
           <div className="book-info-panel dfb-card">
             <div className="book-header">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="book-detail-topline">
                 <span className="book-detail-kicker">Chi tiết sách</span>
                 <button 
                   className="wishlist-icon-btn"
                   onClick={handleWishlistToggle}
                   title={isInWishlist(book._id || book.id) ? "Bỏ lưu" : "Lưu yêu thích"}
-                  style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                 >
                   {isInWishlist(book._id || book.id) ? <FaHeart color="#e74c3c" /> : <FaRegHeart color="#7f8c8d" />}
                 </button>
@@ -279,21 +278,9 @@ function BookDetails() {
 
                   {/* THÊM ĐOẠN ADMIN PHẢN HỒI VÀO ĐÂY (Đã sửa review thành r) */}
                   {r.admin_reply && (
-                      <div className="admin-reply-box" style={{ 
-                          marginTop: '12px', 
-                          padding: '12px', 
-                          backgroundColor: '#f8f9fa', 
-                          borderRadius: '6px', 
-                          borderLeft: '3px solid #ff9800' 
-                      }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '5px' }}>
-                              <span style={{ fontWeight: 'bold', color: '#ff9800' }}>
-                                  <i className="fas fa-user-shield"></i> Quản trị viên phản hồi:
-                              </span>
-                          </div>
-                          <p style={{ margin: 0, color: '#495057', fontSize: '0.95rem' }}>
-                              {r.admin_reply}
-                          </p>
+                      <div className="admin-reply-box">
+                          <strong>Phản hồi từ D Free Book</strong>
+                          <p>{r.admin_reply}</p>
                       </div>
                   )}
                 </div>

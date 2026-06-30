@@ -13,9 +13,13 @@ const UserSchema = new Schema({
       type: String, 
       required: function() { return this.role === "user"; } 
   },
-  year: { 
+    year: { 
       type: Number, 
       required: function() { return this.role === "user"; } 
+  },
+  isActive: {
+      type: Boolean,
+      default: true
   }
 })
 
