@@ -34,23 +34,14 @@ export default function Login() {
         navigate("/");
       }
 
-<<<<<<< HEAD
-      try { window.dispatchEvent(new Event('cart:auth-changed')); } catch (e) {}
-
-=======
->>>>>>> f642a8cbe12965b30ad49a78e8e49a3c9793c471
       showSuccessToast("Đăng nhập thành công!");
     } catch {
       showErrorToast("Đăng nhập thất bại. Kiểm tra email và mật khẩu.");
     }
   };
 
-<<<<<<< HEAD
-  const handleCredentialResponse = async (response) => {
-=======
   // Callback đăng nhập bằng Google
   const handleCredentialResponse = useCallback(async (response) => {
->>>>>>> f642a8cbe12965b30ad49a78e8e49a3c9793c471
     try {
       const idToken = response.credential;
       const res = await axios.post(`${Server_URL}users/google-login`, { idToken });
@@ -73,26 +64,9 @@ export default function Login() {
       });
       window.google.accounts.id.renderButton(
         document.getElementById('googleSignInDiv'),
-        { theme: 'outline', size: 'large', width: '100%', shape: 'pill' }
+        { theme: 'outline', size: 'large' }
       );
     }
-<<<<<<< HEAD
-  }, []);
-
-  return (
-    <div className="login-split-container">
-      {/* CỘT TRÁI: BANNER & SLOGAN */}
-      <div className="login-banner">
-        <div className="banner-overlay"></div>
-        <div className="banner-content">
-          <div className="banner-logo-badge">D Free Book</div>
-          <h1 className="banner-slogan">
-            Mượn sách bằng <br />
-            <span>đặt cọc tự tâm</span>
-          </h1>
-          <p className="banner-description">
-            Không gian lan tỏa văn hóa đọc, kết nối những tâm hồn yêu tri thức và sẻ chia giá trị cộng đồng hoàn toàn miễn phí.
-=======
   }, [handleCredentialResponse]);
 
   return (
@@ -145,69 +119,8 @@ export default function Login() {
 
           <p className="login-register-link">
             Chưa có tài khoản? <Link to="/register">Đăng ký ngay</Link>
->>>>>>> f642a8cbe12965b30ad49a78e8e49a3c9793c471
           </p>
-          <div className="banner-footer">
-            <span className="footer-dot"></span> Thư viện cộng đồng không lợi nhuận
-          </div>
-        </div>
-        {/* Decorative elements */}
-        <div className="banner-blob blob-1"></div>
-        <div className="banner-blob blob-2"></div>
-      </div>
-
-      {/* CỘT PHẢI: FORM ĐĂNG NHẬP */}
-      <div className="login-form-section">
-        <div className="login-form-wrapper animate-fade-in-right">
-          <div className="login-form-header">
-            <h2 className="form-title">Chào mừng trở lại</h2>
-            <p className="form-subtitle">Vui lòng nhập thông tin tài khoản của bạn</p>
-          </div>
-
-          <form onSubmit={handleSubmit(onSubmit)} className="modern-form">
-            <div className="form-group-modern">
-              <label>Email</label>
-              <input
-                type="email"
-                {...register("email", { required: "Vui lòng nhập email" })}
-                className="input-field-modern"
-                placeholder="name@example.com"
-              />
-              {errors.email && <span className="error-msg-modern">{errors.email.message}</span>}
-            </div>
-
-            <div className="form-group-modern">
-              <label>Mật khẩu</label>
-              <input
-                type="password"
-                {...register("password", { required: "Vui lòng nhập mật khẩu" })}
-                className="input-field-modern"
-                placeholder="••••••••"
-              />
-              {errors.password && <span className="error-msg-modern">{errors.password.message}</span>}
-            </div>
-
-            <div className="form-options-modern">
-              <button type="button" className="forgot-link-modern" onClick={() => navigate("/forgetPassword")}>
-                Quên mật khẩu?
-              </button>
-            </div>
-
-            <button type="submit" className="btn-submit-modern">Đăng nhập</button>
-
-            <div className="divider-modern">
-              <span>Hoặc tiếp tục với</span>
-            </div>
-
-            <div className="google-btn-container">
-              <div id="googleSignInDiv"></div>
-            </div>
-
-            <p className="switch-page-text">
-              Bạn chưa có tài khoản? <Link to="/register">Đăng ký thành viên</Link>
-            </p>
-          </form>
-        </div>
+        </form>
       </div>
     </div>
   );
