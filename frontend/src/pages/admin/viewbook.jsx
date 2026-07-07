@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { FiBookOpen, FiEdit2, FiMapPin, FiPlus, FiSearch, FiTrash2 } from "react-icons/fi";
+import { useForm } from "react-hook-form";
+import { FiBookOpen, FiEdit2, FiMapPin, FiPlus, FiSearch, FiTrash2, FiX } from "react-icons/fi";
 import axios from "axios";
 import "../../styles/components.css";
 import { Server_URL } from "../../utils/config";
@@ -10,6 +11,7 @@ import "./viewbook.css";
 import "./admin-shared.css";
 
 const FALLBACK_COVER = "https://placehold.co/240x340/eef2ff/475569?text=D+Free+Book";
+const ITEMS_PER_PAGE = 8;
 
 const formatVND = (value) => {
   const numericValue = Number(value);
@@ -28,28 +30,22 @@ const ViewBooks = () => {
   const [search, setSearch] = useState("");
   const [branchFilter, setBranchFilter] = useState("all");
   const [selectedBook, setSelectedBook] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({
-    title: "",
-    author: "",
-    category: "",
-    isbn: "",
-    price: "",
-    totalCopies: "",
-    coverImage: "",
-    description: "",
-    branch: "dai-la",
-  });
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const { register, handleSubmit, reset, formState: { errors } } = useForm();
+
+  const getHeaders = () => {
+    const token = localStorage.getItem("authToken");
+    return { Authorization: `Bearer ${token}` };
+  };
 
   const fetchBooks = async () => {
     try {
-      const response = await axios.get(`${Server_URL}books`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` },
-      });
-      setBooks(response.data.books || []);
+      const response = await axios.get(`${Server_URL}books`);
+      setBooks(response.data.books || response.data || []);
     } catch (error) {
-      console.error("Lỗi tải danh sách sách:", error.response?.data?.message || error.message);
-      showErrorToast("Không thể tải danh sách sách.");
+      console.error("Lỗi lấy danh sách sách:", error);
+      showErrorToast("Không thể tải danh mục sách.");
     }
   };
 
@@ -57,193 +53,228 @@ const ViewBooks = () => {
     fetchBooks();
   }, []);
 
-  const filteredBooks = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
-    return books.filter((book) => {
-      const matchesBranch = branchFilter === "all" || (book.branch || "dai-la") === branchFilter;
-      const matchesSearch = !keyword || [
-        book.title,
-        book.author,
-        book.isbn,
-        book.categoryId?.name,
-        book.category,
-      ].some((value) => String(value || "").toLowerCase().includes(keyword));
-      return matchesBranch && matchesSearch;
-    });
-  }, [books, branchFilter, search]);
-
-  const totalCopies = useMemo(
-    () => books.reduce((total, book) => total + Number(book.totalCopies || 0), 0),
-    [books]
-  );
-
-  const handleDelete = async (id) => {
-    if (!window.confirm("Bạn có chắc muốn xóa sách này?")) return;
-    try {
-      await axios.delete(`${Server_URL}books/delete/${id}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` },
-      });
-      showSuccessToast("Đã xóa sách thành công!");
-      fetchBooks();
-    } catch (error) {
-      console.error("Lỗi xóa sách:", error.response?.data?.message || error.message);
-      showErrorToast("Không xóa được sách.");
-    }
-  };
-
-  const handleEdit = (book) => {
+  // Mở modal sửa sách
+  const openEditModal = (book) => {
     setSelectedBook(book);
-    setFormData({
-      title: book.title || "",
-      author: book.author || "",
-      category: book.categoryId?.name || book.category || "",
+    reset({
+      title: book.title,
+      author: book.author,
+      branch: book.branch || "dai-la",
+      coverImage: book.coverImage || "",
       isbn: book.isbn || "",
       price: book.price || "",
-      totalCopies: book.totalCopies || "",
-      coverImage: book.coverImage || "",
+      totalCopies: book.totalCopies || 1,
       description: book.description || "",
-      branch: book.branch || "dai-la",
     });
-    setShowModal(true);
   };
 
-  const handleChange = (event) => {
-    setFormData((current) => ({ ...current, [event.target.name]: event.target.value }));
-  };
-
-  const handleUpdate = async () => {
+  // Xử lý Cập nhật sách
+  const onUpdateSubmit = async (data) => {
     try {
-      await axios.put(`${Server_URL}books/update/${selectedBook._id}`, formData, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` },
+      const response = await axios.put(`${Server_URL}books/update/${selectedBook._id}`, data, {
+        headers: getHeaders(),
       });
-      showSuccessToast("Đã cập nhật sách thành công!");
-      setShowModal(false);
-      fetchBooks();
+      if (response.data.error) {
+        showErrorToast(response.data.message || "Cập nhật thất bại.");
+        return;
+      }
+      showSuccessToast("Cập nhật sách thành công!");
+      setSelectedBook(null);
+      fetchBooks(); // Refresh UI cực kì sạch sẽ
     } catch (error) {
-      console.error("Lỗi cập nhật sách:", error.response?.data?.message || error.message);
-      showErrorToast("Không cập nhật được sách.");
+      showErrorToast(error.response?.data?.message || "Lỗi cập nhật sách.");
     }
   };
 
+  // Xử lý Xóa sách
+  const handleDelete = async (id) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa cuốn sách này không?")) return;
+    try {
+      await axios.delete(`${Server_URL}books/delete/${id}`, { headers: getHeaders() });
+      showSuccessToast("Xóa sách thành công!");
+      fetchBooks();
+    } catch (error) {
+      showErrorToast(error.response?.data?.message || "Lỗi khi xóa sách.");
+    }
+  };
+
+  // Lọc dữ liệu tối ưu bằng useMemo
+  const filteredBooks = useMemo(() => {
+    const query = search.toLowerCase().trim();
+    return books.filter((book) => {
+      const matchesSearch =
+        !query ||
+        book.title?.toLowerCase().includes(query) ||
+        book.author?.toLowerCase().includes(query) ||
+        book.isbn?.includes(query);
+      const matchesBranch = branchFilter === "all" || book.branch === branchFilter;
+      return matchesSearch && matchesBranch;
+    });
+  }, [books, search, branchFilter]);
+
+  // Phân trang dữ liệu
+  const paginatedBooks = useMemo(() => {
+    const offset = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredBooks.slice(offset, offset + ITEMS_PER_PAGE);
+  }, [filteredBooks, currentPage]);
+
+  const totalPages = Math.ceil(filteredBooks.length / ITEMS_PER_PAGE);
+
+  // Thống kê nhanh kho sách
+  const metrics = useMemo(() => {
+    return books.reduce(
+      (acc, book) => {
+        acc.titles += 1;
+        acc.copies += Number(book.totalCopies || 0);
+        return acc;
+      },
+      { titles: 0, copies: 0 }
+    );
+  }, [books]);
+
   return (
-    <motion.div className="admin-page-wrap" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+    <motion.div className="admin-page-wrap" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       <section className="admin-page-hero admin-books-hero">
-        <div className="admin-page-kicker">Kho tài liệu</div>
-        <h1 className="admin-page-title">Quản lý sách</h1>
-        <p className="admin-page-lead">
-          Tra cứu, theo dõi số lượng và cập nhật thông tin đầu sách trong toàn bộ thư viện.
-        </p>
+        <div className="admin-page-kicker">Quản lý thư viện</div>
+        <h1 className="admin-page-title">Danh mục sách kho</h1>
         <div className="admin-hero-metrics">
-          <div><strong>{books.length}</strong><span>Đầu sách</span></div>
-          <div><strong>{totalCopies}</strong><span>Tổng số bản</span></div>
-          <div><strong>{filteredBooks.length}</strong><span>Kết quả hiển thị</span></div>
+          <div><strong>{metrics.titles}</strong><span>Đầu sách</span></div>
+          <div><strong>{metrics.copies}</strong><span>Tổng số bản</span></div>
         </div>
       </section>
 
-      <section className="admin-books-toolbar" aria-label="Bộ lọc sách">
-        <div className="admin-book-search">
+      <div className="admin-books-toolbar">
+        <div className="admin-search-box">
           <FiSearch />
           <input
+            type="text"
+            placeholder="Tìm theo tên sách, tác giả hoặc ISBN..."
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Tìm theo tên sách, tác giả, ISBN..."
-            aria-label="Tìm kiếm sách"
+            onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
           />
         </div>
-        <select
-          className="admin-branch-filter"
-          value={branchFilter}
-          onChange={(event) => setBranchFilter(event.target.value)}
-          aria-label="Lọc theo chi nhánh"
-        >
-          <option value="all">Tất cả chi nhánh</option>
+        <select value={branchFilter} onChange={(e) => { setBranchFilter(e.target.value); setCurrentPage(1); }}>
+          <option value="all">Tất cả cơ sở</option>
           <option value="dai-la">Cơ sở Đại La</option>
           <option value="cau-giay">Cơ sở Cầu Giấy</option>
         </select>
-        <button type="button" className="btn admin-btn-primary" onClick={() => navigate("/admin/addbook")}>
-          <FiPlus /> Thêm sách mới
+        <button className="btn admin-btn-primary" onClick={() => navigate("/admin/addbook")}>
+          <FiPlus /> Thêm đầu sách
         </button>
-      </section>
+      </div>
 
-      {filteredBooks.length > 0 ? (
-        <div className="admin-book-grid">
-          {filteredBooks.map((book) => (
-            <article key={book._id} className="book-card">
-              <div className="book-image-wrapper">
-                <img src={book.coverImage || FALLBACK_COVER} className="book-image" alt={`Bìa sách ${book.title}`} />
-                <span className="book-stock-badge">{Number(book.totalCopies || 0)} bản</span>
-              </div>
-              <div className="card-body">
-                <span className="book-category">{book.categoryId?.name || book.category || "Chưa phân loại"}</span>
-                <h2 className="card-title">{book.title}</h2>
-                <p className="book-author">{book.author}</p>
-                <div className="book-meta">
-                  <span><FiMapPin /> {BRANCH_LABELS[book.branch] || BRANCH_LABELS["dai-la"]}</span>
-                  <span><FiBookOpen /> ISBN: {book.isbn || "Chưa có"}</span>
-                </div>
-                <p className="book-price">{formatVND(book.price)}</p>
-              </div>
-              <div className="card-footer">
-                <button className="btn edit-btn" onClick={() => handleEdit(book)}>
-                  <FiEdit2 /> Chỉnh sửa
-                </button>
-                <button className="btn delete-btn" onClick={() => handleDelete(book._id)}>
-                  <FiTrash2 /> Xóa
-                </button>
-              </div>
-            </article>
+      <div className="admin-table-responsive">
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th>Hình ảnh</th>
+              <th>Thông tin sách</th>
+              <th>Vị trí</th>
+              <th>Giá trị cọc</th>
+              <th>Số bản</th>
+              <th>Hành động</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paginatedBooks.length > 0 ? (
+              paginatedBooks.map((book) => (
+                <tr key={book._id}>
+                  <td>
+                    <img className="admin-cell-cover" src={book.coverImage || FALLBACK_COVER} alt={book.title} />
+                  </td>
+                  <td>
+                    <div className="admin-cell-title">{book.title}</div>
+                    <div className="admin-cell-meta">Tác giả: {book.author} | ISBN: {book.isbn || "N/A"}</div>
+                  </td>
+                  <td>
+                    <span className={`admin-branch-badge ${book.branch || "dai-la"}`}>
+                      <FiMapPin /> {BRANCH_LABELS[book.branch] || BRANCH_LABELS["dai-la"]}
+                    </span>
+                  </td>
+                  <td><strong>{formatVND(book.price)}</strong></td>
+                  <td><span className="admin-cell-copies">{book.totalCopies || 0} bản</span></td>
+                  <td>
+                    <div className="admin-cell-actions">
+                      <button className="btn btn-icon edit" onClick={() => openEditModal(book)} title="Sửa thông tin"><FiEdit2 /></button>
+                      <button className="btn btn-icon delete" onClick={() => handleDelete(book._id)} title="Xóa sách"><FiTrash2 /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr><td colSpan="6" style={{ textAlign: "center", padding: "3rem", color: "#64748b" }}>Không tìm thấy cuốn sách nào phù hợp.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {totalPages > 1 && (
+        <div className="admin-pagination" style={{ display: "flex", justifyContent: "center", gap: "0.5rem", marginTop: "1.5rem" }}>
+          {Array.from({ length: totalPages }, (_, i) => (
+            <button
+              key={i + 1}
+              className={`btn ${currentPage === i + 1 ? "admin-btn-primary" : "admin-btn-secondary"}`}
+              onClick={() => setCurrentPage(i + 1)}
+              style={{ padding: "0.4rem 0.8rem", minWidth: "35px" }}
+            >
+              {i + 1}
+            </button>
           ))}
         </div>
-      ) : (
-        <div className="admin-books-empty">
-          <FiBookOpen />
-          <h2>Không tìm thấy sách phù hợp</h2>
-          <p>Thử đổi từ khóa hoặc bộ lọc chi nhánh.</p>
-        </div>
       )}
 
-      {showModal && selectedBook && (
-        <div className="modal d-block" tabIndex="-1" role="dialog" aria-modal="true">
-          <div className="modal-dialog modal-dialog-centered modal-lg">
-            <div className="modal-content admin-modal-content">
-              <div className="modal-header admin-modal-header">
-                <div>
-                  <small>Thông tin đầu sách</small>
-                  <h2 className="modal-title">Chỉnh sửa sách</h2>
+      {/* Modal Chỉnh sửa sử dụng React-Hook-Form cực nhẹ */}
+      <AnimatePresence>
+        {selectedBook && (
+          <div className="modal fade show" style={{ display: "block", background: "rgba(15,23,42,0.6)", backdropFilter: "blur(4px)" }}>
+            <div className="modal-dialog modal-dialog-centered modal-lg">
+              <motion.div className="modal-content admin-modal-content" initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}>
+                <div className="modal-header admin-modal-header">
+                  <h5 className="modal-title"><FiBookOpen /> Chỉnh sửa thông tin sách</h5>
+                  <button type="button" className="btn-close-custom" onClick={() => setSelectedBook(null)}><FiX /></button>
                 </div>
-                <button type="button" className="btn-close btn-close-white" onClick={() => setShowModal(false)} />
-              </div>
-              <div className="modal-body p-4">
-                <div className="admin-edit-book-layout">
-                  <div className="edit-cover-preview">
-                    <img src={formData.coverImage || FALLBACK_COVER} alt="Xem trước ảnh bìa" />
+                <form onSubmit={handleSubmit(onUpdateSubmit)}>
+                  <div className="modal-body admin-modal-body">
+                    <div className="admin-edit-book-form">
+                      <label>Tên sách
+                        <input type="text" {...register("title", { required: true })} />
+                      </label>
+                      <label>Tác giả
+                        <input type="text" {...register("author", { required: true })} />
+                      </label>
+                      <label>Cơ sở lưu trữ
+                        <select {...register("branch")}>
+                          <option value="dai-la">Cơ sở Đại La</option>
+                          <option value="cau-giay">Cơ sở Cầu Giấy</option>
+                        </select>
+                      </label>
+                      <label className="full-width">Ảnh bìa (URL)
+                        <input type="url" {...register("coverImage")} />
+                      </label>
+                      <label>ISBN
+                        <input type="text" {...register("isbn")} />
+                      </label>
+                      <label>Giá tham khảo
+                        <input type="number" {...register("price", { valueAsNumber: true })} />
+                      </label>
+                      <label>Số bản kho
+                        <input type="number" min="1" {...register("totalCopies", { valueAsNumber: true })} />
+                      </label>
+                      <label className="full-width">Mô tả sách
+                        <textarea rows="4" {...register("description")} />
+                      </label>
+                    </div>
                   </div>
-                  <form className="admin-edit-book-form">
-                    <label>Tên sách<input type="text" name="title" value={formData.title} onChange={handleChange} /></label>
-                    <label>Tác giả<input type="text" name="author" value={formData.author} onChange={handleChange} /></label>
-                    <label>Danh mục<input type="text" name="category" value={formData.category} onChange={handleChange} /></label>
-                    <label>Chi nhánh
-                      <select name="branch" value={formData.branch} onChange={handleChange}>
-                        <option value="dai-la">Cơ sở Đại La</option>
-                        <option value="cau-giay">Cơ sở Cầu Giấy</option>
-                      </select>
-                    </label>
-                    <label className="full-width">Ảnh bìa (URL)<input type="url" name="coverImage" value={formData.coverImage} onChange={handleChange} /></label>
-                    <label>ISBN<input type="text" name="isbn" value={formData.isbn} onChange={handleChange} /></label>
-                    <label>Giá tham khảo<input type="number" name="price" value={formData.price} onChange={handleChange} /></label>
-                    <label>Số bản<input type="number" min="1" name="totalCopies" value={formData.totalCopies} onChange={handleChange} /></label>
-                    <label className="full-width">Mô tả<textarea name="description" rows="4" value={formData.description} onChange={handleChange} /></label>
-                  </form>
-                </div>
-              </div>
-              <div className="modal-footer admin-modal-footer">
-                <button type="button" className="btn admin-btn-secondary" onClick={() => setShowModal(false)}>Hủy</button>
-                <button type="button" className="btn admin-btn-primary" onClick={handleUpdate}>Lưu thay đổi</button>
-              </div>
+                  <div className="modal-footer admin-modal-footer">
+                    <button type="button" className="btn admin-btn-secondary" onClick={() => setSelectedBook(null)}>Hủy</button>
+                    <button type="submit" className="btn admin-btn-primary">Lưu thay đổi</button>
+                  </div>
+                </form>
+              </motion.div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };
