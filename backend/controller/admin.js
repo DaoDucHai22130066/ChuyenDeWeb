@@ -6,7 +6,7 @@ const { query, mapUserRow, mapContactRow } = require("../utils/mysql");
 const adminController = {};
 
 const USER_SELECT = `
-  SELECT id, name, email, role, stream, year, phone, email_verified, is_active, created_at, updated_at
+  SELECT id, name, email, role, stream, year, phone, default_address, default_address_lat, default_address_lng, email_verified, is_active, created_at, updated_at
   FROM users
 `;
 const USER_ROLES = ["admin", "user"];

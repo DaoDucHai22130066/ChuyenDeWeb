@@ -3,6 +3,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Server_URL } from "../../utils/config";
+import OpenStreetMapAddressPicker from "../../components/OpenStreetMapAddressPicker";
 import { DEFAULT_SHIPPING_FEE, estimateDeposit } from "../../utils/borrowConfig";
 import { showErrorToast, showSuccessToast } from "../../utils/toasthelper";
 import { getAuthToken } from "../../utils/auth";
@@ -12,7 +13,6 @@ import {
   FiBookOpen,
   FiCheck,
   FiCreditCard,
-  FiMapPin,
   FiPhone,
   FiShield,
   FiShoppingBag,
@@ -29,7 +29,14 @@ export default function CartPage() {
   const [selectedBookIds, setSelectedBookIds] = useState([]);
   const [acceptedPolicy, setAcceptedPolicy] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [profile, setProfile] = useState(null);
+  const [addresses, setAddresses] = useState([]);
+  const [selectedAddressId, setSelectedAddressId] = useState(null);
+  const [isEditingDelivery, setIsEditingDelivery] = useState(false);
+  const [showAddressChoices, setShowAddressChoices] = useState(false);
   const [shippingAddress, setShippingAddress] = useState("");
+  const [shippingLat, setShippingLat] = useState(null);
+  const [shippingLng, setShippingLng] = useState(null);
   const [shippingPhone, setShippingPhone] = useState("");
   const navigate = useNavigate();
 
@@ -48,6 +55,49 @@ export default function CartPage() {
     setSelectedBookIds((current) => current.filter((id) => currentCartIds.has(id)));
   }, [cartItems]);
 
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token) return;
+
+    Promise.all([
+      axios.get(`${Server_URL}users/profile`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+      axios.get(`${Server_URL}users/addresses`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    ]).then(([profileResponse, addressResponse]) => {
+      setProfile(profileResponse.data.user || null);
+      setAddresses(addressResponse.data.addresses || []);
+    }).catch(() => {
+      setProfile(null);
+      setAddresses([]);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (shippingAddress || shippingPhone) return;
+
+    const defaultAddress = addresses.find((address) => address.isDefault) || addresses[0];
+    if (defaultAddress) {
+      setSelectedAddressId(defaultAddress._id);
+      setShippingAddress(defaultAddress.address);
+      setShippingLat(defaultAddress.lat || null);
+      setShippingLng(defaultAddress.lng || null);
+      setShippingPhone(defaultAddress.phone || "");
+      setIsEditingDelivery(false);
+      return;
+    }
+
+    if (profile?.defaultAddress) {
+      setShippingAddress(profile.defaultAddress);
+      setShippingLat(profile.defaultAddressLat || null);
+      setShippingLng(profile.defaultAddressLng || null);
+      setShippingPhone(profile.phone || "");
+      setIsEditingDelivery(false);
+    }
+  }, [addresses, profile, shippingAddress, shippingPhone]);
+
   const formatCurrency = (value) => new Intl.NumberFormat("vi-VN").format(value) + " đ";
 
   const handleToggleBook = (bookId) => {
@@ -60,6 +110,28 @@ export default function CartPage() {
 
   const handleToggleAll = () => {
     setSelectedBookIds(allSelected ? [] : cartItems.map(getBookId));
+  };
+
+  const handleUseAddress = (address) => {
+    setSelectedAddressId(address._id);
+    setShippingAddress(address.address);
+    setShippingLat(address.lat || null);
+    setShippingLng(address.lng || null);
+    setShippingPhone(address.phone || "");
+    setIsEditingDelivery(false);
+    setShowAddressChoices(false);
+  };
+
+  const selectedAddress = addresses.find((address) => address._id === selectedAddressId) || null;
+
+  const handleStartCustomAddress = () => {
+    setSelectedAddressId(null);
+    setShippingAddress("");
+    setShippingLat(null);
+    setShippingLng(null);
+    setShippingPhone(profile?.phone || "");
+    setShowAddressChoices(false);
+    setIsEditingDelivery(true);
   };
 
   const handleSubmitRequest = async () => {
@@ -92,6 +164,27 @@ export default function CartPage() {
 
     try {
       setIsSubmitting(true);
+      if (isEditingDelivery) {
+        const addressPayload = {
+          recipientName: selectedAddress?.recipientName || profile?.name || "",
+          phone: shippingPhone.trim(),
+          address: shippingAddress.trim(),
+          lat: shippingLat,
+          lng: shippingLng,
+          isDefault: Boolean(selectedAddress?.isDefault),
+        };
+
+        if (selectedAddressId) {
+          await axios.put(`${Server_URL}users/addresses/${selectedAddressId}`, addressPayload, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        } else {
+          await axios.post(`${Server_URL}users/addresses`, addressPayload, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        }
+      }
+
       const response = await axios.post(
         `${Server_URL}tickets`,
         {
@@ -220,8 +313,90 @@ export default function CartPage() {
             </div>
             <div className="cart-form-section">
               <h3><FiTruck /> Thông tin giao nhận</h3>
-              <div className="cart-input-wrap"><FiMapPin /><input type="text" placeholder="Địa chỉ nhận sách" value={shippingAddress} onChange={(e) => setShippingAddress(e.target.value)} /></div>
-              <div className="cart-input-wrap"><FiPhone /><input type="text" placeholder="Số điện thoại người nhận" value={shippingPhone} onChange={(e) => setShippingPhone(e.target.value)} /></div>
+              {!isEditingDelivery && shippingAddress && (
+                <div className="cart-delivery-summary">
+                  <div>
+                    <span>Giao đến</span>
+                    <strong>{selectedAddress?.recipientName || profile?.name || "Người nhận"} · {shippingPhone}</strong>
+                    <p>{shippingAddress}</p>
+                  </div>
+                  <div className="cart-delivery-actions">
+                    {addresses.length > 0 && (
+                      <button type="button" onClick={() => setShowAddressChoices((value) => !value)}>
+                        {showAddressChoices ? "Ẩn địa chỉ" : "Thay đổi địa chỉ"}
+                      </button>
+                    )}
+                    <button type="button" onClick={handleStartCustomAddress}>Địa chỉ mới</button>
+                  </div>
+                </div>
+              )}
+              {showAddressChoices && addresses.length > 0 && (
+                <div className="cart-address-book compact">
+                  {addresses.map((address) => (
+                    <button
+                      type="button"
+                      key={address._id}
+                      className={selectedAddressId === address._id ? "selected" : ""}
+                      onClick={() => handleUseAddress(address)}
+                    >
+                      <strong>
+                        {address.recipientName || profile?.name || "Người nhận"}
+                        {address.isDefault && <em>Mặc định</em>}
+                      </strong>
+                      <span>{address.phone}</span>
+                      <small>{address.address}</small>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {(isEditingDelivery || !shippingAddress) && (
+                <div className="cart-delivery-editor">
+                  <OpenStreetMapAddressPicker
+                    value={shippingAddress}
+                    lat={shippingLat}
+                    lng={shippingLng}
+                    variant="light"
+                    compact
+                    placeholder="Tìm địa chỉ nhận sách"
+                    onChange={(address, position) => {
+                      setIsEditingDelivery(true);
+                      setShippingAddress(address);
+                      setShippingLat(position.lat);
+                      setShippingLng(position.lng);
+                    }}
+                  />
+                  <div className="cart-input-wrap"><FiPhone /><input type="text" placeholder="Số điện thoại người nhận" value={shippingPhone} onChange={(e) => setShippingPhone(e.target.value)} /></div>
+                  <div className="cart-editor-actions">
+                    {addresses.length > 0 && (
+                      <button type="button" onClick={() => {
+                        if (selectedAddress) {
+                          setShippingAddress(selectedAddress.address);
+                          setShippingLat(selectedAddress.lat || null);
+                          setShippingLng(selectedAddress.lng || null);
+                          setShippingPhone(selectedAddress.phone || "");
+                        }
+                        setIsEditingDelivery(false);
+                        setShowAddressChoices(true);
+                      }}>
+                        Chọn địa chỉ đã lưu
+                      </button>
+                    )}
+                    {selectedAddress && (
+                      <button type="button" onClick={() => handleUseAddress(selectedAddress)}>
+                        Quay lại địa chỉ đang chọn
+                      </button>
+                    )}
+                    {shippingAddress && (
+                      <button type="button" onClick={() => setIsEditingDelivery(false)}>
+                        Dùng địa chỉ này
+                      </button>
+                    )}
+                    {selectedAddress && (
+                      <small>Thay đổi sẽ cập nhật địa chỉ đã lưu khi gửi yêu cầu.</small>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="cart-form-section">

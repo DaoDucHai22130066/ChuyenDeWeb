@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { Server_URL } from "../../utils/config";
+import OpenStreetMapAddressPicker from "../../components/OpenStreetMapAddressPicker";
 import "./profile.css";
 import { getAuthToken } from "../../utils/auth";
 import { showErrorToast, showSuccessToast } from "../../utils/toasthelper";
@@ -20,6 +21,12 @@ import {
   FiDollarSign,
   FiInfo,
   FiMapPin,
+  FiMessageSquare,
+  FiPhone,
+  FiPlus,
+  FiSearch,
+  FiStar,
+  FiTrash2,
   FiTruck
 } from "react-icons/fi";
 import { FaGraduationCap } from "react-icons/fa";
@@ -83,11 +90,65 @@ const PAYMENT_METHOD_VI = {
   vnpay: "VNPay",
 };
 
+const PROFILE_TABS = [
+  { value: "profile", label: "Hồ sơ" },
+  { value: "address", label: "Địa chỉ mặc định" },
+  { value: "tickets", label: "Phiếu mượn" },
+];
+
+const TICKET_STATUS_TABS = [
+  { value: "all", label: "Tất cả", statuses: [] },
+  { value: "payment", label: "Chờ thanh toán", statuses: ["awaiting_payment", "paid"] },
+  { value: "processing", label: "Chờ xử lý", statuses: ["pending", "approved"] },
+  { value: "shipping", label: "Vận chuyển", statuses: ["dispatched", "delivered"] },
+  { value: "completed", label: "Hoàn thành", statuses: ["returned", "closed"] },
+  { value: "cancelled", label: "Đã hủy", statuses: ["cancelled"] },
+];
+
+const emptyAddressForm = {
+  recipientName: "",
+  phone: "",
+  address: "",
+  lat: null,
+  lng: null,
+  isDefault: false,
+};
+
+const buildAddressMapUrl = (lat, lng) => {
+  if (!lat || !lng) return "";
+  const latitude = Number(lat);
+  const longitude = Number(lng);
+  const delta = 0.0045;
+  const bbox = [
+    longitude - delta,
+    latitude - delta,
+    longitude + delta,
+    latitude + delta,
+  ].join(",");
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${latitude},${longitude}`;
+};
+
 function ProfilePage() {
   const [user, setUser] = useState(null);
   const [tickets, setTickets] = useState([]);
+  const [addresses, setAddresses] = useState([]);
+  const [activeProfileTab, setActiveProfileTab] = useState("profile");
+  const [ticketStatusFilter, setTicketStatusFilter] = useState("all");
+  const [ticketSearch, setTicketSearch] = useState("");
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({ name: "", stream: "", year: "" });
+  const [isAddressFormOpen, setIsAddressFormOpen] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState(null);
+  const [addressForm, setAddressForm] = useState(emptyAddressForm);
+  const [addressSavingId, setAddressSavingId] = useState(null);
+  const [formData, setFormData] = useState({
+    name: "",
+    stream: "",
+    year: "",
+    phone: "",
+    defaultAddress: "",
+    defaultAddressLat: null,
+    defaultAddressLng: null,
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [cancelingTicketId, setCancelingTicketId] = useState(null);
   const [detailTicket, setDetailTicket] = useState(null);
@@ -124,9 +185,21 @@ function ProfilePage() {
     }
   };
 
+  const fetchAddresses = async () => {
+    try {
+      const response = await axios.get(`${Server_URL}users/addresses`, {
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
+      });
+      setAddresses(response.data.addresses || []);
+    } catch {
+      showErrorToast("Không tải được sổ địa chỉ.");
+    }
+  };
+
   useEffect(() => {
     fetchProfile();
     fetchTickets();
+    fetchAddresses();
   }, []);
 
   useEffect(() => {
@@ -135,6 +208,10 @@ function ProfilePage() {
         name: user.name || "",
         stream: user.stream || "",
         year: user.year || "",
+        phone: user.phone || "",
+        defaultAddress: user.defaultAddress || "",
+        defaultAddressLat: user.defaultAddressLat || null,
+        defaultAddressLng: user.defaultAddressLng || null,
       });
     }
   }, [user]);
@@ -210,6 +287,112 @@ function ProfilePage() {
     }
   };
 
+  const openNewAddressForm = () => {
+    setEditingAddressId(null);
+    setAddressForm({
+      ...emptyAddressForm,
+      recipientName: user.name || "",
+      phone: user.phone || "",
+      isDefault: addresses.length === 0,
+    });
+    setIsAddressFormOpen(true);
+  };
+
+  const openEditAddressForm = (address) => {
+    setEditingAddressId(address._id);
+    setAddressForm({
+      recipientName: address.recipientName || user.name || "",
+      phone: address.phone || "",
+      address: address.address || "",
+      lat: address.lat || null,
+      lng: address.lng || null,
+      isDefault: address.isDefault,
+    });
+    setIsAddressFormOpen(true);
+  };
+
+  const closeAddressForm = () => {
+    setEditingAddressId(null);
+    setAddressForm(emptyAddressForm);
+    setIsAddressFormOpen(false);
+  };
+
+  const handleSaveAddress = async (e) => {
+    e.preventDefault();
+    if (!addressForm.phone.trim()) {
+      showErrorToast("Vui lòng nhập số điện thoại nhận sách.");
+      return;
+    }
+    if (!addressForm.address.trim()) {
+      showErrorToast("Vui lòng chọn địa chỉ giao sách.");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const payload = {
+        recipientName: addressForm.recipientName.trim(),
+        phone: addressForm.phone.trim(),
+        address: addressForm.address.trim(),
+        lat: addressForm.lat,
+        lng: addressForm.lng,
+        isDefault: addressForm.isDefault,
+      };
+      if (editingAddressId) {
+        await axios.put(`${Server_URL}users/addresses/${editingAddressId}`, payload, {
+          headers: { Authorization: `Bearer ${getAuthToken()}` },
+        });
+      } else {
+        await axios.post(`${Server_URL}users/addresses`, payload, {
+          headers: { Authorization: `Bearer ${getAuthToken()}` },
+        });
+      }
+
+      await fetchAddresses();
+      await fetchProfile();
+      closeAddressForm();
+      showSuccessToast(editingAddressId ? "Đã cập nhật địa chỉ." : "Đã thêm địa chỉ mới.");
+    } catch (err) {
+      showErrorToast(err.response?.data?.message || "Không lưu được địa chỉ.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSetDefaultAddress = async (addressId) => {
+    setAddressSavingId(addressId);
+    try {
+      await axios.patch(`${Server_URL}users/addresses/${addressId}/default`, {}, {
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
+      });
+      await fetchAddresses();
+      await fetchProfile();
+      showSuccessToast("Đã đặt làm địa chỉ mặc định.");
+    } catch (err) {
+      showErrorToast(err.response?.data?.message || "Không đặt được địa chỉ mặc định.");
+    } finally {
+      setAddressSavingId(null);
+    }
+  };
+
+  const handleDeleteAddress = async (addressId) => {
+    if (!window.confirm("Bạn có chắc muốn xóa địa chỉ này?")) return;
+
+    setAddressSavingId(addressId);
+    try {
+      await axios.delete(`${Server_URL}users/addresses/${addressId}`, {
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
+      });
+      await fetchAddresses();
+      await fetchProfile();
+      showSuccessToast("Đã xóa địa chỉ.");
+    } catch (err) {
+      showErrorToast(err.response?.data?.message || "Không xóa được địa chỉ.");
+    } finally {
+      setAddressSavingId(null);
+    }
+  };
+
   const handleCancelTicket = async (ticketId) => {
     if (!window.confirm("Bạn có chắc muốn hủy phiếu mượn này?")) return;
 
@@ -252,6 +435,38 @@ function ProfilePage() {
   const closeTicketDetail = () => {
     setDetailTicket(null);
   };
+
+  const ticketStatusCounts = useMemo(() => {
+    return TICKET_STATUS_TABS.reduce((summary, tab) => {
+      summary[tab.value] = tab.value === "all"
+        ? tickets.length
+        : tickets.filter((ticket) => tab.statuses.includes(normalizeTicketStatus(ticket.status))).length;
+      return summary;
+    }, {});
+  }, [tickets]);
+
+  const filteredTickets = useMemo(() => {
+    const selectedTab = TICKET_STATUS_TABS.find((tab) => tab.value === ticketStatusFilter) || TICKET_STATUS_TABS[0];
+    const keyword = ticketSearch.trim().toLowerCase();
+
+    return tickets.filter((ticket) => {
+      const status = normalizeTicketStatus(ticket.status);
+      const matchesStatus = selectedTab.value === "all" || selectedTab.statuses.includes(status);
+      const searchable = [
+        ticket._id,
+        STATUS_VI[ticket.status],
+        STATUS_VI[status],
+        ticket.shippingAddress,
+        ticket.shippingPhone,
+        ...(ticket.books || []).flatMap((book) => [book.title, book.author, book.category]),
+      ];
+      const matchesSearch = !keyword || searchable.some((value) =>
+        String(value || "").toLowerCase().includes(keyword)
+      );
+
+      return matchesStatus && matchesSearch;
+    });
+  }, [tickets, ticketStatusFilter, ticketSearch]);
 
   if (!user) return <div className="loading-container"><div className="spinner"></div><p>Đang tải hồ sơ...</p></div>;
 
@@ -319,11 +534,26 @@ function ProfilePage() {
                   <span>Ngành: {user.stream}</span>
                 </div>
               )}
+              {user.phone && (
+                <div className="meta-item">
+                  <FiPhone className="meta-icon" />
+                  <span>SĐT: {user.phone}</span>
+                </div>
+              )}
+              {user.defaultAddress && (
+                <div className="meta-item">
+                  <FiMapPin className="meta-icon" />
+                  <span>Địa chỉ mặc định: {user.defaultAddress}</span>
+                </div>
+              )}
             </div>
 
             <div className="profile-actions">
               {!isEditing ? (
-                <button className="btn-edit" onClick={() => setIsEditing(true)}>
+                <button className="btn-edit" onClick={() => {
+                  setActiveProfileTab("profile");
+                  setIsEditing(true);
+                }}>
                   <FiEdit2 /> Chỉnh sửa hồ sơ
                 </button>
               ) : (
@@ -333,6 +563,10 @@ function ProfilePage() {
                     name: user.name || "",
                     stream: user.stream || "",
                     year: user.year || "",
+                    phone: user.phone || "",
+                    defaultAddress: user.defaultAddress || "",
+                    defaultAddressLat: user.defaultAddressLat || null,
+                    defaultAddressLng: user.defaultAddressLng || null,
                   });
                 }}>
                   <FiX /> Hủy chỉnh sửa
@@ -390,7 +624,24 @@ function ProfilePage() {
 
         {/* Right Side: Detailed Form & Borrow Tickets */}
         <div className="profile-main-content">
+          <div className="profile-account-tabs">
+            {PROFILE_TABS.map((tab) => (
+              <button
+                type="button"
+                key={tab.value}
+                className={activeProfileTab === tab.value ? "active" : ""}
+                onClick={() => setActiveProfileTab(tab.value)}
+              >
+                {tab.value === "profile" && <FiUser />}
+                {tab.value === "address" && <FiMapPin />}
+                {tab.value === "tickets" && <FiBookOpen />}
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
           {/* Details & Edit Form */}
+          {activeProfileTab === "profile" && (
           <div className="profile-card details-card">
             <div className="profile-card-heading">
               <div><span>Hồ sơ tài khoản</span><h3>Thông tin cá nhân</h3></div>
@@ -445,6 +696,19 @@ function ProfilePage() {
                     className={isEditing ? "editable" : ""}
                   />
                 </div>
+
+                <div className="form-group">
+                  <label><FiPhone className="input-icon" /> Số điện thoại mặc định</label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    disabled={!isEditing}
+                    placeholder={isEditing ? "Nhập số điện thoại nhận sách" : "Chưa cập nhật"}
+                    className={isEditing ? "editable" : ""}
+                  />
+                </div>
+
               </div>
 
               {isEditing && (
@@ -464,8 +728,143 @@ function ProfilePage() {
               )}
             </form>
           </div>
+          )}
+
+          {activeProfileTab === "address" && (
+          <div className="profile-card address-card">
+            <div className="profile-card-heading">
+              <div><span>Sổ địa chỉ</span><h3>Địa chỉ giao sách</h3></div>
+              <button type="button" className="address-add-btn" onClick={openNewAddressForm}>
+                <FiPlus /> Thêm địa chỉ
+              </button>
+            </div>
+
+            {addresses.length === 0 ? (
+              <div className="address-empty-state">
+                <FiMapPin />
+                <strong>Chưa có địa chỉ giao sách</strong>
+                <p>Thêm địa chỉ nhận sách để lần sau hệ thống tự điền khi mượn.</p>
+                <button type="button" onClick={openNewAddressForm}>Thêm địa chỉ đầu tiên</button>
+              </div>
+            ) : (
+              <div className="address-list">
+                {addresses.map((address) => {
+                  const mapUrl = buildAddressMapUrl(address.lat, address.lng);
+                  return (
+                    <article key={address._id} className={`address-item ${address.isDefault ? "default" : ""}`}>
+                      <div className="address-map-thumb">
+                        {mapUrl ? (
+                          <iframe title={`Bản đồ ${address.address}`} src={mapUrl} loading="lazy" />
+                        ) : (
+                          <div><FiMapPin /><span>Chưa ghim bản đồ</span></div>
+                        )}
+                      </div>
+                      <div className="address-item-body">
+                        <div className="address-item-title">
+                          <strong>{address.recipientName || user.name}</strong>
+                          <span>{address.phone}</span>
+                          {address.isDefault && <em>Mặc định</em>}
+                        </div>
+                        <p>{address.address}</p>
+                        <div className="address-item-actions">
+                          {!address.isDefault && (
+                            <button
+                              type="button"
+                              className="address-link-btn primary"
+                              disabled={addressSavingId === address._id}
+                              onClick={() => handleSetDefaultAddress(address._id)}
+                            >
+                              Đặt mặc định
+                            </button>
+                          )}
+                          <button type="button" className="address-link-btn" onClick={() => openEditAddressForm(address)}>
+                            <FiEdit2 /> Sửa
+                          </button>
+                          <button
+                            type="button"
+                            className="address-link-btn danger"
+                            disabled={addressSavingId === address._id}
+                            onClick={() => handleDeleteAddress(address._id)}
+                          >
+                            <FiTrash2 /> Xóa
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+
+            {isAddressFormOpen && (
+              <form onSubmit={handleSaveAddress} className="profile-form address-editor">
+                <div className="address-editor-heading">
+                  <div>
+                    <span>{editingAddressId ? "Cập nhật địa chỉ" : "Địa chỉ mới"}</span>
+                    <strong>{editingAddressId ? "Sửa thông tin nhận sách" : "Thêm địa chỉ nhận sách"}</strong>
+                  </div>
+                  <button type="button" onClick={closeAddressForm}><FiX /></button>
+                </div>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label><FiUser className="input-icon" /> Người nhận</label>
+                    <input
+                      type="text"
+                      value={addressForm.recipientName}
+                      onChange={(e) => setAddressForm({ ...addressForm, recipientName: e.target.value })}
+                      placeholder="Tên người nhận"
+                      className="editable"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label><FiPhone className="input-icon" /> Số điện thoại</label>
+                    <input
+                      type="tel"
+                      value={addressForm.phone}
+                      onChange={(e) => setAddressForm({ ...addressForm, phone: e.target.value })}
+                      placeholder="Số điện thoại nhận sách"
+                      className="editable"
+                    />
+                  </div>
+                  <div className="form-group profile-address-field">
+                    <label><FiMapPin className="input-icon" /> Vị trí trên OpenStreetMap</label>
+                    <OpenStreetMapAddressPicker
+                      value={addressForm.address}
+                      lat={addressForm.lat}
+                      lng={addressForm.lng}
+                      placeholder="Tìm địa chỉ nhận sách"
+                      onChange={(nextAddress, position) => setAddressForm({
+                        ...addressForm,
+                        address: nextAddress,
+                        lat: position.lat,
+                        lng: position.lng,
+                      })}
+                    />
+                  </div>
+                </div>
+                <label className="address-default-check">
+                  <input
+                    type="checkbox"
+                    checked={addressForm.isDefault}
+                    onChange={(e) => setAddressForm({ ...addressForm, isDefault: e.target.checked })}
+                  />
+                  <span>Đặt làm địa chỉ mặc định</span>
+                </label>
+                <div className="form-submit-actions address-actions">
+                  <button type="button" className="btn-cancel" onClick={closeAddressForm}>
+                    <FiX /> Hủy
+                  </button>
+                  <button type="submit" className="btn-save" disabled={isSaving}>
+                    {isSaving ? <><span className="mini-spinner"></span> Đang lưu...</> : <><FiSave /> Lưu địa chỉ</>}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+          )}
 
           {/* Borrow Tickets List */}
+          {activeProfileTab === "tickets" && (
           <div className="profile-card tickets-card">
             <div className="card-header-flex">
               <div>
@@ -475,14 +874,43 @@ function ProfilePage() {
               <span className="tickets-count">Tổng số: {tickets.length} phiếu</span>
             </div>
 
+            <div className="ticket-shoppe-tabs">
+              {TICKET_STATUS_TABS.map((tab) => (
+                <button
+                  type="button"
+                  key={tab.value}
+                  className={ticketStatusFilter === tab.value ? "active" : ""}
+                  onClick={() => setTicketStatusFilter(tab.value)}
+                >
+                  <span>{tab.label}</span>
+                  <small>{ticketStatusCounts[tab.value] || 0}</small>
+                </button>
+              ))}
+            </div>
+
+            <div className="ticket-search-bar">
+              <FiSearch />
+              <input
+                type="search"
+                value={ticketSearch}
+                onChange={(e) => setTicketSearch(e.target.value)}
+                placeholder="Tìm theo mã phiếu, tên sách, tác giả hoặc địa chỉ giao hàng"
+              />
+            </div>
+
             {tickets.length === 0 ? (
               <div className="empty-tickets">
                 <FiBook className="empty-icon" />
                 <p>Bạn chưa thực hiện phiếu mượn sách nào.</p>
               </div>
+            ) : filteredTickets.length === 0 ? (
+              <div className="empty-tickets">
+                <FiSearch className="empty-icon" />
+                <p>Không tìm thấy phiếu phù hợp với bộ lọc hiện tại.</p>
+              </div>
             ) : (
               <div className="ticket-card-list">
-                {tickets.map((ticket) => {
+                {filteredTickets.map((ticket) => {
                   const status = normalizeTicketStatus(ticket.status);
                   const canCancel = canCancelTicketStatus(ticket.status);
                   const canRenew = ["approved", "dispatched", "delivered"].includes(status) &&
@@ -536,6 +964,10 @@ function ProfilePage() {
 
                         {canReview && (
                           <div className="review-action-cell">
+                            <div className="review-action-heading">
+                              <FiStar />
+                              <span>Đánh giá sách đã mượn</span>
+                            </div>
                             {ticket.books.map((book) => {
                               const key = `${ticket._id}-${book._id || book.id}`;
                               const alreadyReviewed = reviewedKeys.has(key);
@@ -547,7 +979,9 @@ function ProfilePage() {
                                   disabled={alreadyReviewed}
                                   title={alreadyReviewed ? 'Đã đánh giá' : `Đánh giá: ${book.title}`}
                                 >
-                                  {alreadyReviewed ? '✓ Đã đánh giá' : `⭐ ${book.title.substring(0, 18)}${book.title.length > 18 ? '...' : ''}`}
+                                  <FiStar />
+                                  <span>{alreadyReviewed ? 'Đã đánh giá' : 'Viết đánh giá'}</span>
+                                  <small>{book.title}</small>
                                 </button>
                               );
                             })}
@@ -585,6 +1019,7 @@ function ProfilePage() {
               </div>
             )}
           </div>
+          )}
         </div>
       </div>
 
@@ -686,12 +1121,12 @@ function ProfilePage() {
         <div className="review-modal-overlay">
           <div className="review-modal-box">
             <div className="review-modal-header">
-              <h3>⭐ Đánh giá sách</h3>
+              <h3><FiMessageSquare /> Đánh giá sách</h3>
               <button className="review-modal-close" onClick={closeReviewModal} title="Đóng">✕</button>
             </div>
 
             <div className="review-modal-book-title">
-              📖 {reviewModal.book.title}
+              <FiBookOpen /> {reviewModal.book.title}
             </div>
 
             {/* Star Rating */}

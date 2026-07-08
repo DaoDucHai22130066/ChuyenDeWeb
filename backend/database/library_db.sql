@@ -12,6 +12,7 @@ DROP TABLE IF EXISTS borrow_ticket_books;
 DROP TABLE IF EXISTS transactions;
 DROP TABLE IF EXISTS ticket_renewals;
 DROP TABLE IF EXISTS borrow_tickets;
+DROP TABLE IF EXISTS user_addresses;
 DROP TABLE IF EXISTS books;
 DROP TABLE IF EXISTS categories;
 DROP TABLE IF EXISTS contacts;
@@ -34,6 +35,9 @@ CREATE TABLE users (
   stream       VARCHAR(255) NULL,
   year         INT NULL,
   phone        VARCHAR(20) NULL,
+  default_address VARCHAR(500) NULL,
+  default_address_lat DECIMAL(10,7) NULL,
+  default_address_lng DECIMAL(10,7) NULL,
   email_verified TINYINT(1) NOT NULL DEFAULT 1,
   is_active    TINYINT(1) NOT NULL DEFAULT 1,
   created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -104,6 +108,25 @@ CREATE TABLE borrow_tickets (
   INDEX idx_ticket_status (status),
   CONSTRAINT fk_ticket_user     FOREIGN KEY (user_id)     REFERENCES users(id) ON DELETE RESTRICT  ON UPDATE CASCADE,
   CONSTRAINT fk_ticket_approver FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+--  BẢNG user_addresses
+-- ============================================================
+CREATE TABLE user_addresses (
+  id             INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  user_id        INT UNSIGNED NOT NULL,
+  recipient_name VARCHAR(255) NULL,
+  phone          VARCHAR(20) NOT NULL,
+  address        VARCHAR(500) NOT NULL,
+  lat            DECIMAL(10,7) NULL,
+  lng            DECIMAL(10,7) NULL,
+  is_default     TINYINT(1) NOT NULL DEFAULT 0,
+  created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_user_addresses_user (user_id),
+  INDEX idx_user_addresses_default (user_id, is_default),
+  CONSTRAINT fk_user_addresses_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
