@@ -115,7 +115,7 @@ const Books = () => {
   const indexOfLastBook = currentPage * itemsPerPage;
   const indexOfFirstBook = indexOfLastBook - itemsPerPage;
   const currentBooks = filteredBooks.slice(indexOfFirstBook, indexOfLastBook);
-
+  const [isSortOpen, setIsSortOpen] = useState(false);
   function bookDetails(bookid) {
     navigate(`/bookdetails/${bookid}`);
   }
