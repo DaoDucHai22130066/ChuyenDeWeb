@@ -1162,7 +1162,6 @@ const handleSendReply = async (reviewId) => {
                 {[
                   { key: "all", label: "Tất cả" },
                   { key: "pending", label: "Chờ duyệt" },
-                  { key: "awaiting_payment", label: "Chờ thanh toán" },
                   { key: "approved", label: "Đã duyệt" },
                   { key: "dispatched", label: "Đang giao" },
                   { key: "delivered", label: "Đã giao" },
