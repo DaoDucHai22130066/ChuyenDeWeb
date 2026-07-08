@@ -16,6 +16,11 @@ router.post("/google-login", userController.googleLogin);
 
 router.get("/profile", userAuth, checkRole("user"), userController.profile);
 router.put("/profile", userAuth, checkRole("user"), userController.updateProfile);
+router.get("/addresses", userAuth, checkRole("user"), userController.getAddresses);
+router.post("/addresses", userAuth, checkRole("user"), userController.createAddress);
+router.put("/addresses/:id", userAuth, checkRole("user"), userController.updateAddress);
+router.patch("/addresses/:id/default", userAuth, checkRole("user"), userController.setDefaultAddress);
+router.delete("/addresses/:id", userAuth, checkRole("user"), userController.deleteAddress);
 
 router.post("/contact", userController.addContact)
 

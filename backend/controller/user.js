@@ -9,6 +9,7 @@ const { OAuth2Client } = require("google-auth-library");
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const {
   query,
+  withTransaction,
   mapUserRow,
 } = require("../utils/mysql");
 
@@ -29,6 +30,86 @@ const CONTACT_SUBJECTS = new Set([
   "feedback",
   "other",
 ]);
+
+function mapAddressRow(row) {
+  return {
+    _id: row.id,
+    recipientName: row.recipient_name,
+    phone: row.phone,
+    address: row.address,
+    lat: row.lat === null || row.lat === undefined ? null : Number(row.lat),
+    lng: row.lng === null || row.lng === undefined ? null : Number(row.lng),
+    isDefault: Boolean(row.is_default),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function normalizeAddressPayload(body) {
+  const recipientName = String(body.recipientName || body.recipient_name || "").trim();
+  const phone = String(body.phone || "").trim();
+  const address = String(body.address || "").trim();
+  const latRaw = body.lat;
+  const lngRaw = body.lng;
+  const lat = latRaw === "" || latRaw === null || latRaw === undefined ? null : Number(latRaw);
+  const lng = lngRaw === "" || lngRaw === null || lngRaw === undefined ? null : Number(lngRaw);
+
+  return {
+    recipientName,
+    phone,
+    address,
+    lat: Number.isFinite(lat) ? lat : null,
+    lng: Number.isFinite(lng) ? lng : null,
+    isDefault: Boolean(body.isDefault || body.is_default),
+  };
+}
+
+function validateAddressPayload(payload) {
+  if (!payload.phone) {
+    return "Số điện thoại nhận sách là bắt buộc";
+  }
+  if (payload.phone.length > 20) {
+    return "Số điện thoại không được vượt quá 20 ký tự";
+  }
+  if (!payload.address) {
+    return "Địa chỉ nhận sách là bắt buộc";
+  }
+  if (payload.address.length > 500) {
+    return "Địa chỉ không được vượt quá 500 ký tự";
+  }
+  if (payload.recipientName.length > 255) {
+    return "Tên người nhận không được vượt quá 255 ký tự";
+  }
+  return null;
+}
+
+async function syncDefaultAddress(connection, userId) {
+  const [rows] = await connection.query(
+    `SELECT recipient_name, phone, address, lat, lng
+     FROM user_addresses
+     WHERE user_id = ? AND is_default = 1
+     ORDER BY updated_at DESC, id DESC
+     LIMIT 1`,
+    [userId]
+  );
+  const defaultAddress = rows[0];
+
+  await connection.query(
+    `UPDATE users
+     SET phone = COALESCE(?, phone),
+         default_address = ?,
+         default_address_lat = ?,
+         default_address_lng = ?
+     WHERE id = ?`,
+    [
+      defaultAddress?.phone || null,
+      defaultAddress?.address || null,
+      defaultAddress?.lat || null,
+      defaultAddress?.lng || null,
+      userId,
+    ]
+  );
+}
 
 userController.userRegistration = async (req, res) => {
   try {
@@ -137,7 +218,7 @@ userController.login = async (req, res) => {
 userController.getUsers = async (req, res) => {
   try {
     const rows = await query(
-      `SELECT id, name, email, role, stream, year, phone, email_verified, is_active, created_at, updated_at
+      `SELECT id, name, email, role, stream, year, phone, default_address, default_address_lat, default_address_lng, email_verified, is_active, created_at, updated_at
        FROM users
        ORDER BY id DESC`
     );
@@ -154,7 +235,7 @@ userController.profile = async (req, res) => {
   try {
     const { id } = req.userInfo;
     const rows = await query(
-      `SELECT id, name, email, role, stream, year, phone, email_verified, is_active, created_at, updated_at
+      `SELECT id, name, email, role, stream, year, phone, default_address, default_address_lat, default_address_lng, email_verified, is_active, created_at, updated_at
        FROM users
        WHERE id = ?
        LIMIT 1`,
@@ -170,6 +251,260 @@ userController.profile = async (req, res) => {
   } catch (error) {
     console.error("Profile Fetch Error:", error);
     res.status(500).json({ error: true, message: "Internal Server error" });
+  }
+};
+
+userController.getAddresses = async (req, res) => {
+  try {
+    const userId = req.userInfo.id;
+    let rows = await query(
+      `SELECT *
+       FROM user_addresses
+       WHERE user_id = ?
+       ORDER BY is_default DESC, updated_at DESC, id DESC`,
+      [userId]
+    );
+
+    if (rows.length === 0) {
+      const userRows = await query(
+        `SELECT name, phone, default_address, default_address_lat, default_address_lng
+         FROM users WHERE id = ? LIMIT 1`,
+        [userId]
+      );
+      const currentUser = userRows[0];
+      if (currentUser?.default_address) {
+        await query(
+          `INSERT INTO user_addresses (user_id, recipient_name, phone, address, lat, lng, is_default)
+           VALUES (?, ?, ?, ?, ?, ?, 1)`,
+          [
+            userId,
+            currentUser.name || null,
+            currentUser.phone || "",
+            currentUser.default_address,
+            currentUser.default_address_lat || null,
+            currentUser.default_address_lng || null,
+          ]
+        );
+        rows = await query(
+          `SELECT *
+           FROM user_addresses
+           WHERE user_id = ?
+           ORDER BY is_default DESC, updated_at DESC, id DESC`,
+          [userId]
+        );
+      }
+    }
+
+    res.json({
+      error: false,
+      message: "addresses fetched successfully",
+      addresses: rows.map(mapAddressRow),
+    });
+  } catch (error) {
+    console.error("Address Fetch Error:", error);
+    res.status(500).json({ error: true, message: "Không tải được sổ địa chỉ" });
+  }
+};
+
+userController.createAddress = async (req, res) => {
+  const payload = normalizeAddressPayload(req.body);
+  const validationMessage = validateAddressPayload(payload);
+  if (validationMessage) {
+    return res.status(400).json({ error: true, message: validationMessage });
+  }
+
+  try {
+    const userId = req.userInfo.id;
+    const address = await withTransaction(async (connection) => {
+      const [countRows] = await connection.query(
+        "SELECT COUNT(*) AS total FROM user_addresses WHERE user_id = ?",
+        [userId]
+      );
+      const shouldBeDefault = payload.isDefault || Number(countRows[0]?.total || 0) === 0;
+
+      if (shouldBeDefault) {
+        await connection.query("UPDATE user_addresses SET is_default = 0 WHERE user_id = ?", [userId]);
+      }
+
+      const [result] = await connection.query(
+        `INSERT INTO user_addresses (user_id, recipient_name, phone, address, lat, lng, is_default)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          userId,
+          payload.recipientName || null,
+          payload.phone,
+          payload.address,
+          payload.lat,
+          payload.lng,
+          shouldBeDefault ? 1 : 0,
+        ]
+      );
+
+      if (shouldBeDefault) {
+        await syncDefaultAddress(connection, userId);
+      }
+
+      const [rows] = await connection.query("SELECT * FROM user_addresses WHERE id = ? LIMIT 1", [result.insertId]);
+      return rows[0];
+    });
+
+    res.status(201).json({
+      error: false,
+      message: "Đã thêm địa chỉ",
+      address: mapAddressRow(address),
+    });
+  } catch (error) {
+    console.error("Address Create Error:", error);
+    res.status(500).json({ error: true, message: "Không thêm được địa chỉ" });
+  }
+};
+
+userController.updateAddress = async (req, res) => {
+  const addressId = Number(req.params.id);
+  if (!Number.isInteger(addressId) || addressId < 1) {
+    return res.status(400).json({ error: true, message: "Mã địa chỉ không hợp lệ" });
+  }
+
+  const payload = normalizeAddressPayload(req.body);
+  const validationMessage = validateAddressPayload(payload);
+  if (validationMessage) {
+    return res.status(400).json({ error: true, message: validationMessage });
+  }
+
+  try {
+    const userId = req.userInfo.id;
+    const address = await withTransaction(async (connection) => {
+      const [existingRows] = await connection.query(
+        "SELECT id, is_default FROM user_addresses WHERE id = ? AND user_id = ? LIMIT 1",
+        [addressId, userId]
+      );
+      if (!existingRows.length) return null;
+
+      const shouldBeDefault = payload.isDefault || Boolean(existingRows[0].is_default);
+      if (shouldBeDefault) {
+        await connection.query("UPDATE user_addresses SET is_default = 0 WHERE user_id = ?", [userId]);
+      }
+
+      await connection.query(
+        `UPDATE user_addresses
+         SET recipient_name = ?, phone = ?, address = ?, lat = ?, lng = ?, is_default = ?
+         WHERE id = ? AND user_id = ?`,
+        [
+          payload.recipientName || null,
+          payload.phone,
+          payload.address,
+          payload.lat,
+          payload.lng,
+          shouldBeDefault ? 1 : 0,
+          addressId,
+          userId,
+        ]
+      );
+
+      if (shouldBeDefault) {
+        await syncDefaultAddress(connection, userId);
+      }
+
+      const [rows] = await connection.query("SELECT * FROM user_addresses WHERE id = ? LIMIT 1", [addressId]);
+      return rows[0];
+    });
+
+    if (!address) {
+      return res.status(404).json({ error: true, message: "Không tìm thấy địa chỉ" });
+    }
+
+    res.json({
+      error: false,
+      message: "Đã cập nhật địa chỉ",
+      address: mapAddressRow(address),
+    });
+  } catch (error) {
+    console.error("Address Update Error:", error);
+    res.status(500).json({ error: true, message: "Không cập nhật được địa chỉ" });
+  }
+};
+
+userController.setDefaultAddress = async (req, res) => {
+  const addressId = Number(req.params.id);
+  if (!Number.isInteger(addressId) || addressId < 1) {
+    return res.status(400).json({ error: true, message: "Mã địa chỉ không hợp lệ" });
+  }
+
+  try {
+    const userId = req.userInfo.id;
+    const address = await withTransaction(async (connection) => {
+      const [existingRows] = await connection.query(
+        "SELECT id FROM user_addresses WHERE id = ? AND user_id = ? LIMIT 1",
+        [addressId, userId]
+      );
+      if (!existingRows.length) return null;
+
+      await connection.query("UPDATE user_addresses SET is_default = 0 WHERE user_id = ?", [userId]);
+      await connection.query("UPDATE user_addresses SET is_default = 1 WHERE id = ? AND user_id = ?", [addressId, userId]);
+      await syncDefaultAddress(connection, userId);
+
+      const [rows] = await connection.query("SELECT * FROM user_addresses WHERE id = ? LIMIT 1", [addressId]);
+      return rows[0];
+    });
+
+    if (!address) {
+      return res.status(404).json({ error: true, message: "Không tìm thấy địa chỉ" });
+    }
+
+    res.json({
+      error: false,
+      message: "Đã đặt làm địa chỉ mặc định",
+      address: mapAddressRow(address),
+    });
+  } catch (error) {
+    console.error("Address Default Error:", error);
+    res.status(500).json({ error: true, message: "Không đặt được địa chỉ mặc định" });
+  }
+};
+
+userController.deleteAddress = async (req, res) => {
+  const addressId = Number(req.params.id);
+  if (!Number.isInteger(addressId) || addressId < 1) {
+    return res.status(400).json({ error: true, message: "Mã địa chỉ không hợp lệ" });
+  }
+
+  try {
+    const userId = req.userInfo.id;
+    const deleted = await withTransaction(async (connection) => {
+      const [existingRows] = await connection.query(
+        "SELECT id, is_default FROM user_addresses WHERE id = ? AND user_id = ? LIMIT 1",
+        [addressId, userId]
+      );
+      const existing = existingRows[0];
+      if (!existing) return false;
+
+      await connection.query("DELETE FROM user_addresses WHERE id = ? AND user_id = ?", [addressId, userId]);
+
+      if (existing.is_default) {
+        const [fallbackRows] = await connection.query(
+          `SELECT id FROM user_addresses
+           WHERE user_id = ?
+           ORDER BY updated_at DESC, id DESC
+           LIMIT 1`,
+          [userId]
+        );
+        if (fallbackRows.length) {
+          await connection.query("UPDATE user_addresses SET is_default = 1 WHERE id = ?", [fallbackRows[0].id]);
+        }
+        await syncDefaultAddress(connection, userId);
+      }
+
+      return true;
+    });
+
+    if (!deleted) {
+      return res.status(404).json({ error: true, message: "Không tìm thấy địa chỉ" });
+    }
+
+    res.json({ error: false, message: "Đã xóa địa chỉ" });
+  } catch (error) {
+    console.error("Address Delete Error:", error);
+    res.status(500).json({ error: true, message: "Không xóa được địa chỉ" });
   }
 };
 
@@ -447,21 +782,55 @@ userController.googleLogin = async (req, res) => {
 userController.updateProfile = async (req, res) => {
   try {
     const { id } = req.userInfo;
-    const { name, stream, year } = req.body;
+    const {
+      name,
+      stream,
+      year,
+      phone,
+      defaultAddress,
+      defaultAddressLat,
+      defaultAddressLng,
+    } = req.body;
 
     if (!name) {
       return res.status(400).json({ error: true, message: "Họ và tên là bắt buộc" });
     }
 
+    const normalizedAddress = String(defaultAddress || "").trim();
+    const normalizedPhone = String(phone || "").trim();
+    const latValue = defaultAddressLat === "" || defaultAddressLat === null || defaultAddressLat === undefined
+      ? null
+      : Number(defaultAddressLat);
+    const lngValue = defaultAddressLng === "" || defaultAddressLng === null || defaultAddressLng === undefined
+      ? null
+      : Number(defaultAddressLng);
+
+    if (normalizedAddress.length > 500) {
+      return res.status(400).json({ error: true, message: "Địa chỉ mặc định không được vượt quá 500 ký tự" });
+    }
+
+    if (normalizedPhone && normalizedPhone.length > 20) {
+      return res.status(400).json({ error: true, message: "Số điện thoại không được vượt quá 20 ký tự" });
+    }
+
     await query(
       `UPDATE users 
-       SET name = ?, stream = ?, year = ? 
+       SET name = ?, stream = ?, year = ?, phone = ?, default_address = ?, default_address_lat = ?, default_address_lng = ? 
        WHERE id = ?`,
-      [name, stream || null, year || null, id]
+      [
+        String(name).trim(),
+        stream || null,
+        year || null,
+        normalizedPhone || null,
+        normalizedAddress || null,
+        Number.isFinite(latValue) ? latValue : null,
+        Number.isFinite(lngValue) ? lngValue : null,
+        id,
+      ]
     );
 
     const rows = await query(
-      `SELECT id, name, email, role, stream, year, phone, email_verified, is_active, created_at, updated_at
+      `SELECT id, name, email, role, stream, year, phone, default_address, default_address_lat, default_address_lng, email_verified, is_active, created_at, updated_at
        FROM users
        WHERE id = ?
        LIMIT 1`,

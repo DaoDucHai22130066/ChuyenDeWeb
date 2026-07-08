@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import axios from "axios";
+import { ArcElement, Chart as ChartJS, Legend, Tooltip } from "chart.js";
+import { Doughnut } from "react-chartjs-2";
 import "../../styles/components.css";
 import { Server_URL } from "../../utils/config";
 import { showErrorToast, showSuccessToast } from "../../utils/toasthelper";
@@ -36,6 +38,8 @@ import {
   FiCreditCard,
   FiPackage
 } from "react-icons/fi";
+
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 const STATUS_VI = {
   pending: "Chờ duyệt",
@@ -278,14 +282,93 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const getTransactionTypeLabel = (value) => TRANSACTION_TYPE_VI[value] || "Giao dịch";
   const getTransactionStatusLabel = (value) => TRANSACTION_STATUS_VI[value] || "Chưa cập nhật";
   const reportRevenueTypes = ["deposit", "shipping", "fine"];
+  const realRevenueTypes = ["shipping", "fine"];
+  const chartColors = ["#2563eb", "#0f766e", "#dc2626", "#f59e0b", "#7c3aed", "#475569", "#0891b2", "#65a30d", "#be123c"];
   const totalCompletedRevenue = reportRevenueTypes.reduce(
     (total, type) => total + Number(reports.revenueByType?.[type]?.completedAmount || 0),
+    0
+  );
+  const totalRefundedRevenue = reportRevenueTypes.reduce(
+    (total, type) => total + Math.abs(Number(reports.revenueByType?.[type]?.refundedAmount || 0)),
     0
   );
   const totalNetRevenue = reportRevenueTypes.reduce(
     (total, type) => total + Number(reports.revenueByType?.[type]?.netAmount || 0),
     0
   );
+  const totalRealRevenue = realRevenueTypes.reduce(
+    (total, type) => total + Number(reports.revenueByType?.[type]?.completedAmount || 0),
+    0
+  );
+  const revenueBreakdownRows = reportRevenueTypes.map((type) => ({
+    type,
+    label: getTransactionTypeLabel(type),
+    completedAmount: Number(reports.revenueByType?.[type]?.completedAmount || 0),
+    pendingAmount: Number(reports.revenueByType?.[type]?.pendingAmount || 0),
+    refundedAmount: Number(reports.revenueByType?.[type]?.refundedAmount || 0),
+    netAmount: Number(reports.revenueByType?.[type]?.netAmount || 0),
+  }));
+  const realRevenueRows = revenueBreakdownRows.filter((row) => realRevenueTypes.includes(row.type));
+  const realRevenueChartData = {
+    labels: realRevenueRows.map((row) => row.label),
+    datasets: [
+      {
+        data: realRevenueRows.map((row) => row.completedAmount),
+        backgroundColor: chartColors.slice(1, 3),
+        borderColor: "#ffffff",
+        borderWidth: 3,
+      },
+    ],
+  };
+  const ticketStatusRows = Object.entries(reports.ticketStatusSummary || {})
+    .map(([status, total]) => ({
+      status,
+      label: getStatusLabel(status),
+      total: Number(total || 0),
+    }))
+    .filter((row) => row.total > 0);
+  const ticketStatusChartData = {
+    labels: ticketStatusRows.map((row) => row.label),
+    datasets: [
+      {
+        data: ticketStatusRows.map((row) => row.total),
+        backgroundColor: chartColors,
+        borderColor: "#ffffff",
+        borderWidth: 3,
+      },
+    ],
+  };
+  const createDoughnutOptions = (formatter) => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: "64%",
+    plugins: {
+      legend: {
+        position: "bottom",
+        labels: {
+          boxWidth: 10,
+          boxHeight: 10,
+          color: "#475569",
+          font: {
+            size: 12,
+            weight: 700,
+          },
+        },
+      },
+      tooltip: {
+        callbacks: {
+          label: (context) => {
+            const value = Number(context.raw || 0);
+            const total = context.dataset.data.reduce((sum, item) => sum + Number(item || 0), 0);
+            const percent = total > 0 ? ` (${((value / total) * 100).toFixed(1)}%)` : "";
+            return `${context.label}: ${formatter(value)}${percent}`;
+          },
+        },
+      },
+    },
+  });
+  const currencyDoughnutOptions = createDoughnutOptions(formatCurrency);
+  const countDoughnutOptions = createDoughnutOptions((value) => new Intl.NumberFormat("vi-VN").format(value));
   const recentTransactionGroups = useMemo(() => {
     const groups = new Map();
 
@@ -298,14 +381,22 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
         userEmail: transaction.userEmail,
         latestAt: transaction.createdAt,
         totalAmount: 0,
+        collectedAmount: 0,
+        refundedAmount: 0,
+        realRevenueAmount: 0,
         transactions: [],
       };
 
       const amount = Number(transaction.amount || 0);
+      const isCompletedIncome = transaction.status === "completed" && amount > 0;
+      const isRefund = transaction.status === "refunded" || amount < 0;
       const currentDate = transaction.createdAt ? new Date(transaction.createdAt).getTime() : 0;
       const latestDate = group.latestAt ? new Date(group.latestAt).getTime() : 0;
 
       group.totalAmount += amount;
+      group.collectedAmount += isCompletedIncome ? amount : 0;
+      group.refundedAmount += isRefund ? Math.abs(amount) : 0;
+      group.realRevenueAmount += isCompletedIncome && transaction.type !== "deposit" ? amount : 0;
       group.transactions.push(transaction);
 
       if (currentDate >= latestDate) {
@@ -337,7 +428,9 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
     const rows = [
       ["Loại báo cáo", "Chi tiết 1", "Chi tiết 2", "Chi tiết 3", "Giá trị"],
       ["Tổng thu hoàn tất", "", "", "", totalCompletedRevenue],
-      ["Tổng thu thuần", "", "", "", totalNetRevenue],
+      ["Tổng đã hoàn", "", "", "", totalRefundedRevenue],
+      ["Doanh thu thực", "", "", "", totalRealRevenue],
+      ["Dòng tiền ròng", "", "", "", totalNetRevenue],
       ["Tỷ lệ trả trễ", "Đã trả có hạn", reports.lateReturn.returnedWithDueDate, "Trả trễ", `${reports.lateReturn.lateRate}%`],
       ["Đang quá hạn", "", "", "", reports.lateReturn.currentlyOverdue],
       [],
@@ -1069,7 +1162,6 @@ const handleSendReply = async (reviewId) => {
                 {[
                   { key: "all", label: "Tất cả" },
                   { key: "pending", label: "Chờ duyệt" },
-                  { key: "awaiting_payment", label: "Chờ thanh toán" },
                   { key: "approved", label: "Đã duyệt" },
                   { key: "dispatched", label: "Đang giao" },
                   { key: "delivered", label: "Đã giao" },
@@ -1368,12 +1460,22 @@ const handleSendReply = async (reviewId) => {
                 <div className="report-summary-card">
                   <span>Đã thu</span>
                   <strong>{formatCurrency(totalCompletedRevenue)}</strong>
-                  <small>Tổng tiền cọc, ship và phạt đã ghi nhận hoàn tất.</small>
+                  <small>Tổng tiền cọc, phí giao hàng và phí phạt đã hoàn tất.</small>
                 </div>
                 <div className="report-summary-card">
-                  <span>Còn lại sau hoàn tiền</span>
+                  <span>Đã hoàn</span>
+                  <strong>{formatCurrency(totalRefundedRevenue)}</strong>
+                  <small>Tiền đã trả lại cho độc giả, chủ yếu là hoàn cọc.</small>
+                </div>
+                <div className="report-summary-card success">
+                  <span>Doanh thu thực</span>
+                  <strong>{formatCurrency(totalRealRevenue)}</strong>
+                  <small>Chỉ tính phí giao hàng và phí phạt đã hoàn tất, không tính tiền cọc giữ hộ.</small>
+                </div>
+                <div className="report-summary-card">
+                  <span>Dòng tiền ròng</span>
                   <strong>{formatCurrency(totalNetRevenue)}</strong>
-                  <small>Số tiền sau khi trừ các khoản hoàn cọc hoặc giao dịch âm.</small>
+                  <small>Đã thu trừ đi các khoản hoàn tiền. Dùng để đối soát dòng tiền.</small>
                 </div>
                 <div className="report-summary-card warning">
                   <span>Trả trễ</span>
@@ -1388,34 +1490,105 @@ const handleSendReply = async (reviewId) => {
               </div>
 
               <div className="report-revenue-grid">
-                {reportRevenueTypes.map((type) => {
-                  const item = reports.revenueByType?.[type] || {};
+                {revenueBreakdownRows.map((item) => {
                   return (
-                    <div key={type} className="report-revenue-card">
+                    <div key={item.type} className="report-revenue-card">
                       <div className="report-card-title">
                         <FiDollarSign />
-                        <strong>{getTransactionTypeLabel(type)}</strong>
+                        <strong>{item.label}</strong>
                       </div>
                       <div className="report-money-row">
                         <span>Đã thu</span>
-                        <strong>{formatCurrency(item.completedAmount || 0)}</strong>
+                        <strong>{formatCurrency(item.completedAmount)}</strong>
                       </div>
                       <div className="report-money-row">
                         <span>Chờ xử lý</span>
-                        <strong>{formatCurrency(item.pendingAmount || 0)}</strong>
+                        <strong>{formatCurrency(item.pendingAmount)}</strong>
                       </div>
                       <div className="report-money-row">
-                        <span>Đã hoàn / giảm trừ</span>
-                        <strong>{formatCurrency(item.refundedAmount || 0)}</strong>
+                        <span>Đã hoàn</span>
+                        <strong>{formatCurrency(Math.abs(item.refundedAmount))}</strong>
                       </div>
                       <div className="report-money-row total">
-                        <span>Còn lại</span>
-                        <strong>{formatCurrency(item.netAmount || 0)}</strong>
+                        <span>Dòng tiền ròng</span>
+                        <strong>{formatCurrency(item.netAmount)}</strong>
                       </div>
                     </div>
                   );
                 })}
               </div>
+
+              <div className="report-analysis-grid">
+                <section className="report-panel report-chart-panel">
+                  <div className="report-panel-heading">
+                    <h3><FiBarChart2 /> Cơ cấu doanh thu thực</h3>
+                    <small>Không tính tiền cọc vì đây là khoản giữ hộ và có thể hoàn lại.</small>
+                  </div>
+                  {totalRealRevenue > 0 ? (
+                    <div className="report-chart-layout">
+                      <div className="report-chart-box">
+                        <Doughnut data={realRevenueChartData} options={currencyDoughnutOptions} />
+                      </div>
+                      <div className="report-chart-notes">
+                        {realRevenueRows.map((row) => (
+                          <div key={row.type} className="report-chart-note">
+                            <span>{row.label}</span>
+                            <strong>{formatCurrency(row.completedAmount)}</strong>
+                            <small>{totalRealRevenue > 0 ? `${((row.completedAmount / totalRealRevenue) * 100).toFixed(1)}% doanh thu thực` : "0%"}</small>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="report-empty">Chưa có phí giao hàng hoặc phí phạt hoàn tất để vẽ biểu đồ.</p>
+                  )}
+                </section>
+
+                <section className="report-panel report-chart-panel">
+                  <div className="report-panel-heading">
+                    <h3><FiClipboard /> Phân bổ trạng thái phiếu</h3>
+                    <small>Cho biết phiếu đang kẹt ở bước nào trong quy trình mượn trả.</small>
+                  </div>
+                  {ticketStatusRows.length > 0 ? (
+                    <div className="report-chart-layout">
+                      <div className="report-chart-box">
+                        <Doughnut data={ticketStatusChartData} options={countDoughnutOptions} />
+                      </div>
+                      <div className="report-chart-notes">
+                        {ticketStatusRows.map((row) => (
+                          <div key={row.status} className="report-chart-note">
+                            <span>{row.label}</span>
+                            <strong>{row.total}</strong>
+                            <small>{totalTickets > 0 ? `${((row.total / totalTickets) * 100).toFixed(1)}% tổng phiếu` : "0%"}</small>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="report-empty">Chưa có dữ liệu trạng thái phiếu.</p>
+                  )}
+                </section>
+              </div>
+
+              <section className="report-panel report-explain-panel">
+                <div className="report-panel-heading">
+                  <h3><FiCreditCard /> Cách đọc số liệu</h3>
+                </div>
+                <div className="report-explain-grid">
+                  <div>
+                    <strong>Đã thu</strong>
+                    <p>Tất cả giao dịch dương đã hoàn tất, gồm cả tiền cọc. Số này dùng để đối chiếu tiền vào.</p>
+                  </div>
+                  <div>
+                    <strong>Doanh thu thực</strong>
+                    <p>Chỉ gồm phí giao hàng và phí phạt đã hoàn tất. Đây là chỉ số nên dùng khi xem hiệu quả tài chính.</p>
+                  </div>
+                  <div>
+                    <strong>Dòng tiền ròng</strong>
+                    <p>Bằng đã thu trừ hoàn tiền. Nếu dùng để tính doanh thu, tiền cọc có thể làm số bị hiểu sai.</p>
+                  </div>
+                </div>
+              </section>
 
               <div className="report-content-grid">
                 <section className="report-panel">
@@ -1476,12 +1649,28 @@ const handleSendReply = async (reviewId) => {
                           </div>
                         </div>
                         <div className="report-transaction-side">
-                          <strong className={Number(group.totalAmount) < 0 ? "negative" : "positive"}>
-                            {formatCurrency(group.totalAmount)}
+                          <strong className={Number(group.realRevenueAmount) < 0 ? "negative" : "positive"}>
+                            {formatCurrency(group.realRevenueAmount)}
                           </strong>
                           <div>
-                            <span className="status-badge completed">Tổng phiếu</span>
+                            <span className="status-badge completed">Doanh thu thực</span>
                             <small>{group.latestAt ? new Date(group.latestAt).toLocaleString("vi-VN") : "—"}</small>
+                          </div>
+                        </div>
+                        <div className="report-transaction-metrics">
+                          <div>
+                            <span>Đã thu</span>
+                            <strong>{formatCurrency(group.collectedAmount)}</strong>
+                          </div>
+                          <div>
+                            <span>Đã hoàn</span>
+                            <strong>{formatCurrency(group.refundedAmount)}</strong>
+                          </div>
+                          <div>
+                            <span>Dòng tiền ròng</span>
+                            <strong className={Number(group.totalAmount) < 0 ? "negative" : "positive"}>
+                              {formatCurrency(group.totalAmount)}
+                            </strong>
                           </div>
                         </div>
                         <div className="report-transaction-items">

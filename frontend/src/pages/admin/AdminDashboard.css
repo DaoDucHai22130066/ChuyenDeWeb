@@ -1582,6 +1582,7 @@
 
 .report-summary-grid,
 .report-revenue-grid,
+.report-analysis-grid,
 .report-content-grid {
   display: grid;
   gap: 1rem;
@@ -1589,7 +1590,7 @@
 }
 
 .report-summary-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .report-revenue-grid {
@@ -1598,6 +1599,10 @@
 
 .report-content-grid {
   grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+}
+
+.report-analysis-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .report-summary-card,
@@ -1623,6 +1628,10 @@
 
 .report-summary-card.warning {
   border-top-color: #f97316;
+}
+
+.report-summary-card.success {
+  border-top-color: #0f766e;
 }
 
 .report-summary-card.danger {
@@ -1655,6 +1664,10 @@
 
 .report-summary-card.warning strong {
   color: #c2410c;
+}
+
+.report-summary-card.success strong {
+  color: #0f766e;
 }
 
 .report-summary-card.danger strong {
@@ -1728,6 +1741,80 @@
 .report-panel-heading small {
   color: #64748b;
   font-weight: 800;
+}
+
+.report-chart-panel {
+  min-height: 360px;
+}
+
+.report-chart-layout {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+  align-items: center;
+  gap: 1rem;
+}
+
+.report-chart-box {
+  position: relative;
+  width: 100%;
+  min-height: 240px;
+}
+
+.report-chart-notes,
+.report-explain-grid,
+.report-transaction-metrics {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.report-chart-note,
+.report-explain-grid > div,
+.report-transaction-metrics > div {
+  padding: 0.75rem;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.report-chart-note span,
+.report-transaction-metrics span {
+  display: block;
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.report-chart-note strong,
+.report-explain-grid strong,
+.report-transaction-metrics strong {
+  display: block;
+  margin-top: 0.15rem;
+  color: #0f172a;
+  font-weight: 950;
+}
+
+.report-chart-note small {
+  display: block;
+  margin-top: 0.1rem;
+  color: #64748b;
+  font-weight: 750;
+}
+
+.report-explain-panel {
+  margin-bottom: 1rem;
+}
+
+.report-explain-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.report-explain-grid p {
+  margin: 0.2rem 0 0;
+  color: #64748b;
+  font-size: 0.88rem;
+  font-weight: 750;
+  line-height: 1.45;
 }
 
 .report-book-list,
@@ -1893,6 +1980,24 @@
   white-space: nowrap;
 }
 
+.report-transaction-metrics {
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 0.75rem;
+}
+
+.report-transaction-metrics > div {
+  background: #ffffff;
+}
+
+.report-transaction-metrics strong.negative {
+  color: #b91c1c;
+}
+
+.report-transaction-metrics strong.positive {
+  color: #047857;
+}
+
 .report-transaction-items {
   grid-column: 1 / -1;
   display: grid;
@@ -1966,6 +2071,7 @@
 
   .report-summary-grid,
   .report-revenue-grid,
+  .report-analysis-grid,
   .report-content-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2018,8 +2124,19 @@
   .ticket-details-grid,
   .report-summary-grid,
   .report-revenue-grid,
+  .report-analysis-grid,
+  .report-explain-grid,
   .report-content-grid {
     grid-template-columns: 1fr;
+  }
+
+  .report-chart-layout,
+  .report-transaction-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .report-chart-box {
+    min-height: 220px;
   }
 
   .report-header {

@@ -60,6 +60,9 @@ async function createSchema(connection) {
       stream VARCHAR(255) NULL,
       year INT NULL,
       phone VARCHAR(20) NULL,
+      default_address VARCHAR(500) NULL,
+      default_address_lat DECIMAL(10,7) NULL,
+      default_address_lng DECIMAL(10,7) NULL,
       email_verified TINYINT(1) NOT NULL DEFAULT 1,
       is_active TINYINT(1) NOT NULL DEFAULT 1,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -144,6 +147,24 @@ async function createSchema(connection) {
   `);
 
   await connection.query(`
+    CREATE TABLE IF NOT EXISTS user_addresses (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      user_id INT UNSIGNED NOT NULL,
+      recipient_name VARCHAR(255) NULL,
+      phone VARCHAR(20) NOT NULL,
+      address VARCHAR(500) NOT NULL,
+      lat DECIMAL(10,7) NULL,
+      lng DECIMAL(10,7) NULL,
+      is_default TINYINT(1) NOT NULL DEFAULT 0,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_user_addresses_user (user_id),
+      INDEX idx_user_addresses_default (user_id, is_default),
+      CONSTRAINT fk_user_addresses_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await connection.query(`
     CREATE TABLE IF NOT EXISTS borrow_ticket_books (
       ticket_id INT UNSIGNED NOT NULL,
       book_id INT UNSIGNED NOT NULL,
@@ -191,6 +212,9 @@ async function createSchema(connection) {
   async function ensureBorrowTicketSchema(connection) {
     // Add missing columns (won't fail if they exist)
     await addColumnIfMissing(connection, "users", "phone", "phone VARCHAR(20) NULL");
+    await addColumnIfMissing(connection, "users", "default_address", "default_address VARCHAR(500) NULL");
+    await addColumnIfMissing(connection, "users", "default_address_lat", "default_address_lat DECIMAL(10,7) NULL");
+    await addColumnIfMissing(connection, "users", "default_address_lng", "default_address_lng DECIMAL(10,7) NULL");
     await addColumnIfMissing(connection, "users", "email_verified", "email_verified TINYINT(1) NOT NULL DEFAULT 1");
     await addColumnIfMissing(connection, "users", "is_active", "is_active TINYINT(1) NOT NULL DEFAULT 1 AFTER email_verified");
     await addColumnIfMissing(connection, "borrow_tickets", "due_date", "due_date DATETIME NULL DEFAULT NULL");
@@ -421,6 +445,9 @@ function mapUserRow(row, includePassword = false) {
     stream: row.stream,
     year: row.year,
     phone: row.phone,
+    defaultAddress: row.default_address,
+    defaultAddressLat: row.default_address_lat === undefined || row.default_address_lat === null ? null : Number(row.default_address_lat),
+    defaultAddressLng: row.default_address_lng === undefined || row.default_address_lng === null ? null : Number(row.default_address_lng),
     emailVerified: row.email_verified === undefined || row.email_verified === null ? true : Boolean(row.email_verified),
     isActive: row.is_active === undefined || row.is_active === null ? true : Boolean(row.is_active),
     createdAt: row.created_at,
