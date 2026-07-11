@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
-const JWT_SECRET = process.env.JWT_SECRET || "12345@abcd12";
-const jwt = require("jsonwebtoken");
+require("../utils/loadEnv");
+const { signAccessToken } = require("../utils/jwtConfig");
+const { setAuthCookie } = require("../utils/authCookie");
 const { query, mapUserRow, mapContactRow } = require("../utils/mysql");
 
 const adminController = {};
@@ -11,6 +12,7 @@ const USER_SELECT = `
 `;
 const USER_ROLES = ["admin", "user"];
 const CONTACT_STATUSES = ["new", "in_progress", "resolved", "closed"];
+const INVALID_ADMIN_LOGIN_MESSAGE = "Email hoặc mật khẩu không đúng";
 const CONTACT_SELECT = `
   SELECT
     c.id,
@@ -112,16 +114,17 @@ async function ensureAdminCanBeChanged(existingUser, targetRole, targetActive, c
 adminController.login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = String(email || "").trim().toLowerCase();
 
     if (!email || !password) {
       return res.status(400).json({ message: "Email and password are required" });
     }
 
-    const rows = await query("SELECT * FROM users WHERE email = ? LIMIT 1", [email]);
+    const rows = await query("SELECT * FROM users WHERE email = ? LIMIT 1", [normalizedEmail]);
     const user = rows[0];
 
     if (!user) {
-      return res.status(400).json({ message: "Invalid email or password" });
+      return res.status(400).json({ message: INVALID_ADMIN_LOGIN_MESSAGE });
     }
 
     if (Number(user.is_active) === 0) {
@@ -129,16 +132,16 @@ adminController.login = async (req, res) => {
     }
 
     if (user.role !== "admin") {
-      return res.status(403).json({ message: "Access denied. Admins only." });
+      return res.status(400).json({ message: INVALID_ADMIN_LOGIN_MESSAGE });
     }
 
     if (!user.password) {
-      return res.status(400).json({ message: "Invalid email or password" });
+      return res.status(400).json({ message: INVALID_ADMIN_LOGIN_MESSAGE });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: "Invalid email or password" });
+      return res.status(400).json({ message: INVALID_ADMIN_LOGIN_MESSAGE });
     }
 
     const payload = {
@@ -148,8 +151,9 @@ adminController.login = async (req, res) => {
       role: user.role,
     };
 
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "24h" });
-    res.json({ message: "Login successful", token, user: { name: user.name, email: user.email, role: user.role } });
+    const token = signAccessToken(payload);
+    setAuthCookie(res, token);
+    res.json({ message: "Login successful", user: { _id: user.id, name: user.name, email: user.email, role: user.role } });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }

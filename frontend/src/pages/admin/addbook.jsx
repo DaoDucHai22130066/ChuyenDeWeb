@@ -6,6 +6,7 @@ import axios from "axios";
 import "../../styles/components.css";
 import { Server_URL } from "../../utils/config";
 import { showErrorToast, showSuccessToast } from "../../utils/toasthelper";
+import { getAuthToken } from "../../utils/auth";
 import "./admin-shared.css";
 
 const FALLBACK_COVER = "https://placehold.co/240x340/eef2ff/475569?text=D+Free+Book";
@@ -47,7 +48,7 @@ const AddBookForm = () => {
       const response = await axios.post(`${Server_URL}books/add`, payload, {
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          Authorization: `Bearer ${getAuthToken()}`,
         },
       });
 

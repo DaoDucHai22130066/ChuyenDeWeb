@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import "./login.css";
 import { Server_URL } from "../../utils/config";
 import { showErrorToast, showSuccessToast } from "../../utils/toasthelper";
+import { setAuthUser } from "../../utils/auth";
 import { FiBookOpen, FiLock, FiMail, FiShield } from "react-icons/fi";
 
 const notifyCartAuthChanged = () => {
@@ -24,8 +25,7 @@ export default function Login() {
       const response = await axios.post(`${Server_URL}users/login`, data);
       const { role } = response.data.user;
 
-      localStorage.setItem("authToken", response.data.token);
-      localStorage.setItem("role", role);
+      setAuthUser(response.data.user);
       notifyCartAuthChanged();
 
       if (role === "admin") {
@@ -46,27 +46,33 @@ export default function Login() {
       const idToken = response.credential;
       const res = await axios.post(`${Server_URL}users/google-login`, { idToken });
       const { role } = res.data.user;
-      localStorage.setItem("authToken", res.data.token);
-      localStorage.setItem("role", role);
+      setAuthUser(res.data.user);
       notifyCartAuthChanged();
       if (role === "admin") navigate("/admin"); else navigate("/");
       showSuccessToast("Đăng nhập bằng Google thành công!");
-    } catch {
-      showErrorToast("Đăng nhập bằng Google thất bại");
+    } catch (error) {
+      showErrorToast(error.response?.data?.error || error.response?.data?.message || error.message || "Đăng nhập bằng Google thất bại");
     }
   }, [navigate]);
 
   useEffect(() => {
-    if (window.google && import.meta.env.VITE_GOOGLE_CLIENT_ID) {
-      window.google.accounts.id.initialize({
-        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-        callback: handleCredentialResponse,
-      });
-      window.google.accounts.id.renderButton(
-        document.getElementById('googleSignInDiv'),
-        { theme: 'outline', size: 'large' }
-      );
-    }
+    let interval;
+    const initGoogle = () => {
+      if (window.google && import.meta.env.VITE_GOOGLE_CLIENT_ID) {
+        window.google.accounts.id.initialize({
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+          callback: handleCredentialResponse,
+        });
+        window.google.accounts.id.renderButton(
+          document.getElementById('googleSignInDiv'),
+          { theme: 'outline', size: 'large', width: 300 }
+        );
+        clearInterval(interval);
+      }
+    };
+    interval = setInterval(initGoogle, 100);
+    initGoogle(); // try immediately too
+    return () => clearInterval(interval);
   }, [handleCredentialResponse]);
 
   return (

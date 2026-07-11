@@ -3,7 +3,7 @@ const app = express();
 const cors = require('cors'); 
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-require('dotenv').config();
+require("./utils/loadEnv");
 const connectDB = require("./config/db.js");
 const users = require("./routes/user.js") 
 const books = require("./routes/books.js")
@@ -39,6 +39,12 @@ app.use(cors({
   credentials: true,
   optionsSuccessStatus: 204,
 }));
+
+// Required for Google Sign-In One Tap popups to work properly
+app.use((req, res, next) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  next();
+});
 
 app.use(helmet());
 

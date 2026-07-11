@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const qs = require("qs");
+require("./loadEnv");
 const VNPAY_DEBUG = String(process.env.VNPAY_DEBUG || "").toLowerCase() === "true";
 
 function formatDate(date) {
@@ -14,20 +14,29 @@ function formatDate(date) {
   );
 }
 
-function sortObject(obj) {
-  let sorted = {};
-  let str = [];
-  let key;
-  for (key in obj) {
-    if (obj.hasOwnProperty(key)) {
-      str.push(encodeURIComponent(key));
+function buildSearchParams(obj) {
+  const params = new URLSearchParams();
+  const keys = Object.keys(obj).sort();
+
+  for (const key of keys) {
+    const value = obj[key];
+    if (value !== undefined && value !== null && value !== "") {
+      params.append(key, String(value));
     }
   }
-  str.sort();
-  for (key = 0; key < str.length; key++) {
-    sorted[str[key]] = encodeURIComponent(obj[str[key]]).replace(/%20/g, "+");
-  }
-  return sorted;
+
+  return params;
+}
+
+/**
+ * Sanitize orderInfo: only alphanumeric + space + basic punctuation.
+ * VNPAY rejects special characters in vnp_OrderInfo.
+ */
+function sanitizeOrderInfo(str) {
+  return String(str)
+    .replace(/[^a-zA-Z0-9\s\-_.]/g, "")
+    .trim()
+    .substring(0, 255);
 }
 
 function createVnpayPaymentUrl({
@@ -52,38 +61,34 @@ function createVnpayPaymentUrl({
   const vnpParams = {
     vnp_Version: "2.1.0",
     vnp_Command: "pay",
-    vnp_TmnCode: tmnCode,
+    vnp_TmnCode: String(tmnCode),
     vnp_Locale: locale,
     vnp_CurrCode: currCode,
-    vnp_TxnRef: txnRef,
-    vnp_OrderInfo: orderInfo,
+    vnp_TxnRef: String(txnRef),
+    vnp_OrderInfo: sanitizeOrderInfo(orderInfo),
     vnp_OrderType: "other",
-    vnp_Amount: Math.round(amount * 100),
+    vnp_Amount: String(Math.round(amount * 100)),
     vnp_ReturnUrl: returnUrl,
     vnp_IpAddr: IPv4,
     vnp_CreateDate: createDate,
   };
 
-  const sorted = sortObject(vnpParams);
-  const signData = qs.stringify(sorted, { encode: false });
+  const signData = buildSearchParams(vnpParams).toString();
+
   const secureHash = crypto
     .createHmac("sha512", String(secretKey).trim())
-    .update(signData, "utf-8")
+    .update(Buffer.from(signData, "utf-8"))
     .digest("hex");
 
   if (VNPAY_DEBUG) {
-    try {
-      console.log("[VNPAY DEBUG] createVnpayPaymentUrl signData:", signData);
-      console.log("[VNPAY DEBUG] createVnpayPaymentUrl secureHash:", secureHash);
-    } catch (e) {}
+    console.log("[VNPAY DEBUG] createVnpayPaymentUrl signData:", signData);
+    console.log("[VNPAY DEBUG] createVnpayPaymentUrl secureHash:", secureHash);
+    if (ipnUrl) {
+      console.log("[VNPAY DEBUG] createVnpayPaymentUrl ipnUrl is configured separately:", ipnUrl);
+    }
   }
 
-  const signedParams = {
-    ...sorted,
-    vnp_SecureHash: secureHash,
-  };
-
-  return `${vnpUrl}?${qs.stringify(signedParams, { encode: false })}`;
+  return `${vnpUrl}?${signData}&vnp_SecureHash=${secureHash}`;
 }
 
 function verifyVnpaySignature(params, secretKey) {
@@ -92,23 +97,21 @@ function verifyVnpaySignature(params, secretKey) {
   delete input.vnp_SecureHash;
   delete input.vnp_SecureHashType;
 
-  const sorted = sortObject(input);
-  const signData = qs.stringify(sorted, { encode: false });
+  const signData = buildSearchParams(input).toString();
+
   const computed = crypto
     .createHmac("sha512", String(secretKey).trim())
-    .update(signData, "utf-8")
+    .update(Buffer.from(signData, "utf-8"))
     .digest("hex");
 
   if (VNPAY_DEBUG) {
-    try {
-      console.log("[VNPAY DEBUG] verifyVnpaySignature received:", secureHash);
-      console.log("[VNPAY DEBUG] verifyVnpaySignature computed:", computed);
-      console.log("[VNPAY DEBUG] verifyVnpaySignature signData:", signData);
-    } catch (e) {}
+    console.log("[VNPAY DEBUG] verifyVnpaySignature received:", secureHash);
+    console.log("[VNPAY DEBUG] verifyVnpaySignature computed:", computed);
+    console.log("[VNPAY DEBUG] verifyVnpaySignature signData:", signData);
   }
 
   return {
-    isValid: secureHash === computed,
+    isValid: typeof secureHash === "string" && secureHash.toLowerCase() === String(computed).toLowerCase(),
     computed,
   };
 }

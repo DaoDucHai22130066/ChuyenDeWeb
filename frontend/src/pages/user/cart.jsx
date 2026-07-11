@@ -204,7 +204,7 @@ export default function CartPage() {
 
       selectedBooks.forEach((book) => removeFromCart(book._id ?? book.id));
       setSelectedBookIds([]);
-      showSuccessToast(response.data.message || "Đã gửi yêu cầu mượn sách.");
+      showSuccessToast("Tạo phiếu mượn sách thành công.");
 
       if (paymentMethod === "vnpay" && response.data.paymentUrl) {
         window.location.href = response.data.paymentUrl;

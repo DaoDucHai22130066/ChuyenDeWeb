@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Server_URL } from "../../utils/config";
 import { showErrorToast, showSuccessToast } from "../../utils/toasthelper";
+import { setAuthUser } from "../../utils/auth";
 import "./login.css";
 import { FiBookOpen, FiCheckCircle } from "react-icons/fi";
 
@@ -17,8 +18,7 @@ export default function Register() {
 
   const loginAfterVerified = async (email, password) => {
     const loginResponse = await axios.post(`${Server_URL}users/login`, { email, password });
-    localStorage.setItem("authToken", loginResponse.data.token);
-    localStorage.setItem("role", loginResponse.data.user.role);
+    setAuthUser(loginResponse.data.user);
     try {
       window.dispatchEvent(new Event('cart:auth-changed'));
     } catch {
@@ -29,7 +29,7 @@ export default function Register() {
 
   const onSubmit = async (data) => {
     try {
-      const formData = { ...data, role: "user" };
+      const formData = { ...data };
       await axios.post(`${Server_URL}users/register`, formData);
 
       setPendingEmail(data.email);
@@ -81,27 +81,33 @@ export default function Register() {
     try {
       const idToken = response.credential;
       const res = await axios.post(`${Server_URL}users/google-login`, { idToken });
-      localStorage.setItem("authToken", res.data.token);
-      localStorage.setItem("role", res.data.user.role);
+      setAuthUser(res.data.user);
       showSuccessToast("Đăng nhập bằng Google thành công!");
       // optional: redirect to home
       window.location.href = "/";
-    } catch {
-      showErrorToast("Đăng nhập bằng Google thất bại");
+    } catch (error) {
+      showErrorToast(error.response?.data?.error || error.response?.data?.message || error.message || "Đăng nhập bằng Google thất bại");
     }
   };
 
   useEffect(() => {
-    if (window.google && import.meta.env.VITE_GOOGLE_CLIENT_ID) {
-      window.google.accounts.id.initialize({
-        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-        callback: handleCredentialResponse,
-      });
-      window.google.accounts.id.renderButton(
-        document.getElementById('googleSignInDiv'),
-        { theme: 'outline', size: 'large' }
-      );
-    }
+    let interval;
+    const initGoogle = () => {
+      if (window.google && import.meta.env.VITE_GOOGLE_CLIENT_ID) {
+        window.google.accounts.id.initialize({
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+          callback: handleCredentialResponse,
+        });
+        window.google.accounts.id.renderButton(
+          document.getElementById('googleSignInDiv'),
+          { theme: 'outline', size: 'large', width: 300 }
+        );
+        clearInterval(interval);
+      }
+    };
+    interval = setInterval(initGoogle, 100);
+    initGoogle(); // try immediately too
+    return () => clearInterval(interval);
   }, []);
 
   return (

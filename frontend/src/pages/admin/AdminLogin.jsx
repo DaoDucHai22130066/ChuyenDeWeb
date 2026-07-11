@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { FiLock, FiMail, FiShield } from "react-icons/fi";
 import { Server_URL } from "../../utils/config";
 import { showErrorToast, showSuccessToast } from "../../utils/toasthelper";
+import { setAuthUser } from "../../utils/auth";
 import "./admin-shared.css";
 
 const AdminLogin = () => {
@@ -18,8 +19,7 @@ const AdminLogin = () => {
     try {
       const response = await axios.post(`${Server_URL}admin/login`, data);
       showSuccessToast("Đăng nhập thành công!");
-      localStorage.setItem("authToken", response.data.token);
-      localStorage.setItem("role", response.data.user?.role || "admin");
+      setAuthUser(response.data.user);
       navigate("/admin");
     } catch (error) {
       console.error("Lỗi đăng nhập:", error.response?.data || error.message);
