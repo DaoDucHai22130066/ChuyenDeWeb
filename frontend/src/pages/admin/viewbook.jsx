@@ -6,6 +6,7 @@ import axios from "axios";
 import "../../styles/components.css";
 import { Server_URL } from "../../utils/config";
 import { showErrorToast, showSuccessToast } from "../../utils/toasthelper";
+import { getAuthToken } from "../../utils/auth";
 import "./viewbook.css";
 import "./admin-shared.css";
 
@@ -44,7 +45,7 @@ const ViewBooks = () => {
   const fetchBooks = async () => {
     try {
       const response = await axios.get(`${Server_URL}books`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` },
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
       });
       setBooks(response.data.books || []);
     } catch (error) {
@@ -81,7 +82,7 @@ const ViewBooks = () => {
     if (!window.confirm("Bạn có chắc muốn xóa sách này?")) return;
     try {
       await axios.delete(`${Server_URL}books/delete/${id}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` },
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
       });
       showSuccessToast("Đã xóa sách thành công!");
       fetchBooks();
@@ -114,7 +115,7 @@ const ViewBooks = () => {
   const handleUpdate = async () => {
     try {
       await axios.put(`${Server_URL}books/update/${selectedBook._id}`, formData, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` },
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
       });
       showSuccessToast("Đã cập nhật sách thành công!");
       setShowModal(false);

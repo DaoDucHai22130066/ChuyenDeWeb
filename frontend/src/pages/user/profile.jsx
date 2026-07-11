@@ -35,7 +35,7 @@ const STATUS_VI = {
   Pending: "Chờ duyệt",
   Approved: "Đã duyệt",
   Returned: "Đã trả",
-  Rejected: "Từ chối",
+  Rejected: "Đã hủy",
   pending: "Chờ duyệt",
   awaiting_payment: "Chờ thanh toán",
   paid: "Đã thanh toán",
@@ -43,11 +43,12 @@ const STATUS_VI = {
   dispatched: "Đang giao",
   delivered: "Đã giao",
   returned: "Đã trả",
-  closed: "Hoàn tất",
+  closed: "Đã trả",
   cancelled: "Đã hủy",
 };
 
 const normalizeTicketStatus = (status) => String(status || "").trim().toLowerCase();
+const RENEWABLE_TICKET_STATUSES = ["approved", "dispatched", "delivered"];
 const canCancelTicketStatus = (status) => ["pending", "awaiting_payment"].includes(normalizeTicketStatus(status));
 const formatCurrency = (value) => new Intl.NumberFormat("vi-VN", {
   style: "currency",
@@ -80,7 +81,7 @@ const TRANSACTION_TYPE_VI = {
 
 const TRANSACTION_STATUS_VI = {
   pending: "Chờ xử lý",
-  completed: "Hoàn tất",
+  completed: "Thành công",
   failed: "Thất bại",
   refunded: "Đã hoàn",
 };
@@ -98,10 +99,11 @@ const PROFILE_TABS = [
 
 const TICKET_STATUS_TABS = [
   { value: "all", label: "Tất cả", statuses: [] },
-  { value: "payment", label: "Chờ thanh toán", statuses: ["awaiting_payment", "paid"] },
-  { value: "processing", label: "Chờ xử lý", statuses: ["pending", "approved"] },
-  { value: "shipping", label: "Vận chuyển", statuses: ["dispatched", "delivered"] },
-  { value: "completed", label: "Hoàn thành", statuses: ["returned", "closed"] },
+  { value: "pending", label: "Chờ duyệt", statuses: ["pending", "awaiting_payment", "paid"] },
+  { value: "approved", label: "Đã duyệt", statuses: ["approved"] },
+  { value: "dispatched", label: "Đang giao", statuses: ["dispatched"] },
+  { value: "delivered", label: "Đã giao", statuses: ["delivered"] },
+  { value: "returned", label: "Đã trả", statuses: ["returned", "closed"] },
   { value: "cancelled", label: "Đã hủy", statuses: ["cancelled"] },
 ];
 
@@ -479,7 +481,7 @@ function ProfilePage() {
 
   // Compute statistics
   const totalTickets = tickets.length;
-  const pendingTickets = tickets.filter(t => ["pending", "awaiting_payment"].includes(normalizeTicketStatus(t.status))).length;
+  const pendingTickets = tickets.filter(t => ["pending", "awaiting_payment", "paid"].includes(normalizeTicketStatus(t.status))).length;
   const approvedTickets = tickets.filter(t => ["approved", "dispatched", "delivered"].includes(normalizeTicketStatus(t.status))).length;
   const returnedTickets = tickets.filter(t => ["returned", "closed"].includes(normalizeTicketStatus(t.status))).length;
   const detailTransactions = detailTicket ? ticketTransactions[detailTicket._id] || [] : [];
@@ -499,9 +501,9 @@ function ProfilePage() {
           </div>
           <div className="profile-hero-stats">
             <div><strong>{totalTickets}</strong><small>Tổng phiếu</small></div>
-            <div><strong>{pendingTickets}</strong><small>Chờ xử lý</small></div>
+            <div><strong>{pendingTickets}</strong><small>Chờ duyệt</small></div>
             <div><strong>{approvedTickets}</strong><small>Đang mượn</small></div>
-            <div><strong>{returnedTickets}</strong><small>Đã hoàn tất</small></div>
+            <div><strong>{returnedTickets}</strong><small>Đã trả</small></div>
           </div>
         </div>
       </div>
@@ -913,11 +915,8 @@ function ProfilePage() {
                 {filteredTickets.map((ticket) => {
                   const status = normalizeTicketStatus(ticket.status);
                   const canCancel = canCancelTicketStatus(ticket.status);
-                  const canRenew = ["approved", "dispatched", "delivered"].includes(status) &&
-                    !ticket.returnDate &&
-                    ticket.dueDate &&
-                    new Date(ticket.dueDate) >= new Date() &&
-                    (ticket.renewCount || 0) < 1;
+                  const canRenew = RENEWABLE_TICKET_STATUSES.includes(status) &&
+                    !ticket.returnDate;
                   const canReview = ["returned", "closed"].includes(status);
 
                   return (

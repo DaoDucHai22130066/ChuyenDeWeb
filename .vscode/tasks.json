@@ -2,31 +2,152 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Start Backend",
-      "type": "shell",
-      "command": "npm start",
-      "options": {
-        "cwd": "${workspaceFolder}/backend"
+      "label": "Kill Backend Port",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\.vscode\\kill-servers.ps1",
+        "-Ports",
+        "5000",
+        "-Folders",
+        "${workspaceFolder}\\backend"
+      ],
+      "presentation": {
+        "reveal": "never",
+        "panel": "dedicated",
+        "clear": true
       },
-      "isBackground": true,
       "problemMatcher": []
     },
     {
+      "label": "Kill Frontend Port",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\.vscode\\kill-servers.ps1",
+        "-Ports",
+        "5173",
+        "-Folders",
+        "${workspaceFolder}\\frontend"
+      ],
+      "presentation": {
+        "reveal": "never",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Kill Running Servers",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\.vscode\\kill-servers.ps1",
+        "-Ports",
+        "5000",
+        "5173",
+        "-Folders",
+        "${workspaceFolder}\\backend",
+        "${workspaceFolder}\\frontend"
+      ],
+      "presentation": {
+        "reveal": "never",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Start Backend",
+      "type": "process",
+      "command": "npm.cmd",
+      "args": [
+        "start"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "dependsOn": "Kill Backend Port",
+      "dependsOrder": "sequence",
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "problemMatcher": {
+        "owner": "backend",
+        "pattern": {
+          "regexp": "a^"
+        },
+        "background": {
+          "activeOnStart": true,
+          "endsPattern": "Server running on port \\d+"
+        }
+      }
+    },
+    {
       "label": "Start Frontend",
-      "type": "shell",
-      "command": "npm run dev",
+      "type": "process",
+      "command": "npm.cmd",
+      "args": [
+        "run",
+        "dev"
+      ],
       "options": {
         "cwd": "${workspaceFolder}/frontend"
       },
+      "dependsOn": "Kill Frontend Port",
+      "dependsOrder": "sequence",
       "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "problemMatcher": {
+        "owner": "frontend",
+        "pattern": {
+          "regexp": "a^"
+        },
+        "background": {
+          "activeOnStart": true,
+          "endsPattern": "Local:\\s+http://(localhost|127\\.0\\.0\\.1):5173/?"
+        }
+      }
+    },
+    {
+      "label": "Start Servers",
+      "dependsOn": [
+        "Start Backend",
+        "Start Frontend"
+      ],
+      "dependsOrder": "parallel",
       "problemMatcher": []
     },
     {
       "label": "Run Full Project (Frontend & Backend)",
       "dependsOn": [
-        "Start Backend",
-        "Start Frontend"
+        "Kill Running Servers",
+        "Start Servers"
       ],
+      "dependsOrder": "sequence",
       "group": {
         "kind": "build",
         "isDefault": true

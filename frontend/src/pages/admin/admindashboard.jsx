@@ -6,6 +6,7 @@ import { Doughnut } from "react-chartjs-2";
 import "../../styles/components.css";
 import { Server_URL } from "../../utils/config";
 import { showErrorToast, showSuccessToast } from "../../utils/toasthelper";
+import { getAuthToken } from "../../utils/auth";
 import "./AdminDashboard.css";
 import { 
   FiGrid, 
@@ -196,7 +197,7 @@ const AdminDashboard = ({ initialSection = "dashboard" }) => {
   const [ticketTransactions, setTicketTransactions] = useState({});
   const [reports, setReports] = useState(emptyReport);
 
-  const token = localStorage.getItem("authToken");
+  const token = getAuthToken();
 
   const getCategoryLabel = (book) => book.categoryId?.name || book.category || "Chưa phân loại";
 
@@ -871,8 +872,7 @@ const handleSendReply = async (reviewId) => {
     }
 
     try {
-        // Lấy đúng tên token trong project của bạn là "authToken"
-        const userToken = localStorage.getItem("authToken"); 
+        const userToken = getAuthToken();
 
         const res = await axios.put(`${Server_URL}admin/reviews/${reviewId}/reply`, 
             { admin_reply }, 

@@ -69,7 +69,6 @@ CREATE TABLE books (
   total_copies     INT NOT NULL,
   added_by         INT UNSIGNED NOT NULL,
   cover_image      TEXT NULL,
-  cloudinary_id    VARCHAR(255) NULL,
   price            DECIMAL(10,2) NULL,
   branch           ENUM('dai-la','cau-giay') NOT NULL DEFAULT 'dai-la',
   borrow_count     INT NOT NULL DEFAULT 0,
@@ -254,10 +253,13 @@ CREATE TABLE contacts (
 CREATE TABLE otps (
   id         INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   email      VARCHAR(255) NOT NULL UNIQUE,
-  otp        VARCHAR(16)  NOT NULL,
+  otp        VARCHAR(128) NOT NULL,
   reset_token VARCHAR(128) NULL,
   verified_at DATETIME NULL,
   reset_token_expires DATETIME NULL,
+  otp_attempts INT NOT NULL DEFAULT 0,
+  locked_until DATETIME NULL,
+  last_sent_at DATETIME NULL,
   created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

@@ -1,9 +1,6 @@
 const mysql = require("mysql2/promise");
 const bcrypt = require("bcryptjs");
-const path = require("path");
-require("dotenv").config({
-  path: path.resolve(__dirname, "..", ".env"),
-});
+require("./loadEnv");
 
 const dbConfig = {
   host: process.env.MYSQL_HOST || "127.0.0.1",
@@ -103,11 +100,6 @@ async function createSchema(connection) {
       CONSTRAINT fk_books_user FOREIGN KEY (added_by) REFERENCES users(id) ON DELETE RESTRICT ON UPDATE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
-
-  const [bookColumns] = await connection.query("SHOW COLUMNS FROM books LIKE 'cloudinary_id'");
-  if (bookColumns.length > 0) {
-    await connection.query("ALTER TABLE books DROP COLUMN cloudinary_id");
-  }
 
   await connection.query(`
     CREATE TABLE IF NOT EXISTS borrow_tickets (
@@ -319,17 +311,28 @@ async function createSchema(connection) {
     CREATE TABLE IF NOT EXISTS otps (
       id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
       email VARCHAR(255) NOT NULL UNIQUE,
-      otp VARCHAR(16) NOT NULL,
+      otp VARCHAR(128) NOT NULL,
       reset_token VARCHAR(128) NULL,
       verified_at DATETIME NULL,
       reset_token_expires DATETIME NULL,
+      otp_attempts INT NOT NULL DEFAULT 0,
+      locked_until DATETIME NULL,
+      last_sent_at DATETIME NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
 
+  try {
+    await connection.query("ALTER TABLE otps MODIFY COLUMN otp VARCHAR(128) NOT NULL");
+  } catch (e) {
+    console.log("OTP column already supports hashed values - skipping MODIFY");
+  }
   await addColumnIfMissing(connection, "otps", "reset_token", "reset_token VARCHAR(128) NULL");
   await addColumnIfMissing(connection, "otps", "verified_at", "verified_at DATETIME NULL");
   await addColumnIfMissing(connection, "otps", "reset_token_expires", "reset_token_expires DATETIME NULL");
+  await addColumnIfMissing(connection, "otps", "otp_attempts", "otp_attempts INT NOT NULL DEFAULT 0");
+  await addColumnIfMissing(connection, "otps", "locked_until", "locked_until DATETIME NULL");
+  await addColumnIfMissing(connection, "otps", "last_sent_at", "last_sent_at DATETIME NULL");
 
   await connection.query(`
     CREATE TABLE IF NOT EXISTS wishlists (

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import axios from "axios";
 import {
   FiBookOpen,
   FiChevronDown,
@@ -17,19 +18,25 @@ import {
   FiX,
 } from "react-icons/fi";
 import { useCart } from "../context/CartContext";
+import { Server_URL } from "../utils/config";
+import { getAuthUser, removeAuthToken } from "../utils/auth";
 import "./navbar.css";
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const token = localStorage.getItem("authToken");
+  const authUser = getAuthUser();
   const { cartCount, clearLocalCart } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
 
   const closeMenu = () => setMenuOpen(false);
-  const handleLogout = () => {
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("role");
+  const handleLogout = async () => {
+    try {
+      await axios.post(`${Server_URL}users/logout`);
+    } catch {
+      // Local cleanup still proceeds if the network request fails.
+    }
+    removeAuthToken();
     clearLocalCart();
     window.dispatchEvent(new Event("cart:auth-changed"));
     navigate("/login");
@@ -94,7 +101,7 @@ export default function Navbar() {
               {cartCount > 0 && <b>{cartCount}</b>}
             </Link>
 
-            {token ? (
+            {authUser ? (
               <div className="dropdown">
                 <button className="btn dfb-account-button dropdown-toggle" data-bs-toggle="dropdown" type="button">
                   <span className="dfb-account-avatar"><FiUser /></span>

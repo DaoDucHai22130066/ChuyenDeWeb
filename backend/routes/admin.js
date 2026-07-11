@@ -5,8 +5,9 @@ const {adminController} = require("../controller/admin")
 
 const { userAuth } = require("../middlewares/userAuth");
 const { checkRole } = require("../middlewares/checkRole");
+const { loginLimiter } = require("../middlewares/rateLimits");
 
-router.post("/login",adminController.login)
+router.post("/login", loginLimiter, adminController.login)
 router.get("/users", userAuth, checkRole("admin"), adminController.getUsers)
 router.put("/users/:id", userAuth, checkRole("admin"), adminController.updateUser)
 router.patch("/users/:id/status", userAuth, checkRole("admin"), adminController.updateUserStatus)

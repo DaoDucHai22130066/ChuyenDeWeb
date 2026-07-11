@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { Server_URL } from '../utils/config';
+import { getAuthToken } from '../utils/auth';
 
 const WishlistContext = createContext();
 
@@ -9,7 +10,7 @@ export const useWishlist = () => useContext(WishlistContext);
 export const WishlistProvider = ({ children }) => {
     const [wishlistItems, setWishlistItems] = useState([]);
     
-    const getToken = () => localStorage.getItem("authToken");
+    const getToken = () => getAuthToken();
 
     useEffect(() => {
         fetchWishlist();

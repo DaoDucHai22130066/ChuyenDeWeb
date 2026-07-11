@@ -1,20 +1,16 @@
-const jwt = require("jsonwebtoken");
 const { query } = require("../utils/mysql");
-require("dotenv").config();
-
-const JWT_SECRET = process.env.JWT_SECRET || "12345@abcd12";
+const { verifyAccessToken } = require("../utils/jwtConfig");
+const { getAuthTokenFromRequest } = require("../utils/authCookie");
 
 const userAuth = async (req, res, next) => {
-  const authHeader = req.headers.authorization;
+  const token = getAuthTokenFromRequest(req);
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  if (!token) {
     return res.status(401).json({ error: true, message: "Access Denied: No token provided" });
   }
 
-  const token = authHeader.split(" ")[1];
-
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = verifyAccessToken(token);
     const rows = await query(
       "SELECT id, name, email, role, is_active FROM users WHERE id = ? LIMIT 1",
       [decoded.id]

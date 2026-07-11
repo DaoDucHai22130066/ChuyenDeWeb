@@ -1,8 +1,10 @@
 import { useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from "react-router-dom";
 import { AnimatePresence } from 'framer-motion';
-import { jwtDecode } from "jwt-decode";
+import axios from "axios";
 import './App.css';
+import { Server_URL } from "./utils/config";
+import { getAuthUser, removeAuthToken, setAuthUser } from "./utils/auth";
 import Userlayout from "./layout/userlayout";
 import AdminLayout from "./layout/adminlayout";
 import Preloader from "./components/Preloader";
@@ -35,18 +37,26 @@ function App() {
   const location = useLocation();
 
   useEffect(() => {
-    const token = localStorage.getItem("authToken");
-    if (token && location.pathname === "/") {
-      try {
-        const decoded = jwtDecode(token);
-        if (decoded.role === "admin") {
-          navigate("/admin");
-        }
-      } catch {
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("role");
-      }
+    const authUser = getAuthUser();
+    if (authUser?.role === "admin" && location.pathname === "/") {
+      navigate("/admin");
+    } else if (localStorage.getItem("authToken")) {
+      removeAuthToken();
     }
+
+    axios.get(`${Server_URL}users/session`)
+      .then((response) => {
+        if (response.data.user) {
+          setAuthUser(response.data.user);
+          window.dispatchEvent(new Event("cart:auth-changed"));
+        }
+      })
+      .catch(() => {
+        if (authUser) {
+          removeAuthToken();
+          window.dispatchEvent(new Event("cart:auth-changed"));
+        }
+      });
   }, [location.pathname, navigate]);
 
   return (

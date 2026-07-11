@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import axios from "axios";
 import {
   FiBookOpen,
   FiChevronDown,
@@ -13,19 +14,25 @@ import {
   FiX,
 } from "react-icons/fi";
 import { useCart } from "../context/CartContext";
+import { Server_URL } from "../utils/config";
+import { getAuthUser, removeAuthToken } from "../utils/auth";
 import "./adminnavbar.css";
 
 export default function AdminNavbar() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const token = localStorage.getItem("authToken");
-  const role = localStorage.getItem("role");
+  const authUser = getAuthUser();
+  const role = authUser?.role || localStorage.getItem("role");
   const { clearLocalCart } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const handleLogout = () => {
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("role");
+  const handleLogout = async () => {
+    try {
+      await axios.post(`${Server_URL}users/logout`);
+    } catch {
+      // Local cleanup still proceeds if the network request fails.
+    }
+    removeAuthToken();
     try {
       clearLocalCart();
       window.dispatchEvent(new Event("cart:auth-changed"));
@@ -115,7 +122,7 @@ export default function AdminNavbar() {
           </ul>
 
           <ul className="navbar-nav admin-account-zone">
-            {token ? (
+            {authUser ? (
               <li className="nav-item dropdown">
                 <button
                   className="btn admin-account-btn dropdown-toggle"

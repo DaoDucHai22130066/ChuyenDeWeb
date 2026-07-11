@@ -1,8 +1,9 @@
 const nodemailer = require("nodemailer");
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
-const JWT_SECRET = process.env.JWT_SECRET || "12345@abcd12";
-const jwt = require("jsonwebtoken");
+require("../utils/loadEnv");
+const { signAccessToken } = require("../utils/jwtConfig");
+const { setAuthCookie, clearAuthCookie } = require("../utils/authCookie");
 const userController = {};
 
 const { OAuth2Client } = require("google-auth-library");
@@ -20,6 +21,164 @@ function buildUserPayload(userRow) {
     name: userRow.name,
     role: userRow.role,
   };
+}
+
+const GENERIC_FORGOT_PASSWORD_MESSAGE = "Nếu email tồn tại trong hệ thống, mã OTP sẽ được gửi đến email đó.";
+const INVALID_LOGIN_MESSAGE = "Email hoặc mật khẩu không đúng";
+const MAX_OTP_ATTEMPTS = Number.isFinite(Number(process.env.OTP_MAX_ATTEMPTS)) ? Number(process.env.OTP_MAX_ATTEMPTS) : 5;
+const OTP_EXPIRY_MINUTES = Number.isFinite(Number(process.env.OTP_EXPIRY_MINUTES)) ? Number(process.env.OTP_EXPIRY_MINUTES) : 10;
+const OTP_LOCK_MINUTES = Number.isFinite(Number(process.env.OTP_LOCK_MINUTES)) ? Number(process.env.OTP_LOCK_MINUTES) : 15;
+const OTP_RESEND_COOLDOWN_SECONDS = Number.isFinite(Number(process.env.OTP_RESEND_COOLDOWN_SECONDS)) ? Number(process.env.OTP_RESEND_COOLDOWN_SECONDS) : 60;
+
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
+function generateOtp() {
+  return crypto.randomInt(100000, 1000000).toString();
+}
+
+function hashOtp(email, otp) {
+  const secret = process.env.OTP_HASH_SECRET || process.env.JWT_SECRET;
+  return crypto
+    .createHmac("sha256", String(secret))
+    .update(`${normalizeEmail(email)}:${String(otp)}`)
+    .digest("hex");
+}
+
+function safeEqual(a, b) {
+  const left = Buffer.from(String(a || ""));
+  const right = Buffer.from(String(b || ""));
+  return left.length === right.length && crypto.timingSafeEqual(left, right);
+}
+
+function otpMatches(record, email, otp) {
+  const stored = String(record?.otp || "");
+  if (stored.length <= 16) {
+    return stored === String(otp);
+  }
+  return safeEqual(stored, hashOtp(email, otp));
+}
+
+function isFutureDate(value) {
+  return value && new Date(value) > new Date();
+}
+
+function isOtpExpired(record) {
+  const ageMinutes = (new Date() - new Date(record.created_at)) / (1000 * 60);
+  return ageMinutes > OTP_EXPIRY_MINUTES;
+}
+
+async function saveOtp(email, otp) {
+  await query(
+    `INSERT INTO otps (email, otp, reset_token, verified_at, reset_token_expires, otp_attempts, locked_until, last_sent_at, created_at)
+     VALUES (?, ?, NULL, NULL, NULL, 0, NULL, NOW(), NOW())
+     ON DUPLICATE KEY UPDATE
+       otp = VALUES(otp),
+       reset_token = NULL,
+       verified_at = NULL,
+       reset_token_expires = NULL,
+       otp_attempts = 0,
+       locked_until = NULL,
+       last_sent_at = VALUES(last_sent_at),
+       created_at = VALUES(created_at)`,
+    [normalizeEmail(email), hashOtp(email, otp)]
+  );
+}
+
+function isOtpResendTooSoon(record) {
+  const sentAt = record?.last_sent_at || record?.created_at;
+  if (!sentAt) return false;
+  const ageSeconds = (new Date() - new Date(sentAt)) / 1000;
+  return ageSeconds < OTP_RESEND_COOLDOWN_SECONDS;
+}
+
+async function recordFailedOtpAttempt(email, currentAttempts = 0) {
+  const nextAttempts = Number(currentAttempts || 0) + 1;
+  const shouldLock = nextAttempts >= MAX_OTP_ATTEMPTS;
+  await query(
+    `UPDATE otps
+     SET otp_attempts = ?,
+         locked_until = ${shouldLock ? `DATE_ADD(NOW(), INTERVAL ${OTP_LOCK_MINUTES} MINUTE)` : "locked_until"}
+     WHERE email = ?`,
+    [nextAttempts, normalizeEmail(email)]
+  );
+}
+
+function decodeBase64UrlJson(segment) {
+  const normalized = String(segment || "").replace(/-/g, "+").replace(/_/g, "/");
+  const padding = normalized.length % 4 === 0 ? "" : "=".repeat(4 - (normalized.length % 4));
+  const json = Buffer.from(normalized + padding, "base64").toString("utf8");
+  return JSON.parse(json);
+}
+
+function getAllowedClockSkewSecs() {
+  const configured = Number(process.env.GOOGLE_ID_TOKEN_CLOCK_SKEW_SECS || 3600);
+  return Number.isFinite(configured) && configured >= 0 ? configured : 3600;
+}
+
+function verifyGoogleIdTokenClaims(payload) {
+  const expectedAudience = process.env.GOOGLE_CLIENT_ID;
+  if (!expectedAudience) {
+    throw new Error("Missing GOOGLE_CLIENT_ID configuration");
+  }
+
+  const issuers = ["accounts.google.com", "https://accounts.google.com"];
+  if (!issuers.includes(payload.iss)) {
+    throw new Error("Invalid token issuer");
+  }
+
+  if (payload.aud !== expectedAudience) {
+    throw new Error("Invalid token audience");
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const skew = getAllowedClockSkewSecs();
+
+  if (typeof payload.nbf === "number" && now + skew < payload.nbf) {
+    throw new Error("Token used too early");
+  }
+
+  if (typeof payload.iat === "number" && now + skew < payload.iat) {
+    throw new Error("Token issued in the future");
+  }
+
+  if (typeof payload.exp === "number" && now - skew > payload.exp) {
+    throw new Error("Token expired");
+  }
+}
+
+async function verifyGoogleIdToken(idToken) {
+  const parts = String(idToken || "").split(".");
+  if (parts.length !== 3) {
+    throw new Error("Invalid Google ID token format");
+  }
+
+  const [encodedHeader, encodedPayload, encodedSignature] = parts;
+  const header = decodeBase64UrlJson(encodedHeader);
+  const payload = decodeBase64UrlJson(encodedPayload);
+
+  if (header.alg !== "RS256") {
+    throw new Error("Unsupported Google token algorithm");
+  }
+
+  const { certs } = await googleClient.getFederatedSignonCertsAsync();
+  const certificate = certs[header.kid];
+
+  if (!certificate) {
+    throw new Error("Google signing certificate not found");
+  }
+
+  const signature = Buffer.from(String(encodedSignature).replace(/-/g, "+").replace(/_/g, "/"), "base64");
+  const signed = Buffer.from(`${encodedHeader}.${encodedPayload}`);
+  const verified = crypto.verify("RSA-SHA256", signed, certificate, signature);
+
+  if (!verified) {
+    throw new Error("Invalid Google token signature");
+  }
+
+  verifyGoogleIdTokenClaims(payload);
+  return payload;
 }
 
 const CONTACT_SUBJECTS = new Set([
@@ -113,14 +272,15 @@ async function syncDefaultAddress(connection, userId) {
 
 userController.userRegistration = async (req, res) => {
   try {
-    const { name, email, password, stream, year, role } = req.body;
+    const { name, email, password, stream, year } = req.body;
+    const normalizedEmail = normalizeEmail(email);
 
     if (!name || !email || !password) {
       return res.status(400).json({ message: "Name, email and password are required" });
     }
 
-    const requestedRole = role === "admin" ? "user" : (role || "user");
-    const existingRows = await query("SELECT id, email_verified FROM users WHERE email = ? LIMIT 1", [email]);
+    const requestedRole = "user";
+    const existingRows = await query("SELECT id, email_verified FROM users WHERE email = ? LIMIT 1", [normalizedEmail]);
     const existingUser = existingRows[0];
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -133,30 +293,20 @@ userController.userRegistration = async (req, res) => {
         `UPDATE users
          SET name = ?, password = ?, stream = ?, year = ?, role = ?, email_verified = 0
          WHERE email = ?`,
-        [name, hashedPassword, stream || null, year || null, requestedRole, email]
+        [name, hashedPassword, stream || null, year || null, requestedRole, normalizedEmail]
       );
     } else {
       await query(
         `INSERT INTO users (name, email, password, stream, year, role, email_verified)
          VALUES (?, ?, ?, ?, ?, ?, 0)`,
-        [name, email, hashedPassword, stream || null, year || null, requestedRole]
+        [name, normalizedEmail, hashedPassword, stream || null, year || null, requestedRole]
       );
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    await query(
-      `INSERT INTO otps (email, otp, reset_token, verified_at, reset_token_expires, created_at)
-       VALUES (?, ?, NULL, NULL, NULL, NOW())
-       ON DUPLICATE KEY UPDATE
-         otp = VALUES(otp),
-         reset_token = NULL,
-         verified_at = NULL,
-         reset_token_expires = NULL,
-         created_at = VALUES(created_at)`,
-      [email, otp]
-    );
+    const otp = generateOtp();
+    await saveOtp(normalizedEmail, otp);
 
-    await sendRegistrationOtpMail(email, otp);
+    await sendRegistrationOtpMail(normalizedEmail, otp);
 
     res.status(201).json({
       message: "Đăng ký thành công. Vui lòng kiểm tra email để nhập mã xác nhận.",
@@ -171,16 +321,17 @@ userController.userRegistration = async (req, res) => {
 userController.login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = normalizeEmail(email);
 
     if (!email || !password) {
       return res.status(400).json({ message: "Email and password are required" });
     }
 
-    const rows = await query("SELECT * FROM users WHERE email = ? LIMIT 1", [email]);
+    const rows = await query("SELECT * FROM users WHERE email = ? LIMIT 1", [normalizedEmail]);
     const user = rows[0];
 
     if (!user) {
-      return res.status(400).json({ message: "Invalid email or password" });
+      return res.status(400).json({ message: INVALID_LOGIN_MESSAGE });
     }
 
     if (Number(user.is_active) === 0) {
@@ -188,7 +339,7 @@ userController.login = async (req, res) => {
     }
 
     if (!user.password) {
-      return res.status(400).json({ message: "Use Google login for this account" });
+      return res.status(400).json({ message: INVALID_LOGIN_MESSAGE });
     }
 
     if (Number(user.email_verified) === 0) {
@@ -197,14 +348,15 @@ userController.login = async (req, res) => {
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: "Invalid email or password" });
+      return res.status(400).json({ message: INVALID_LOGIN_MESSAGE });
     }
 
-    const token = jwt.sign(buildUserPayload(user), JWT_SECRET, { expiresIn: "24h" });
+    const token = signAccessToken(buildUserPayload(user));
+    setAuthCookie(res, token);
     res.json({
       message: "Login successful",
-      token,
       user: {
+        _id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
@@ -213,6 +365,23 @@ userController.login = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
+};
+
+userController.session = async (req, res) => {
+  res.json({
+    error: false,
+    user: {
+      _id: req.userInfo.id,
+      name: req.userInfo.name,
+      email: req.userInfo.email,
+      role: req.userInfo.role,
+    },
+  });
+};
+
+userController.logout = async (req, res) => {
+  clearAuthCookie(res);
+  res.json({ error: false, message: "Đã đăng xuất" });
 };
 
 userController.getUsers = async (req, res) => {
@@ -563,21 +732,30 @@ userController.addContact = async (req, res) => {
 const { transporter, sendOtpMail, sendRegistrationOtpMail, sendContactNotification } = require("../utils/mail");
 
 userController.verifyRegistrationOTP = async (req, res) => {
-  const { email, otp } = req.body;
+  const { otp } = req.body;
+  const email = normalizeEmail(req.body.email);
   try {
     if (!email || !otp) {
       return res.status(400).json({ message: "Email and OTP are required" });
     }
 
-    const rows = await query("SELECT otp, created_at FROM otps WHERE email = ? LIMIT 1", [email]);
+    const rows = await query("SELECT otp, created_at, otp_attempts, locked_until FROM otps WHERE email = ? LIMIT 1", [email]);
     const record = rows[0];
 
-    if (!record || String(record.otp) !== String(otp)) {
+    if (!record) {
       return res.status(400).json({ message: "Invalid OTP" });
     }
 
-    const otpAge = (new Date() - new Date(record.created_at)) / (1000 * 60);
-    if (otpAge > 10) return res.status(400).json({ message: "OTP expired" });
+    if (isFutureDate(record.locked_until)) {
+      return res.status(429).json({ message: "OTP đã bị khóa tạm thời. Vui lòng thử lại sau." });
+    }
+
+    if (!otpMatches(record, email, otp)) {
+      await recordFailedOtpAttempt(email, record.otp_attempts);
+      return res.status(400).json({ message: "Invalid OTP" });
+    }
+
+    if (isOtpExpired(record)) return res.status(400).json({ message: "OTP expired" });
 
     const result = await query("UPDATE users SET email_verified = 1 WHERE email = ?", [email]);
     if (!result.affectedRows) {
@@ -593,7 +771,7 @@ userController.verifyRegistrationOTP = async (req, res) => {
 };
 
 userController.resendRegistrationOTP = async (req, res) => {
-  const { email } = req.body;
+  const email = normalizeEmail(req.body.email);
   try {
     if (!email) {
       return res.status(400).json({ message: "Email is required" });
@@ -604,18 +782,13 @@ userController.resendRegistrationOTP = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
     if (Number(user.email_verified) === 1) return res.status(400).json({ message: "Email already verified" });
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    await query(
-      `INSERT INTO otps (email, otp, reset_token, verified_at, reset_token_expires, created_at)
-       VALUES (?, ?, NULL, NULL, NULL, NOW())
-       ON DUPLICATE KEY UPDATE
-         otp = VALUES(otp),
-         reset_token = NULL,
-         verified_at = NULL,
-         reset_token_expires = NULL,
-         created_at = VALUES(created_at)`,
-      [email, otp]
-    );
+    const otpRows = await query("SELECT created_at, last_sent_at FROM otps WHERE email = ? LIMIT 1", [email]);
+    if (otpRows[0] && isOtpResendTooSoon(otpRows[0])) {
+      return res.status(429).json({ message: "Vui lòng đợi trước khi gửi lại OTP." });
+    }
+
+    const otp = generateOtp();
+    await saveOtp(email, otp);
 
     await sendRegistrationOtpMail(email, otp);
     res.json({ message: "OTP sent to your email" });
@@ -626,32 +799,26 @@ userController.resendRegistrationOTP = async (req, res) => {
 };
 
 userController.forgotPassword = async (req, res) => {
-  const { email } = req.body;
+  const email = normalizeEmail(req.body.email);
   try {
     if (!email) {
       return res.status(400).json({ message: "Email is required" });
     }
 
     const rows = await query("SELECT id FROM users WHERE email = ? LIMIT 1", [email]);
-    if (rows.length === 0) return res.status(400).json({ message: "User not found" });
+    if (rows.length === 0) return res.json({ message: GENERIC_FORGOT_PASSWORD_MESSAGE });
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpRows = await query("SELECT created_at, last_sent_at FROM otps WHERE email = ? LIMIT 1", [email]);
+    if (otpRows[0] && isOtpResendTooSoon(otpRows[0])) {
+      return res.json({ message: GENERIC_FORGOT_PASSWORD_MESSAGE });
+    }
 
-    await query(
-      `INSERT INTO otps (email, otp, reset_token, verified_at, reset_token_expires, created_at)
-       VALUES (?, ?, NULL, NULL, NULL, NOW())
-       ON DUPLICATE KEY UPDATE
-         otp = VALUES(otp),
-         reset_token = NULL,
-         verified_at = NULL,
-         reset_token_expires = NULL,
-         created_at = VALUES(created_at)`,
-      [email, otp]
-    );
+    const otp = generateOtp();
+    await saveOtp(email, otp);
 
     await sendOtpMail(email, otp);
 
-    res.json({ message: "OTP sent to your email" });
+    res.json({ message: GENERIC_FORGOT_PASSWORD_MESSAGE });
   } catch (error) {
     console.error("Forgot password error:", error);
     res.status(500).json({ message: "Server error" });
@@ -659,21 +826,30 @@ userController.forgotPassword = async (req, res) => {
 };
 
 userController.verifyOTP = async (req, res) => {
-  const { email, otp } = req.body;
+  const { otp } = req.body;
+  const email = normalizeEmail(req.body.email);
   try {
     if (!email || !otp) {
       return res.status(400).json({ message: "Email and OTP are required" });
     }
 
-    const rows = await query("SELECT otp, created_at FROM otps WHERE email = ? LIMIT 1", [email]);
+    const rows = await query("SELECT otp, created_at, otp_attempts, locked_until FROM otps WHERE email = ? LIMIT 1", [email]);
     const record = rows[0];
 
-    if (!record || String(record.otp) !== String(otp)) {
+    if (!record) {
       return res.status(400).json({ message: "Invalid OTP" });
     }
 
-    const otpAge = (new Date() - new Date(record.created_at)) / (1000 * 60);
-    if (otpAge > 10) return res.status(400).json({ message: "OTP expired" });
+    if (isFutureDate(record.locked_until)) {
+      return res.status(429).json({ message: "OTP đã bị khóa tạm thời. Vui lòng thử lại sau." });
+    }
+
+    if (!otpMatches(record, email, otp)) {
+      await recordFailedOtpAttempt(email, record.otp_attempts);
+      return res.status(400).json({ message: "Invalid OTP" });
+    }
+
+    if (isOtpExpired(record)) return res.status(400).json({ message: "OTP expired" });
 
     const resetToken = crypto.randomBytes(32).toString("hex");
     await query(
@@ -691,7 +867,8 @@ userController.verifyOTP = async (req, res) => {
 };
 
 userController.resetPassword = async (req, res) => {
-  const { email, newPassword, resetToken } = req.body;
+  const { newPassword, resetToken } = req.body;
+  const email = normalizeEmail(req.body.email);
   try {
     if (!email || !newPassword || !resetToken) {
       return res.status(400).json({ message: "Email, new password and reset token are required" });
@@ -741,12 +918,8 @@ userController.googleLogin = async (req, res) => {
     const { idToken } = req.body;
     if (!idToken) return res.status(400).json({ message: "Missing idToken" });
 
-    const ticket = await googleClient.verifyIdToken({
-      idToken,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
-    const payload = ticket.getPayload();
-    const email = payload.email;
+    const payload = await verifyGoogleIdToken(idToken);
+    const email = normalizeEmail(payload.email);
     const name = payload.name || payload.email.split("@")[0];
 
     let rows = await query("SELECT * FROM users WHERE email = ? LIMIT 1", [email]);
@@ -767,11 +940,11 @@ userController.googleLogin = async (req, res) => {
     }
 
     const tokenPayload = buildUserPayload(user);
-    const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: "24h" });
+    const token = signAccessToken(tokenPayload);
+    setAuthCookie(res, token);
     res.json({
       message: "Login successful",
-      token,
-      user: { name: user.name, email: user.email, role: user.role },
+      user: { _id: user.id, name: user.name, email: user.email, role: user.role },
     });
   } catch (error) {
     console.error("Google login error:", error);

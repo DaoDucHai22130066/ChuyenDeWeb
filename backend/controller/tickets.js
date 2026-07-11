@@ -1,4 +1,4 @@
-require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
+require("../utils/loadEnv");
 const { clearCache } = require("../utils/cache");
 const calculateFine = require("../utils/fineCalculator");
 const {
@@ -14,9 +14,13 @@ const { createVnpayPaymentUrl, verifyVnpaySignature } = require("../utils/vnpay"
 const { sendDepositSuccessMail, sendApprovalSuccessMail, sendRenewalSuccessMail } = require("../utils/mail");
 
 const ticketController = {};
+const RENEWABLE_TICKET_STATUSES = ["approved", "dispatched", "delivered"];
 
 const DEFAULT_SHIPPING_FEE = Number(process.env.DEFAULT_SHIPPING_FEE || 15000);
 const DEFAULT_BORROW_DAYS = Number(process.env.DEFAULT_BORROW_DAYS || 14);
+const backendBaseUrl = (process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`).replace(/\/+$/, "");
+const vnpayCallbackBaseUrl = (process.env.VNPAY_CALLBACK_BASE_URL || backendBaseUrl).replace(/\/+$/, "");
+const allowLocalVnpay = String(process.env.VNPAY_ALLOW_LOCALHOST || "false").toLowerCase() === "true";
 
 const VALID_PAYMENT_METHODS = new Set(["cash", "vnpay"]);
 const VALID_RECEIVE_METHODS = new Set(["delivery"]);
@@ -92,6 +96,15 @@ function normalizeIp(ip) {
   }
 
   return ip;
+}
+
+function isLocalCallbackUrl(urlString) {
+  try {
+    const parsed = new URL(urlString);
+    return ["localhost", "127.0.0.1", "::1"].includes(parsed.hostname);
+  } catch {
+    return false;
+  }
 }
 
 function getClientIp(req) {
@@ -294,7 +307,7 @@ ticketController.createTicket = async (req, res) => {
     if (normalizedPaymentMethod === "vnpay" && (!vnpayConfig.tmnCode || !vnpayConfig.secretKey)) {
       return res.status(500).json({
         error: true,
-        message: "VNPAY configuration is missing",
+        message: "VNPAY configuration is missing: VNPAY_TMN_CODE and VNPAY_HASH_SECRET are required",
       });
     }
 
@@ -304,6 +317,19 @@ ticketController.createTicket = async (req, res) => {
 
     if (normalizedReceiveMethod === "delivery" && (!shippingPhone || !String(shippingPhone).trim())) {
       return res.status(400).json({ error: true, message: "Shipping phone is required" });
+    }
+
+    if (normalizedPaymentMethod === "vnpay" && !allowLocalVnpay) {
+      const returnUrl = process.env.VNPAY_RETURN_URL || `${vnpayCallbackBaseUrl}/tickets/vnpay/return`;
+      const ipnUrl = process.env.VNPAY_IPN_URL || `${vnpayCallbackBaseUrl}/tickets/vnpay/ipn`;
+      const localCallback = isLocalCallbackUrl(returnUrl) || isLocalCallbackUrl(ipnUrl) || isLocalCallbackUrl(vnpayCallbackBaseUrl);
+
+      if (localCallback) {
+        return res.status(400).json({
+          error: true,
+          message: "VNPay sandbox chưa phê duyệt localhost. Hãy chọn tiền mặt hoặc dùng URL public đã đăng ký với VNPay.",
+        });
+      }
     }
 
     const placeholders = uniqueBookIds.map(() => "?").join(",");
@@ -402,8 +428,8 @@ ticketController.createTicket = async (req, res) => {
         amount: totalAmount,
         txnRef: paymentRef,
         orderInfo: `Borrow ticket ${ticketId}`,
-        returnUrl: process.env.VNPAY_RETURN_URL || "http://localhost:5000/tickets/vnpay/return",
-        ipnUrl: process.env.VNPAY_IPN_URL || "http://localhost:5000/tickets/vnpay/ipn",
+        returnUrl: process.env.VNPAY_RETURN_URL || `${vnpayCallbackBaseUrl}/tickets/vnpay/return`,
+        ipnUrl: process.env.VNPAY_IPN_URL || `${vnpayCallbackBaseUrl}/tickets/vnpay/ipn`,
         clientIp: getClientIp(req),
         tmnCode: vnpayConfig.tmnCode,
         secretKey: vnpayConfig.secretKey,
@@ -413,7 +439,7 @@ ticketController.createTicket = async (req, res) => {
 
     res.status(201).json({
       error: false,
-      message: "Borrow ticket created successfully",
+      message: "Tạo phiếu mượn sách thành công.",
       ticket,
       amounts: {
         depositAmount,
@@ -899,7 +925,7 @@ ticketController.vnpayReturn = async (req, res) => {
     const params = req.query;
     const secretKey = process.env.VNPAY_HASH_SECRET;
     if (!secretKey) {
-      return res.status(500).json({ error: true, message: "VNPAY configuration is missing" });
+      return res.status(500).json({ error: true, message: "VNPAY configuration is missing: VNPAY_HASH_SECRET is required" });
     }
 
     const verification = verifyVnpaySignature(params, secretKey);
@@ -971,7 +997,7 @@ ticketController.vnpayIpn = async (req, res) => {
     const params = req.query;
     const secretKey = process.env.VNPAY_HASH_SECRET;
     if (!secretKey) {
-      return res.status(200).json({ RspCode: "99", Message: "Missing config" });
+      return res.status(200).json({ RspCode: "99", Message: "Missing config: VNPAY_HASH_SECRET" });
     }
 
     const verification = verifyVnpaySignature(params, secretKey);
@@ -1041,7 +1067,8 @@ ticketController.renewTicket = async (req, res) => {
       return res.status(403).json({ error: true, message: "Không có quyền" });
     }
 
-    if (!["approved", "dispatched", "delivered"].includes(ticket.status)) {
+    const currentStatus = normalizeTicketStatus(ticket.status);
+    if (!RENEWABLE_TICKET_STATUSES.includes(currentStatus)) {
       return res.status(400).json({ error: true, message: "Trạng thái phiếu không hợp lệ để gia hạn" });
     }
 
@@ -1049,20 +1076,9 @@ ticketController.renewTicket = async (req, res) => {
       return res.status(400).json({ error: true, message: "Phiếu đã được trả" });
     }
 
-    if (!ticket.dueDate) {
-       return res.status(400).json({ error: true, message: "Phiếu chưa có hạn trả để gia hạn" });
-    }
-
     const now = new Date();
-    const dueDate = new Date(ticket.dueDate);
-    if (dueDate < now) {
-      return res.status(400).json({ error: true, message: "Phiếu đã quá hạn, không thể gia hạn" });
-    }
-
-    const MAX_RENEW_COUNT = 1;
-    if ((ticket.renewCount || 0) >= MAX_RENEW_COUNT) {
-      return res.status(400).json({ error: true, message: "Đã vượt quá số lần gia hạn cho phép" });
-    }
+    const currentDueDate = ticket.dueDate ? new Date(ticket.dueDate) : now;
+    const dueDate = Number.isNaN(currentDueDate.getTime()) || currentDueDate < now ? now : currentDueDate;
 
     const oldDueDate = new Date(dueDate);
     const newDueDate = new Date(dueDate);
